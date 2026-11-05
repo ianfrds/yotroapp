@@ -69,19 +69,26 @@ class TransactionTile extends StatelessWidget {
       }
     }
 
-    switch (category) {
-      case 'Food & Beverage':
+    final normalized = CategoryModel.normalizeCategoryName(category);
+    switch (normalized) {
+      case 'Makanan & Minuman':
         return (icon: Icons.local_cafe_outlined, color: const Color(0xFFFFC857));
-      case 'Transportation':
+      case 'Transportasi':
         return (icon: Icons.directions_car_outlined, color: const Color(0xFF55C7FF));
-      case 'Bills & Utilities':
+      case 'Tagihan & Utilitas':
         return (icon: Icons.bolt_outlined, color: const Color(0xFFB996FF));
-      case 'Shopping':
+      case 'Belanja':
         return (icon: Icons.shopping_bag_outlined, color: const Color(0xFFFF6B7A));
-      case 'Health':
+      case 'Kesehatan':
         return (icon: Icons.medical_services_outlined, color: const Color(0xFF39D98A));
-      case 'Entertainment':
+      case 'Hiburan':
         return (icon: Icons.movie_outlined, color: const Color(0xFFEC4899));
+      case 'Tempat Tinggal':
+        return (icon: Icons.home_outlined, color: const Color(0xFF939CFE));
+      case 'Pendidikan':
+        return (icon: Icons.school_outlined, color: const Color(0xFF38BDF8));
+      case 'Gaya Hidup':
+        return (icon: Icons.spa_outlined, color: const Color(0xFFF472B6));
       default:
         return (icon: Icons.receipt_long_outlined, color: const Color(0xFF8CA7C5));
     }

@@ -16,7 +16,7 @@ import '../widgets/modal_card_sheet.dart';
 import '../widgets/notification_permission_sheet.dart';
 import 'manage_categories_screen.dart';
 import 'display_preferences_screen.dart';
-import 'notification_reader_screen.dart';
+import 'onboarding_profile_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   final ScrollController? scrollController;
@@ -544,54 +544,6 @@ class SettingsScreen extends StatelessWidget {
         _buildDivider(context),
         _buildSettingRow(
           context: context,
-          icon: Icons.mark_email_read_outlined,
-          title: 'Pembaca Notifikasi',
-          subtitle: AppCapabilities.notificationReaderEnabled
-              ? (provider.isNotificationReaderEnabled
-                  ? 'Aktif · Deteksi perbankan & e-wallet'
-                  : 'Nonaktif · Otomasi transaksi mati')
-              : 'Nonaktif pada build aman',
-          onTap: AppCapabilities.notificationReaderEnabled
-              ? () => Navigator.push(
-                    context,
-                    NotificationReaderScreen.route(),
-                  )
-              : null,
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (provider.pendingNotifications.isNotEmpty) ...[
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE05362),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '${provider.pendingNotifications.length} antrean',
-                    style: GoogleFonts.interTight(
-                      color: Colors.white,
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-              ],
-              Icon(
-                AppCapabilities.notificationReaderEnabled
-                    ? Icons.chevron_right_rounded
-                    : Icons.lock_outline_rounded,
-                color: mutedColor,
-                size: 20,
-              ),
-            ],
-          ),
-        ),
-        _buildDivider(context),
-        _buildSettingRow(
-          context: context,
           icon: Icons.notifications_active_outlined,
           title: 'Tes Notifikasi HP',
           subtitle: 'Kirim notifikasi uji coba langsung ke status bar HP Anda',
@@ -705,14 +657,18 @@ class SettingsScreen extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Daftar Waktu Alarm (${alarms.length})',
-                      style: GoogleFonts.manrope(
-                        color: mutedColor,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
+                    Expanded(
+                      child: Text(
+                        'Daftar Waktu Alarm (${alarms.length})',
+                        style: GoogleFonts.manrope(
+                          color: mutedColor,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    const SizedBox(width: 8),
                     InkWell(
                       onTap: () async {
                         final picked = await showTimePicker(
@@ -757,65 +713,101 @@ class SettingsScreen extends StatelessWidget {
                 const SizedBox(height: 8),
                 Column(
                   children: alarms.map((time) {
+                    final parts = time.split(':');
+                    final initH = int.tryParse(parts[0]) ?? 18;
+                    final initM = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
+
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
                         color: itemBg,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: borderColor),
                       ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF55C7FF).withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              Icons.schedule_rounded,
-                              size: 15,
-                              color: Color(0xFF55C7FF),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  time,
-                                  style: GoogleFonts.interTight(
-                                    color: textColor,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                      child: InkWell(
+                        onTap: () async {
+                          final picked = await showTimePicker(
+                            context: context,
+                            initialTime: TimeOfDay(hour: initH, minute: initM),
+                          );
+                          if (picked != null) {
+                            final h = picked.hour.toString().padLeft(2, '0');
+                            final m = picked.minute.toString().padLeft(2, '0');
+                            final newTime = '$h:$m';
+                            final idx = alarms.indexOf(time);
+                            if (idx != -1) {
+                              alarms[idx] = newTime;
+                              alarms.sort();
+                              setSheetState(() {});
+                            }
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF55C7FF).withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                Text(
-                                  'Setiap hari jika belum mencatat transaksi',
-                                  style: GoogleFonts.manrope(
-                                    color: mutedColor,
-                                    fontSize: 10.5,
-                                  ),
+                                child: const Icon(
+                                  Icons.schedule_rounded,
+                                  size: 15,
+                                  color: Color(0xFF55C7FF),
                                 ),
-                              ],
-                            ),
-                          ),
-                          if (alarms.length > 1)
-                            IconButton(
-                              icon: Icon(
-                                Icons.delete_outline_rounded,
-                                size: 18,
-                                color: const Color(0xFFFF6B7A).withOpacity(0.8),
                               ),
-                              onPressed: () {
-                                alarms.remove(time);
-                                setSheetState(() {});
-                              },
-                            ),
-                        ],
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          time,
+                                          style: GoogleFonts.interTight(
+                                            color: textColor,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Icon(
+                                          Icons.edit_outlined,
+                                          size: 13,
+                                          color: mutedColor.withOpacity(0.6),
+                                        ),
+                                      ],
+                                    ),
+                                    Text(
+                                      'Ketuk untuk ubah jam pengingat',
+                                      style: GoogleFonts.manrope(
+                                        color: mutedColor,
+                                        fontSize: 10.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (alarms.length > 1)
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.delete_outline_rounded,
+                                    size: 18,
+                                    color: const Color(0xFFFF6B7A).withOpacity(0.8),
+                                  ),
+                                  onPressed: () {
+                                    alarms.remove(time);
+                                    setSheetState(() {});
+                                  },
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
                     );
                   }).toList(),
@@ -925,6 +917,18 @@ class SettingsScreen extends StatelessWidget {
           title: 'Reset ke Data Bawaan',
           subtitle: 'Kembalikan saldo dan transaksi simulasi awal',
           onTap: () => _showResetDefaultSheet(context, provider),
+          trailing:
+              Icon(Icons.chevron_right_rounded, color: mutedColor, size: 20),
+        ),
+        _buildDivider(context),
+        _buildSettingRow(
+          context: context,
+          icon: Icons.logout_rounded,
+          iconColor: const Color(0xFF55C7FF),
+          iconBg: const Color(0xFF55C7FF).withOpacity(0.14),
+          title: 'Keluar Akun (Uji Onboarding)',
+          subtitle: 'Reset sesi onboarding untuk menguji layar profil onboarding baru',
+          onTap: () => _showLogoutSheet(context, provider),
           trailing:
               Icon(Icons.chevron_right_rounded, color: mutedColor, size: 20),
         ),
@@ -2142,6 +2146,76 @@ class SettingsScreen extends StatelessWidget {
                   child: Text('Reset Bawaan',
                       style: GoogleFonts.manrope(
                           color: Colors.white, fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLogoutSheet(
+      BuildContext context, TransactionProvider provider) {
+    _showModalCardSheet(
+      context: context,
+      title: 'Keluar Akun (Uji Onboarding)?',
+      titleIcon: Icons.logout_rounded,
+      titleIconColor: const Color(0xFF55C7FF),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF55C7FF).withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF55C7FF).withOpacity(0.25)),
+            ),
+            child: Text(
+              'Sesi onboarding akan di-reset agar Anda dapat langsung menguji tampilan onboarding pengisian profil baru.',
+              style: GoogleFonts.manrope(
+                  color: const Color(0xFF8EA4BE), fontSize: 12.5, height: 1.4),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    side: BorderSide(color: Colors.white.withOpacity(0.12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('Batal',
+                      style: GoogleFonts.manrope(
+                          color: Colors.white, fontWeight: FontWeight.w600)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF3B30),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await provider.logout();
+                    if (!context.mounted) return;
+                    Navigator.of(context).pushAndRemoveUntil(
+                      OnboardingProfileScreen.route(),
+                      (route) => false,
+                    );
+                  },
+                  child: Text('Keluar & Reset',
+                      style: GoogleFonts.manrope(fontWeight: FontWeight.w600)),
                 ),
               ),
             ],

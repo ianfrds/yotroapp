@@ -7,6 +7,7 @@ import '../utils/thousands_separator_formatter.dart';
 import '../widgets/nested_card.dart';
 import '../widgets/modal_card_sheet.dart';
 import '../widgets/standard_screen_header.dart';
+import 'budget_detail_screen.dart';
 
 class BudgetScreen extends StatelessWidget {
   final ScrollController? scrollController;
@@ -459,67 +460,86 @@ class BudgetScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          provider.formatCurrency(totalExpense),
-                          style: GoogleFonts.interTight(
-                            color: isDark ? Colors.white : const Color(0xFF0F172A),
-                            fontSize: 24,
-                            fontWeight: FontWeight.w600,
+              child: InkWell(
+                onTap: () => BudgetDetailScreen.show(context),
+                borderRadius: BorderRadius.circular(16),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              provider.formatCurrency(totalExpense),
+                              style: GoogleFonts.interTight(
+                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                fontSize: 24,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                        Text(
-                          'dari ${provider.formatCurrency(overallLimit)}',
-                          style: GoogleFonts.manrope(
-                            color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-                            fontSize: 12,
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              'dari ${provider.formatCurrency(overallLimit)}',
+                              style: GoogleFonts.manrope(
+                                color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: LinearProgressIndicator(
-                        value: (budgetPct / 100).clamp(0.0, 1.0),
-                        backgroundColor: isDark ? const Color(0xFF0C0E14) : const Color(0xFFE2E8F0),
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          isOver ? _negativeRed : (isWarn ? _warningAmber : _positiveGreen),
-                        ),
-                        minHeight: 8,
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Sisa: ${provider.formatCurrency(provider.remainingBudget)}',
-                          style: GoogleFonts.manrope(
-                            color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-                            fontSize: 11,
+                      const SizedBox(height: 12),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: LinearProgressIndicator(
+                          value: overallLimit > 0 ? (budgetPct / 100).clamp(0.0, 1.0) : 0.0,
+                          backgroundColor: isDark ? const Color(0xFF0C0E14) : const Color(0xFFE2E8F0),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            isOver ? _negativeRed : (isWarn ? _warningAmber : _positiveGreen),
                           ),
+                          minHeight: 8,
                         ),
-                        Text(
-                          '${budgetPct.toStringAsFixed(1)}% Terpakai',
-                          style: GoogleFonts.manrope(
-                            color: isDark ? Colors.white : const Color(0xFF0F172A),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              'Sisa: ${provider.formatCurrency(provider.remainingBudget)}',
+                              style: GoogleFonts.manrope(
+                                color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          const SizedBox(width: 8),
+                          Text(
+                            '${budgetPct.toStringAsFixed(1)}%',
+                            style: GoogleFonts.manrope(
+                              color: isOver
+                                  ? _negativeRed
+                                  : (isWarn ? _warningAmber : (isDark ? Colors.white : const Color(0xFF0F172A))),
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -584,8 +604,9 @@ class BudgetScreen extends StatelessWidget {
                           final entry = categoryBudgets.entries.elementAt(index);
                           final catName = entry.key;
                           final limit = entry.value;
+                          final normCat = CategoryModel.normalizeCategoryName(catName);
                           final spent = provider.transactions
-                              .where((t) => t.type == TransactionType.expense && t.categoryName == catName)
+                              .where((t) => t.type == TransactionType.expense && CategoryModel.normalizeCategoryName(t.categoryName) == normCat)
                               .fold(0.0, (sum, t) => sum + t.amount);
                           final pct = limit > 0 ? (spent / limit * 100).clamp(0.0, 100.0) : 0.0;
                           final catObj = provider.getCategoryByName(catName);
@@ -594,11 +615,10 @@ class BudgetScreen extends StatelessWidget {
                           final catWarn = pct >= 80 && !catOver;
 
                           return InkWell(
-                            onTap: () => _showAddOrEditCategoryBudgetSheet(
+                            onTap: () => BudgetDetailScreen.show(
                               context,
-                              provider,
-                              initialCategory: catName,
-                              initialLimit: limit,
+                              categoryName: catName,
+                              customLimit: limit,
                             ),
                             borderRadius: BorderRadius.circular(10),
                             child: Padding(
@@ -632,11 +652,23 @@ class BudgetScreen extends StatelessWidget {
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
-                                      const SizedBox(width: 4),
-                                      Icon(
-                                        Icons.edit_rounded,
-                                        color: isDark ? const Color(0xFF6F8197) : const Color(0xFF94A3B8),
-                                        size: 14,
+                                      const SizedBox(width: 6),
+                                      InkWell(
+                                        onTap: () => _showAddOrEditCategoryBudgetSheet(
+                                          context,
+                                          provider,
+                                          initialCategory: catName,
+                                          initialLimit: limit,
+                                        ),
+                                        borderRadius: BorderRadius.circular(6),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(4),
+                                          child: Icon(
+                                            Icons.edit_rounded,
+                                            color: isDark ? const Color(0xFF6F8197) : const Color(0xFF94A3B8),
+                                            size: 14,
+                                          ),
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -656,18 +688,25 @@ class BudgetScreen extends StatelessWidget {
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(
-                                        '${provider.formatCurrency(spent)} terpakai',
-                                        style: GoogleFonts.manrope(
-                                          color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-                                          fontSize: 10.5,
+                                      Flexible(
+                                        child: Text(
+                                          '${provider.formatCurrency(spent)} terpakai',
+                                          style: GoogleFonts.manrope(
+                                            color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                                            fontSize: 10.5,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
-                                      Text(
-                                        'dari batas ${provider.formatCurrency(limit)}',
-                                        style: GoogleFonts.manrope(
-                                          color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-                                          fontSize: 10.5,
+                                      const SizedBox(width: 4),
+                                      Flexible(
+                                        child: Text(
+                                          'dari batas ${provider.formatCurrency(limit)}',
+                                          style: GoogleFonts.manrope(
+                                            color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                                            fontSize: 10.5,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
                                     ],

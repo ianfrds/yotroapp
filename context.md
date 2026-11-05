@@ -31,18 +31,18 @@ money-tracker/
 │   └── workflows/
 │       └── build-apk.yml           # CI test + signed safe-release APK + Flutter Web
 ├── android/                        # Android harness (AGP 8.11.1, Kotlin 2.2.21, SDK 37, AndroidX)
-│   ├── app/src/release/AndroidManifest.xml # Overlay yang membuang Notification Listener dari release publik
 │   └── key.properties.example      # Template konfigurasi signing; key asli wajib private/diabaikan Git
 ├── assets/
-│   └── images/                     # Official brand logos (logo_blue_transparent, logo_white_black, logo_white_blue, logo.png)
-├── yotro-safe-release.apk          # APK v1.0.3+4 signed release, izin minimum, untuk instalasi HP
+│   └── images/                     # Official brand logos (logo_blue_transparent, logo_white_black, logo_white_blue, logo.png) + onboarding_bg.jpg (fluted blue glass artwork)
+├── yotro-app.apk                   # Signed release APK v1.0.4+5 (siap diunduh langsung via web runner atau disalin ke HP)
+├── yotro-safe-release.apk          # Legacy APK v1.0.3+4
 ├── yotro-safe-release.apk.sha256   # Checksum integritas APK aman
 ├── yotro-release.apk               # Legacy debug-signed APK; jangan didistribusikan
 ├── money-tracker-release.apk       # Legacy debug-signed APK; jangan didistribusikan
 ├── web/
 │   ├── favicon.png                 # Official brand 32x32 favicon
 │   ├── icons/                      # Web icons (192x192, 512x512 maskable)
-│   └── index.html                  # Bootstrap Flutter Web/PWA
+│   └── index.html                  # Bootstrap Flutter Web/PWA + Floating Unduh APK pill
 ├── lib/
 │   ├── main.dart                   # Entry point aplikasi Flutter (YotroApp)
 │   ├── config/
@@ -77,13 +77,13 @@ money-tracker/
 │   │   ├── add_transaction_screen.dart # Form input/edit transaksi (Autofocus nominal keyboard instan, dialog konfirmasi hapus permanen)
 │   │   ├── transaction_success_screen.dart # Layar Penuh Transaksi Berhasil Dicatat (Animasi checklist bergaya Lottie, ringkasan transaksi, aksi cepat)
 │   │   ├── budget_screen.dart      # Pengaturan budget bulanan/kategori & progress threshold
+│   │   ├── budget_detail_screen.dart # Layar Rincian Anggaran: ringkasan sisa/terpakai, statistik bar chart, riwayat transaksi kategori & opsi kelola budget
 │   │   ├── wallets_screen.dart     # Manajemen multi-dompet & transfer antar-dompet
 │   │   ├── analytics_screen.dart   # Laporan Keuangan murni di tab bottom nav bar (Donut/Bar toggle & breakdown)
 │   │   ├── financial_analysis_screen.dart # Fitur Analisis Keuangan mandiri dari aksi cepat Beranda (Skor kesehatan, meter, diagnosa cerdas & statistik arus kas)
 │   │   ├── split_bill_screen.dart  # Fitur Split Bill pembagian tagihan, pajak/tip, status bayar & catat ke transaksi
 │   │   ├── settings_screen.dart    # Layar Profil & Pengaturan (Akun, preferensi tema, mata uang, navigasi halaman mandiri, backup/restore JSON, zona bahaya)
 │   │   ├── display_preferences_screen.dart # Layar Baru Pemilihan Preferensi Tampilan (Complete View, Income/Expense, Expense Only dengan wireframe live preview)
-│   │   ├── notification_reader_screen.dart # Layar Pengaturan Pembaca Notifikasi (Master toggle, simulator SMS/Push, daftar aturan pemicu/filter promo, modal tambah aturan)
 │   │   ├── manage_categories_screen.dart # Layar Kelola Kategori (Daftar kategori Pengeluaran & Pemasukan, navigasi ke form layar baru, modal hapus kartu)
 │   │   └── edit_category_screen.dart # Layar Baru Tambah & Ubah Kategori (NestedCard, palet warna, tab Icon & Emoji murni)
 │   ├── utils/
@@ -91,6 +91,7 @@ money-tracker/
 │   │   └── thousands_separator_formatter.dart # Formatter pemisah ribuan titik (.) real-time & pencegah leading zero
 │   └── widgets/
 │       ├── bottom_nav_bar.dart     # Fixed bottom nav bar dengan scooped cradle cutout, elevated oceanic (+) button, dan 4 ikon vektor murni tanpa teks
+│       ├── semicircle_budget_gauge.dart # Semicircular speedometer gauge 180° untuk monitoring batas budget bulanan (tanggal, sisa anggaran, hari tersisa, sub-card total & terpakai)
 │       ├── nested_card.dart        # Reusable Card Inside Card component (outer header + inner slate card)
 │       ├── modal_card_sheet.dart   # Reusable Floating Card-Style Modal Bottom Sheet (Card Inside Card pattern)
 │       ├── notification_permission_sheet.dart # Modal Bottom Sheet Izin Notifikasi Perangkat (Pengingat harian & pembaca mutasi)
@@ -200,11 +201,21 @@ money-tracker/
 - **Modal Bottom Sheet Full-Width Invariant:**
   - Seluruh modal bottom sheet (`modal_card_sheet.dart`) dibuat **Full Width edge-to-edge** tanpa margin horizontal kanan-kiri ke layar ponsel, ber-radius sudut atas `24px`, inner card margin `8px`, dan padding aman untuk keyboard/insets.
 
-### 3.4 Budgeting & Ambang Batas Peringatan
-- Anggaran bulanan global dan anggaran spesifik per kategori.
-- Progress bar penggunaan anggaran.
-- **Peringatan 80%:** Bar berubah menjadi warna amber/oranye peringatan.
-- **Peringatan 100%:** Bar berubah menjadi warna merah tegas menandakan batas terlampaui.
+### 3.4 Budgeting & Rincian Anggaran Interaktif (Tanpa Data Statis)
+- **Anggaran Global & Per Kategori:**
+  - Kartu batas pengeluaran bulanan global dan anggaran spesifik per kategori menggunakan linear progress bar bersih dan teruji (tanpa rentang tanggal atau sisa hari statis).
+  - Ambang batas visual: aman (< 80%), waspada amber (80-99%), dan bahaya merah (≥ 100%).
+  - Perhitungan 100% dinamis terhubung langsung ke `TransactionProvider.totalExpense` dan akumulasi transaksi pengeluaran kategori yang dinormalisasi (`CategoryModel.normalizeCategoryName`).
+- **Layar Rincian Anggaran (`BudgetDetailScreen`):**
+  - Mengetuk kartu budget keseluruhan atau budget kategori membuka `BudgetDetailScreen`.
+  - **Kartu Ringkasan:** Avatar kategori dengan badge panah merah, nama kategori/semua pengeluaran, batas nominal, dan status dinamis `Terpakai : Rp xxx` serta `Sisa : Rp xxx`.
+  - **Statistik Penggunaan Anggaran (Interactive Bar Chart):**
+    - Grafik batang vertikal harian dengan warna merah/koral (`#EF4444` / `#FF5252`).
+    - Skala sumbu Y bertingkat otomatis dengan angka bersih (`_calculateNiceScaleMax`: 50K, 100K, 250K, 500K, 1M, dst.) dan garis bantu horizontal putus-putus (*dashed lines*).
+    - Header metrik dinamis: Saat unselected menampilkan `Rata-rata: Rp xxx/hari` dan `Puncak: Rp xxx`. Saat batang diketuk, menampilkan pill detail tanggal lengkap dan nominal harian.
+    - Mengetuk batang tanggal tertentu memfilter daftar "Riwayat Transaksi" di bawahnya secara reaktif untuk hanya menampilkan transaksi pada tanggal tersebut, lengkap dengan tombol "Lihat Semua" untuk mereset filter.
+    - Empty state informatif dengan tombol "+ Catat Transaksi" yang otomatis mengisi kategori terkait pada form pencatatan.
+  - **Menu Aksi Cepat:** Titik tiga (`...`) di pojok kanan atas untuk mengubah limit budget atau menghapus budget kategori dengan modal konfirmasi aman.
 
 ### 3.5 Wallet Management
 - Tipe default: Bank Account, Cash, E-Wallet, Savings, Other.
@@ -310,26 +321,21 @@ money-tracker/
 - **Edit Aturan Pemicu & Filter Abaikan:** Pengguna dapat mengedit nama aturan, package name manual, kata kunci pemicu/abaikan, dompet tujuan, dan kategori default. Pemindaian semua aplikasi terpasang dihapus agar tidak memerlukan `QUERY_ALL_PACKAGES` / `REQUEST_DELETE_PACKAGES`.
 - **Pusat Notifikasi (`NotificationsCenterScreen`):** Spacing universal 12px, header terstandarisasi, badge arah mutasi berwarna (Hijau Masuk, Merah Keluar, Cyan Transfer), dan feedback berbasis `AppSnackBar`.
 
-### 3.13 Fitur Split Bill (`SplitBillScreen` — `lib/screens/split_bill_screen.dart`)
-- **Tujuan:** Kalkulator pembagi tagihan bersama (makan bareng, pengeluaran grup, sewa, liburan) terintegrasi langsung dengan pencatatan transaksi aplikasi.
-- **Header:** `StandardScreenHeader(title: 'Split Bill')` dengan tombol aksi bagikan di kanan atas.
-- **Detail Tagihan (`NestedCard`):**
-  - Nama Tagihan / Catatan (contoh: "Makan Bersama").
-  - Input Total Tagihan (Subtotal) dengan prefix `Rp ` netral dan pemisah ribuan otomatis (`ThousandsSeparatorInputFormatter`).
-  - Opsi Pilihan Pajak: chip persentase cepat (`0%`, `10%`, `11%`).
-  - Opsi Pilihan Service / Tip: chip persentase cepat (`0%`, `5%`, `10%`).
+### 3.13 Fitur Advanced Split Bill (`SplitBillScreen` — `lib/screens/split_bill_screen.dart`)
+- **Tujuan:** Kalkulator pembagi tagihan bersama multi-mode (Bagi Rata, Bagi Kustom, dan Per Item) yang terintegrasi langsung dengan pencatatan transaksi aplikasi.
+- **3 Mode Pembagian Fleksibel:**
+  1. **Bagi Rata (Equal Split):** Total tagihan (subtotal + pajak + service) dibagi sama rata ke seluruh anggota tagihan.
+  2. **Bagi Kustom (Custom Split):** Pengguna dapat memasukkan alokasi nominal manual per orang (`customAmount`), dilengkapi visual bar alokasi total serta tombol otomatis *"Bagi Sisa Rata"* untuk mendistribusikan sisa tagihan yang belum teralokasi.
+  3. **Bagi Per Item (Itemized Split):** Pengguna dapat memasukkan daftar menu/item pesanan (nama, harga satuan, quantity, dan memilih anggota yang memesan/makan bersama). Subtotal dihitung otomatis dari total item, dan pajak serta service tip didistribusikan secara proporsional (*pro-rata*) berdasarkan nilai pesanan masing-masing orang.
+- **Pajak & Service Tip Fleksibel (Toggleable & Custom):**
+  - **Pajak:** Switch master on/off. Saat aktif, mendukung preset chip (`10%`, `11%`, `12%`) serta tombol `Kustom...` yang membuka modal sheet untuk mengatur nilai persentase kustom atau nominal tetap (Rp).
+  - **Service / Tip:** Switch master on/off. Saat aktif, mendukung preset chip (`5%`, `10%`) serta opsi `Kustom...` (persentase kustom atau nominal tetap Rp).
 - **Daftar Anggota Tagihan (`NestedCard`):**
-  - Default: 3 orang (`Kamu`, `Teman 1`, `Teman 2`).
-  - Aksi Tambah Orang (`+ Tambah`): Menambah anggota baru secara instan.
-  - Edit Nama Teman: Mengetuk nama membuka modal bottom sheet untuk mengganti nama teman.
-  - Status Pembayaran: Chip toggle status `Lunas` (hijau) atau `Belum` (slate) untuk melacak siapa yang belum bayar.
-  - Hapus Anggota: Tombol silang untuk menghapus anggota (tersedia jika > 2 orang).
-- **Ringkasan Biaya (`NestedCard`):**
-  - Rincian Subtotal, Pajak, Service, dan Total Tagihan akhir.
-  - Display Utama: **Bagian per Orang** berukuran besar (`Inter Tight`, tebal, aksen cyan `#55C7FF`).
-- **Aksi Cepat:**
-  - **Salin Teks:** Menyalin format teks rapi ke clipboard siap kirim ke WhatsApp / grup chat.
-  - **Catat Bagian Saya:** Otomatis mencatat pengeluaran bagian pengguna ke `TransactionProvider` dengan dompet terpilih.
+  - Default 3 orang (`Kamu`, `Teman 1`, `Teman 2`) dengan opsi tambah, edit nama via modal sheet, hapus (jika > 2 orang), dan status pembayaran `Lunas` / `Belum`.
+- **Standardisasi Desain Tombol (Universal Consistency):**
+  - Tombol aksi utama diseragamkan dengan seluruh aplikasi: `ElevatedButton.icon` sapphire `#0066FF`, tinggi `48px`, border radius `14px`, teks putih `w600` (zero cyan-black slop).
+  - Tombol sekunder `OutlinedButton.icon` ("Salin Teks") dengan tinggi `48px`, radius `14px`, dan border halus `0.12`.
+  - Tombol modal simpan item & edit nama menggunakan tombol elevated standar `44px` beradius `12px`.
 
 ### 3.9 Fixed Bottom Navigation Bar dengan Scooped Cradle Cutout (`lib/widgets/bottom_nav_bar.dart`)
 - **Struktur Bar & Kanvas Ergonomis:**
@@ -398,8 +404,8 @@ money-tracker/
   - Background kanvas gelap matte `#1C2229`, AppBar elegan dengan tombol kembali dan judul kontekstual ("Tambah Kategori Baru" / "Ubah Kategori").
 - **Dua Kartu `NestedCard` (Card Inside Card):**
   - **Card 1 (Informasi Kategori):**
-    - Kotak preview ikon dinamis 52x52px dengan live feedback warna aksen dan ikon/emoji terpilih.
-    - Input teks "Nama Kategori" dengan container slate gelap `#0C131D`.
+    - Label "Nama Kategori" diposisikan di atas baris input agar rapi.
+    - Kotak preview ikon dinamis 48x48px sejajar horizontal persis dengan input teks nama kategori (tinggi 48px, `CrossAxisAlignment.center`, border radius 12px) dengan live feedback warna aksen dan ikon/emoji terpilih.
     - Segmented switcher Tipe Transaksi (`Pengeluaran` vs `Pemasukan`).
     - Palet 9 warna aksen fin-tech dengan ring seleksi checkmark.
   - **Card 2 (Pilihan Ikon):**
@@ -731,6 +737,105 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
   - Seluruh 62 test suite lolos 100% tanpa error (`flutter test`).
   - Flutter Web release berhasil di-compile ke `build/web/`.
   - Android release APK ter-compile ke `yotro-release.apk` dan `build/web/yotro-release.apk` (v1.0.3+4, 60MB).
+- [x] Inisialisasi Git & First Commit Push (https://github.com/ianfrds/yotroapp.git):
+  - Repository git diinisialisasi, branch utama `main`.
+  - Berkas build biner (`*.apk`, `*.sha256`, `.dart_tool/`) diabaikan via [`.gitignore`](.gitignore).
+  - First commit berhasil di-push ke remote `origin/main`.
+- [x] Redesain Layar Onboarding Profil Anti-Slop (Layout Gambar 3 & Background Kaca Safir) ([`lib/screens/onboarding_profile_screen.dart`](lib/screens/onboarding_profile_screen.dart)):
+  - Menghilangkan nesting card berlapis yang terkesan AI slop, mengadopsi struktur bersih dua zona sesuai referensi gambar 3.
+  - Header atas menampilkan background visual kaca berusuk biru (`assets/images/onboarding_bg.jpg`) dengan gradien gelap, logo resmi Yotro, dan judul ramah "Selamat Datang".
+  - Zona bawah berupa card mengambang dengan sudut atas melengkung 32px (`BorderRadius.vertical(top: Radius.circular(32))`), input pill terpadu beradius 16px (Nama Lengkap, Nomor Telepon), segment chip Pria/Wanita, callout izin notifikasi otomatis, dan tombol utama pill stadium "Mulai Aplikasi".
+- [x] Reaktivasi Pembaca Notifikasi Dasar & Panduan Setelan Terbatas Android 13/14 ([`lib/config/app_capabilities.dart`](lib/config/app_capabilities.dart), [`lib/services/native_notification_service.dart`](lib/services/native_notification_service.dart), [`lib/providers/transaction_provider.dart`](lib/providers/transaction_provider.dart), & [`lib/screens/notification_reader_screen.dart`](lib/screens/notification_reader_screen.dart)):
+  - Mengaktifkan kembali `notificationReaderEnabled` secara default pada platform Android dengan kapabilitas dasar, lokal, dan aman.
+  - Menghapus overlay manifest release pembatasan listener sehingga service terpasang dengan semestinya saat diinstal dari APK luar Play Store.
+  - Menambahkan dynamic fallback deteksi: notifikasi perbankan/e-wallet dengan tanda mata uang (Rp / IDR) dan kata kunci transaksi otomatis tertangkap dan diproses tanpa harus membuat aturan manual terlebih dahulu.
+  - Menambahkan panduan modal bottom sheet dan tautan bantuan khusus Android 13 & 14+ untuk mengatasi peringatan sistem "Aplikasi tidak diberi akses" (Setelan Terbatas / Restricted Settings).
+- [x] Standarisasi Kategori Default 100% Bahasa Indonesia ([`lib/models/category_model.dart`](lib/models/category_model.dart) & [`lib/providers/transaction_provider.dart`](lib/providers/transaction_provider.dart)):
+  - Mengubah seluruh kategori bawaan pengeluaran dan pemasukan ke Bahasa Indonesia murni (Makanan & Minuman, Transportasi, Belanja, Tempat Tinggal, Tagihan & Utilitas, Kesehatan, Hiburan, Pendidikan, Gaya Hidup, Gaji, Pekerjaan Lepas, Bisnis & Usaha, Investasi, Hadiah & Bonus, Lainnya).
+  - Menyediakan normalizer nama kategori otomatis untuk kompatibilitas data lama.
+- [x] Tambah & Ubah Kategori via Full-Height Modal Bottom Sheet ([`lib/screens/edit_category_screen.dart`](lib/screens/edit_category_screen.dart) & [`lib/screens/manage_categories_screen.dart`](lib/screens/manage_categories_screen.dart)):
+  - Aksi tambah dan ubah kategori pada Kelola Kategori kini membuka modal bottom sheet setinggi 94% layar dengan handle geser dan sudut atas melengkung 24px (`EditCategoryScreen.showAsModalSheet`), menggantikan perpindahan halaman baru.
+- [x] Perluasan Katalog Emoji & Pemisahan Berdasarkan Kategori ([`lib/utils/icon_catalog.dart`](lib/utils/icon_catalog.dart) & [`lib/screens/edit_category_screen.dart`](lib/screens/edit_category_screen.dart)):
+  - Menambahkan katalog emoji terkurasi hingga ~180 pilihan emoji finansial dan gaya hidup.
+  - Memisahkan emoji ke dalam kategori terstruktur (Makanan, Transportasi, Belanja, Tagihan, Kesehatan, Hiburan, Keuangan, Edukasi, Keluarga, Lainnya).
+  - Menyediakan chip filter kategori horizontal dan tampilan grouped sections dengan sub-heading kategori yang rapi.
+- [x] Tombol Logout & Reset Onboarding untuk Uji Coba Web ([`lib/screens/dashboard_screen.dart`](lib/screens/dashboard_screen.dart), [`lib/screens/settings_screen.dart`](lib/screens/settings_screen.dart), & [`lib/providers/transaction_provider.dart`](lib/providers/transaction_provider.dart)):
+  - Menyediakan tombol "Logout" di header Beranda khusus tampilan web (`kIsWeb`) dan di Zona Bahaya Pengaturan untuk mereset `isOnboardingCompleted = false` via bottom sheet konfirmasi.
+  - Memudahkan user menguji langsung form identitas onboarding yang baru diredesain pada `http://localhost:8080/`.
+- [x] Kompilasi Ulang Web Release & Testing Komprehensif:
+  - Seluruh 63 test suite lolos 100% (`flutter test`).
+  - Web release berhasil dikompilasi ke `build/web/` dan aktif disajikan di `http://localhost:8080/`.
+- [x] Redesain Progress Bar Batas Budget Bulanan Semicircular Speedometer Gauge ([`lib/widgets/semicircle_budget_gauge.dart`](lib/widgets/semicircle_budget_gauge.dart) & [`lib/screens/budget_screen.dart`](lib/screens/budget_screen.dart)):
+  - Mengganti linear progress bar datar dengan semicircular speedometer gauge arc 180° beresolusi tinggi sesuai referensi gambar user.
+  - Header rentang tanggal dinamis terpusat (`01/MM/yyyy - LastDay/MM/yyyy`).
+  - Arc track abu-abu/slate dengan stroke cap membulat, arc progress dinamis (biru safir < 80%, amber waspada 80-99%, merah bahaya ≥ 100%), serta indikator thumb knob lingkaran putih bergaris tepi warna aktif di ujung busur.
+  - Area dalam kubah menampilkan label "Anggaran Tersisa", display nominal sisa anggaran berukuran besar (Inter Tight 26px bold), dan pill chip bergaris merah/coral "X Hari Lagi".
+  - Sub-card bawah dengan wadah rounded memisahkan 2 kolom rata tengah ("Total Anggaran" & "Terpakai") menggunakan pembatas garis titik-titik vertikal (dotted vertical divider).
+- [x] Penghapusan Total Fitur Pembaca Notifikasi Demi Keamanan Sideload APK ([`pubspec.yaml`](pubspec.yaml), [`android/app/src/main/AndroidManifest.xml`](android/app/src/main/AndroidManifest.xml), [`lib/config/app_capabilities.dart`](lib/config/app_capabilities.dart), [`lib/services/native_notification_service.dart`](lib/services/native_notification_service.dart), [`lib/screens/settings_screen.dart`](lib/screens/settings_screen.dart)):
+  - Menghapus dependensi `notification_listener_service` dan `installed_apps` dari `pubspec.yaml`.
+  - Menghapus deklarasi service `notification.listener.service.NotificationListener` dan izin `BIND_NOTIFICATION_LISTENER_SERVICE` dari `AndroidManifest.xml`.
+  - Menghapus menu "Pembaca Notifikasi" dari Pengaturan dan tombol navigasinya dari header Notifikasi.
+  - Menghapus berkas `notification_reader_screen.dart`.
+  - Aplikasi kini 100% bebas dari izin berbahaya, tidak akan memicu peringatan Android "Aplikasi tidak diberi akses" (*Restricted Settings*), dan 100% aman untuk instalasi APK di luar Play Store.
+- [x] Redesain Layar Onboarding Profil Full-Background & Anti-Slop ([`lib/screens/onboarding_profile_screen.dart`](lib/screens/onboarding_profile_screen.dart)):
+  - Menghilangkan cutoff gambar 280px dan gradien pekat yang memotong wallpaper di tengah layar.
+  - Memasang background wallpaper kaca berusuk biru (`assets/images/onboarding_bg.jpg`) full screen dengan gradien transparan lembut agar tekstur kaca terlihat menyeluruh.
+  - Form profil dikemas dalam floating frosted matte card dengan efek `BackdropFilter` (blur 18px), border halus, dan padding bawah dinamis aman (`MediaQuery.of(context).padding.bottom + 28px`) sehingga tidak terpotong tombol gesture bar HP.
+- [x] Pembersihan Mock Data & Empty State Menyeluruh ([`lib/screens/analytics_screen.dart`](lib/screens/analytics_screen.dart) & [`lib/screens/financial_analysis_screen.dart`](lib/screens/financial_analysis_screen.dart)):
+  - Menghilangkan mock data kategori statis (Food & Beverage Rp 320.000 & Salary Rp 4.000.000) saat belum ada transaksi.
+  - Layar Laporan Keuangan menampilkan kartu empty state bersih "Belum ada rincian transaksi pengeluaran/pemasukan".
+  - Layar Analisis Keuangan menampilkan empty state mandiri "Belum Ada Data Analisis" saat transaksi nol, tanpa memunculkan skor kesehatan semu atau proyeksi fiktif.
+- [x] Restorasi Emoji Melambai 👋 di Header Beranda ([`lib/screens/dashboard_screen.dart`](lib/screens/dashboard_screen.dart)):
+  - Menyematkan emoji `👋` tepat setelah nama pengguna pada sapaan Beranda (misal "Ian Firdaus 👋").
+- [x] Multi-Alarm Pengingat Transaksi Otomatis Aktif & Jam Bawaan Dapat Diedit ([`lib/providers/transaction_provider.dart`](lib/providers/transaction_provider.dart) & [`lib/screens/settings_screen.dart`](lib/screens/settings_screen.dart)):
+  - Pengingat harian otomatis aktif (`isDailyReminderEnabled = true`) sesaat setelah izin notifikasi sistem diberikan (baik di onboarding maupun peluncuran pertama).
+  - Setiap slot alarm bawaan (18:00 dan 19:00) pada modal bottom sheet kini dapat diketuk langsung untuk mengubah jam via `showTimePicker` lengkap dengan ikon edit.
+  - Memperbaiki layout row judul alarm dengan `Expanded` untuk mencegah overflow pada layar perangkat sempit.
+- [x] Restorasi Linear Progress Bar Anggaran & Eliminasi Rentang Tanggal / Sisa Hari ([`lib/screens/budget_screen.dart`](lib/screens/budget_screen.dart) & [`lib/screens/budget_detail_screen.dart`](lib/screens/budget_detail_screen.dart)):
+  - Mengembalikan tampilan kartu batas budget keseluruhan ke desain linear progress bar bersih dan teruji (tanpa semicircle speedometer gauge).
+  - Menghilangkan tampilan rentang tanggal dan sisa hari dari kartu budget maupun ringkasan rincian anggaran.
+  - Memastikan seluruh perhitungan total anggaran, nominal terpakai, sisa saldo, dan persentase 100% dinamis terhubung ke `TransactionProvider`.
+- [x] Layar Rincian Anggaran Interaktif & Fungsional Penuh ([`lib/screens/budget_detail_screen.dart`](lib/screens/budget_detail_screen.dart) & [`lib/screens/budget_screen.dart`](lib/screens/budget_screen.dart)):
+  - Menghilangkan sifat statis pada halaman budget: mengetuk item budget per kategori atau kartu budget keseluruhan membuka layar Rincian Anggaran interaktif (`BudgetDetailScreen`).
+  - Kartu ringkasan atas: avatar kategori dengan badge panah merah, nama kategori/semua pengeluaran, nominal total budget, serta row status `Terpakai : Rp xxx` dan `Sisa : Rp xxx`.
+  - Bagian "Statistik Penggunaan Anggaran": grafik batang interaktif pengeluaran harian dengan skala sumbu Y bertingkat dan garis bantu horizontal putus-putus (*dashed lines*). Mengetuk batang menampilkan tooltip tanggal dan nominal detail.
+  - Bagian "Riwayat Transaksi": daftar transaksi pengeluaran kategori pada bulan berjalan lengkap dengan tanggal relatif, nominal negatif, dan navigasi langsung ke ubah transaksi saat diketuk.
+  - Menu titik tiga (`...`) di pojok kanan atas menyediakan aksi cepat ubah budget dan hapus budget kategori dengan dialog konfirmasi aman.
+- [x] Normalisasi Kategori & Grafik Batang Dinamis 100% Bebas Data Statis ([`lib/screens/budget_detail_screen.dart`](lib/screens/budget_detail_screen.dart), [`lib/models/category_model.dart`](lib/models/category_model.dart), [`lib/screens/budget_screen.dart`](lib/screens/budget_screen.dart)):
+  - Memperluas `CategoryModel.normalizeCategoryName` untuk mencocokkan variasi penamaan Bahasa Indonesia dan Inggris secara dua arah ('Makanan', 'Makanan & Minuman', 'Food & Beverage', dsb).
+  - Menghilangkan filter tanggal terbatas yang sebelumnya menyebabkan transaksi tidak muncul pada kartu rincian anggaran.
+  - Menambahkan perhitungan skala sumbu Y dinamis (`_calculateNiceScaleMax`) dengan kelipatan bersih (50K, 100K, 250K, 500K, 1M, dst.).
+  - Memisahkan plot batang (tinggi presisi sejajar garis 0) dari label sumbu X di bawahnya agar batang mendarat sempurna pada garis baseline.
+  - Interaksi tap batang grafik memfilter daftar "Riwayat Transaksi" secara instan ke tanggal terpilih, dan menampilkan tombol "Lihat Semua" untuk membatalkan filter.
+  - Menambahkan empty state grafik informatif dengan tombol "+ Catat Transaksi" yang otomatis mem-prefill kategori terkait (`initialCategory`).
+- [x] Refaktor Form Tambah Transaksi Anti-Slop ([`lib/screens/add_transaction_screen.dart`](lib/screens/add_transaction_screen.dart)):
+  - Mengganti deretan chip shortcut nominal statis (`+10rb`, `+20rb`, dsb) di kartu Nominal dengan field input "Catatan / Judul" (`_titleController`) berdesain bersih matte.
+  - Menghapus duplikasi field catatan/judul dari kartu detail transaksi, menyisakan pemilih tanggal transaksi yang ringkas dan bebas AI slop.
+- [x] Kompilasi Signed Release APK Bersih & Sinkronisasi Web Runner:
+  - APK bersih berhasil dibangun ke [`yotro-app.apk`](yotro-app.apk) dan `build/web/yotro-app.apk` (61.3 MB).
+  - Web runner dan preview di `http://localhost:8080/` diperbarui.
+  - Seluruh 74 unit & widget test lolos 100% (`flutter test`).
+- [x] Fitur Advanced Split Bill Multi-Mode & Kustomisasi Pajak/Tip ([`lib/screens/split_bill_screen.dart`](lib/screens/split_bill_screen.dart)):
+  - 3 mode pembagian: Bagi Rata (Equal), Bagi Kustom (alokasi manual + tombol Bagi Sisa Rata), dan Per Item (input menu pesanan, kuantitas, dan penugasan per anggota dengan pembagian pajak/service proporsional adil).
+  - Pajak & Service Tip dapat diaktifkan/dinonaktifkan via switch, didukung preset chip cepat dan opsi Kustom (% persentase kustom atau Rp nominal kustom via modal sheet).
+  - Standardisasi desain tombol aksi sesuai gaya aplikasi (`ElevatedButton` sapphire `#0066FF`, `OutlinedButton` radius 14px, tinggi 48px).
+- [x] Penyempurnaan Form Input Item Split Bill & Anti-Overflow ([`lib/screens/split_bill_screen.dart`](lib/screens/split_bill_screen.dart)):
+  - Standarisasi tinggi container `Harga Satuan` dan `Jumlah / Qty` menjadi seragam `48px` dengan border radius `12px` dan border matte halus.
+  - Prefix "Rp" rapi dan teks field nominal terpusat vertikal (`TextAlignVertical.center`), dilengkapi kalkulasi subtotal dinamis real-time saat kuantitas > 1 (`Total Item: Rp ...`).
+  - Mencegah overflow horizontal pada daftar item pesanan menggunakan `Flexible` dan `TextOverflow.ellipsis`.
+- [x] Penyejajaran Presisi Icon Preview & Form Nama Kategori ([`lib/screens/edit_category_screen.dart`](lib/screens/edit_category_screen.dart)):
+  - Memindahkan label "Nama Kategori" ke atas baris formulir.
+  - Menyejajarkan kotak preview icon/emoji (`48x48px`) dan input field nama kategori (`height: 48px`) dalam satu `Row` rata tengah (`CrossAxisAlignment.center`) dengan sudut membulat `12px` identik.
+- [x] Redesain & Polishing Layar Transaksi Berhasil Dicatat ([`lib/screens/transaction_success_screen.dart`](lib/screens/transaction_success_screen.dart)):
+  - **Animasi Rosette Checklist Sesuai Referensi:** Mengganti lingkaran glow dengan badge bunga/roset 8-lekukan (*8-lobed scalloped badge*) berwarna hijau limau lembut (`#C4F988`) dan centang hijau tua tebal (`#005928`), menghilangkan efek pendaran AI slop, dan mempertahankan animasi pop-in spring & path checkmark.
+  - **Auto-Redirect 5 Detik Hening:** Otomatis kembali ke Beranda setelah 5 detik tanpa menampilkan teks countdown.
+  - **Penyelarasan Kolom & Spacing Rapat:** Icon dibungkus wadah tetap 22px sehingga teks label (Dompet, Kategori, Tipe, Waktu) rata vertikal persis, nilai kanan diperlebar fleksibel (tanpa terpotong ellipsis), dan jarak antar-baris dirapatkan menjadi 8px.
+  - **Disiplin Tipografi Semibold:** Menghapus seluruh bobot bold/w700/w800, dibatasi maksimal `FontWeight.w600` (semibold) pada judul, nominal, dan isi.
+  - **Standardisasi Tombol Reusable:** Tombol primer "Kembali ke Beranda" menggunakan Sapphire Blue (`#0066FF`), tombol sekunder "Catat Transaksi Lain" menggunakan `OutlinedButton`, keduanya seragam tinggi 48px dan radius 14px.
+- [x] Kompilasi Ulang Web Release & Signed Release APK:
+  - Seluruh 78 unit dan widget test lolos 100% (`flutter test`).
+  - Web release diperbarui di `build/web/` dan live preview port `8080`.
+  - Android release APK diperbarui di [`yotro-app.apk`](yotro-app.apk) dan `build/web/yotro-app.apk` (61.5 MB).
 - [x] Dokumentasi desain komprehensif di `design.md`.
 - [x] File handover AI context di `context.md`.
 - [x] Aturan otomatisasi workspace agent di `AGENTS.md` dan `GEMINI.md` (auto-sync `context.md`).
@@ -740,23 +845,29 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
 ## 7. Instruksi untuk AI Coding Assistant Selanjutnya
 
 Saat melanjutkan proyek ini:
-1. **Patuhi `design.md` & Anti-Slop:**
+1. **Kebijakan Git & Push Manual (MANDATORI):**
+   - AI agent **DILARANG MELAKUKAN GIT PUSH OTOMATIS** saat melakukan perubahan kode atau berkas proyek.
+   - Semua operasi commit dan push ke remote `origin` selanjutnya dilakukan **secara manual oleh user**.
+2. **Patuhi `design.md` & Anti-Slop:**
    - Dark mode default (`#1C2229`, `#0C131D`, `#131A26`), Light mode monokrom netral (`#F4F5F7`, `#FFFFFF`, `#0F172A`, `#E2E8F0`).
    - Tipografi `Inter Tight` + `Manrope` (maksimal `FontWeight.w600`, `FontWeight.w500` untuk hero display, zero `bold`).
    - Dilarang keras menggunakan emoji dekoratif pada copy/button (emoji hanya untuk ikon kategori).
-2. **Pahami Pemisahan Mode Tampilan & Saldo:**
+3. **Pahami Pemisahan Mode Tampilan & Saldo:**
    - `dashboardViewMode`: Enum 3 mode (`complete`, `incomeExpense`, `expenseOnly`).
    - Pada mode `expenseOnly`, kartu hero menampilkan "Total Pengeluaran" dan sub-kartu disembunyikan.
-3. **Sistem Pembaca Notifikasi:**
-   - Public/release build wajib mempertahankan `notificationReaderEnabled == false` dan overlay manifest yang menghapus Notification Listener.
-   - Deteksi `processIncomingNotification` hanya untuk eksperimen internal/debug; package name aturan diisi manual, tanpa pemindaian semua aplikasi HP.
-4. **Cadangan & Pemulihan:**
+4. **Keamanan Sideload & Izin Minimal:**
+   - Fitur pembaca notifikasi real-time (`BIND_NOTIFICATION_LISTENER_SERVICE`) telah **dihapus permanen** agar APK sideload tidak memicu peringatan Android Restricted Settings atau dianggap membahayakan.
+   - Aplikasi hanya menggunakan izin notifikasi standar lokal (`POST_NOTIFICATIONS`, `VIBRATE`, `RECEIVE_BOOT_COMPLETED`) untuk pengingat transaksi harian offline.
+   - Jangan pernah menambahkan kembali service pembaca notifikasi tanpa persetujuan eksplisit user.
+5. **Kategori Finansial:**
+   - Seluruh kategori default wajib menggunakan Bahasa Indonesia (Makanan & Minuman, Transportasi, Belanja, Tagihan & Utilitas, dsb).
+   - Layar tambah/edit kategori dibuka via modal bottom sheet setinggi 94% layar (`EditCategoryScreen.showAsModalSheet`).
+6. **Cadangan & Pemulihan:**
    - Ekspor menggunakan `BackupStorageService` yang menghasilkan berkas `.json` nyata.
    - Pulihkan mendukung pilih berkas `.json` via `FilePicker` atau tempel teks.
-5. **Aktivitas Transaksi Dual Bar:**
+7. **Aktivitas Transaksi Dual Bar:**
    - Gunakan `WeeklyActivityChart(isDualBar: true, title: 'Aktivitas Transaksi')` di Beranda. Auto-hide saat minggu kosong.
-6. **Sinkronisasi `context.md` Wajib:** Setiap kali berkas diubah, perbarui `context.md` sebelum mengakhiri giliran.
-7. **Tone Komunikasi:** Sesuai preferensi user, berikan jawaban terfokus pada hasil teknis (*terse smart caveman*), langsung ke fakta dan link berkas.
-8. **Distribusi & Signing:** Jangan pernah mendistribusikan `yotro-release.apk` / `money-tracker-release.apk` legacy. Gunakan `yotro-safe-release.apk`, pertahankan keystore release yang sama untuk semua update, dan jangan commit key/password.
-9. **Preview Web:** Build Flutter Web adalah sumber preview yang setara dengan kode `lib/`; `web/index.html` hanya bootstrap, bukan implementasi aplikasi kedua.
+8. **Sinkronisasi `context.md` Wajib:** Setiap kali berkas diubah, perbarui `context.md` sebelum mengakhiri giliran.
+9. **Tone Komunikasi:** Sesuai preferensi user, berikan jawaban terfokus pada hasil teknis (*terse smart caveman*), langsung ke fakta dan link berkas.
+10. **Preview Web:** Build Flutter Web adalah sumber preview yang setara dengan kode `lib/`; disajikan di `http://localhost:8080/`.
 

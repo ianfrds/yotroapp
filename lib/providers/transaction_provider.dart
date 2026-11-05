@@ -530,9 +530,9 @@ class TransactionProvider with ChangeNotifier {
     _budget = BudgetModel(
       overallMonthlyLimit: 2000000.0,
       categoryBudgets: {
-        'Food & Beverage': 500000.0,
-        'Transportation': 300000.0,
-        'Shopping': 400000.0,
+        'Makanan & Minuman': 500000.0,
+        'Transportasi': 300000.0,
+        'Belanja': 400000.0,
       },
     );
     _transactions = [
@@ -542,7 +542,7 @@ class TransactionProvider with ChangeNotifier {
         amount: 25000.0,
         type: TransactionType.expense,
         categoryId: 'food',
-        categoryName: 'Food & Beverage',
+        categoryName: 'Makanan & Minuman',
         walletId: 'w_cash',
         note: 'Large, Less Sugar',
         timestamp: DateTime.now().subtract(const Duration(hours: 1)),
@@ -553,7 +553,7 @@ class TransactionProvider with ChangeNotifier {
         amount: 54000.0,
         type: TransactionType.expense,
         categoryId: 'bills',
-        categoryName: 'Bills & Utilities',
+        categoryName: 'Tagihan & Utilitas',
         walletId: 'w_bank',
         note: 'Family Premium Sub',
         timestamp: DateTime.now().subtract(const Duration(hours: 3)),
@@ -564,7 +564,7 @@ class TransactionProvider with ChangeNotifier {
         amount: 14000.0,
         type: TransactionType.expense,
         categoryId: 'transport',
-        categoryName: 'Transportation',
+        categoryName: 'Transportasi',
         walletId: 'w_ewallet',
         note: 'Tiket QR Stasiun',
         timestamp: DateTime.now().subtract(const Duration(days: 1)),
@@ -575,7 +575,7 @@ class TransactionProvider with ChangeNotifier {
         amount: 107000.0,
         type: TransactionType.expense,
         categoryId: 'shopping',
-        categoryName: 'Shopping',
+        categoryName: 'Belanja',
         walletId: 'w_bank',
         note: 'Daging, Buah, Sayuran',
         timestamp: DateTime.now().subtract(const Duration(days: 2)),
@@ -814,7 +814,10 @@ class TransactionProvider with ChangeNotifier {
     _isOnboardingCompleted = true;
     notifyListeners();
     await saveData();
-    await requestNotificationPermission();
+    final granted = await requestNotificationPermission();
+    if (granted || _hasNotificationPermission) {
+      await toggleDailyReminder(true);
+    }
   }
 
   Future<void> updateProfile({
@@ -825,6 +828,12 @@ class TransactionProvider with ChangeNotifier {
     _userName = name.trim().isEmpty ? 'Pengguna Yotro' : name.trim();
     _userPhone = phone.trim();
     _userGender = gender.trim().isEmpty ? 'Pria' : gender.trim();
+    notifyListeners();
+    await saveData();
+  }
+
+  Future<void> logout() async {
+    _isOnboardingCompleted = false;
     notifyListeners();
     await saveData();
   }
@@ -881,11 +890,25 @@ class TransactionProvider with ChangeNotifier {
             onTimeout: () => PermissionStatus.denied,
           );
       _hasNotificationPermission = status.isGranted;
+      if (_hasNotificationPermission && !_isDailyReminderEnabled) {
+        _isDailyReminderEnabled = true;
+        if (_dailyReminderTimes.isEmpty) {
+          _dailyReminderTimes = ['18:00', '19:00'];
+        }
+        await _rescheduleDailyReminder();
+      }
       notifyListeners();
       await saveData();
       return _hasNotificationPermission;
     } catch (_) {
       _hasNotificationPermission = true;
+      if (!_isDailyReminderEnabled) {
+        _isDailyReminderEnabled = true;
+        if (_dailyReminderTimes.isEmpty) {
+          _dailyReminderTimes = ['18:00', '19:00'];
+        }
+        await _rescheduleDailyReminder();
+      }
       notifyListeners();
       await saveData();
       return true;
@@ -1135,6 +1158,21 @@ class TransactionProvider with ChangeNotifier {
       }
     }
 
+    // Dynamic Fallback: if message contains monetary signs (Rp/IDR) from any bank/e-wallet
+    if (rule == null && (lowerMsg.contains('rp') || lowerMsg.contains('idr'))) {
+      rule = NotificationRule(
+        id: 'dynamic_${DateTime.now().millisecondsSinceEpoch}',
+        appName: sourceApp.isNotEmpty ? sourceApp : 'Bank / E-Wallet',
+        packageName: packageName,
+        icon: Icons.notifications_active_rounded,
+        triggerKeywords: const ['berhasil', 'sukses', 'transfer', 'pembayaran', 'qris', 'debit', 'kredit', 'top up', 'masuk', 'keluar', 'terima'],
+        ignoreKeywords: const ['promo', 'diskon', 'cashback', 'voucher', 'penawaran'],
+        defaultWalletName: _wallets.isNotEmpty ? _wallets.first.name : 'Dompet Utama',
+        defaultCategoryName: 'Makanan & Minuman',
+        isEnabled: true,
+      );
+    }
+
     if (rule == null) return false;
 
     // 2. Anti-Promo filter: check ignore keywords
@@ -1249,7 +1287,7 @@ class TransactionProvider with ChangeNotifier {
     } else {
       targetCategory = rule.defaultCategoryName.isNotEmpty
           ? rule.defaultCategoryName
-          : 'Food & Beverage';
+          : 'Makanan & Minuman';
     }
 
     final pending = PendingNotification(

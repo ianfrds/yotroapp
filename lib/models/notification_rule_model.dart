@@ -99,7 +99,7 @@ class NotificationRule {
               .toList() ??
           ['promo', 'diskon', 'cashback', 'voucher', 'penawaran'],
       defaultWalletName: json['defaultWalletName'] as String? ?? 'Dompet Utama',
-      defaultCategoryName: json['defaultCategoryName'] as String? ?? 'Food & Beverage',
+      defaultCategoryName: json['defaultCategoryName'] as String? ?? 'Makanan & Minuman',
       isEnabled: json['isEnabled'] as bool? ?? true,
     );
   }
@@ -110,10 +110,10 @@ class NotificationRule {
           appName: 'myBCA',
           packageName: 'com.bca',
           icon: Icons.account_balance_outlined,
-          triggerKeywords: ['QRIS', 'Transfer', 'Pembayaran', 'Debit', 'Berhasil'],
+          triggerKeywords: ['QRIS', 'Transfer', 'Pembayaran', 'Debit', 'Berhasil', 'Sukses'],
           ignoreKeywords: ['promo', 'diskon', 'cashback', 'voucher', 'penawaran'],
           defaultWalletName: 'BCA Prioritas',
-          defaultCategoryName: 'Food & Beverage',
+          defaultCategoryName: 'Makanan & Minuman',
           isEnabled: true,
         ),
         const NotificationRule(
@@ -124,7 +124,7 @@ class NotificationRule {
           triggerKeywords: ['QRIS', 'Transfer', 'Pembayaran', 'Debit', 'Berhasil', 'Sukses'],
           ignoreKeywords: ['promo', 'diskon', 'cashback', 'voucher', 'penawaran'],
           defaultWalletName: 'BCA Prioritas',
-          defaultCategoryName: 'Food & Beverage',
+          defaultCategoryName: 'Makanan & Minuman',
           isEnabled: true,
         ),
         const NotificationRule(
@@ -135,7 +135,7 @@ class NotificationRule {
           triggerKeywords: ['Pembayaran', 'Transfer', 'Order', 'Gojek', 'Berhasil', 'Sukses'],
           ignoreKeywords: ['promo', 'diskon', 'cashback', 'voucher', 'penawaran', 'klaim'],
           defaultWalletName: 'GoPay',
-          defaultCategoryName: 'Transportation',
+          defaultCategoryName: 'Transportasi',
           isEnabled: true,
         ),
         const NotificationRule(
@@ -146,7 +146,7 @@ class NotificationRule {
           triggerKeywords: ['Debit', 'QRIS', 'Transfer', 'Bayar', 'Berhasil', 'Sukses'],
           ignoreKeywords: ['promo', 'diskon', 'cashback', 'voucher', 'undian'],
           defaultWalletName: 'BCA Prioritas',
-          defaultCategoryName: 'Bills & Utilities',
+          defaultCategoryName: 'Tagihan & Utilitas',
           isEnabled: true,
         ),
         const NotificationRule(
@@ -157,7 +157,7 @@ class NotificationRule {
           triggerKeywords: ['Pembayaran', 'Pesanan', 'QRIS', 'Berhasil', 'Sukses'],
           ignoreKeywords: ['promo', 'diskon', 'cashback', 'voucher', 'flash sale'],
           defaultWalletName: 'Dompet Tunai',
-          defaultCategoryName: 'Shopping',
+          defaultCategoryName: 'Belanja',
           isEnabled: true,
         ),
       ];

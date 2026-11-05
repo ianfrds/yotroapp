@@ -16,22 +16,26 @@ import 'transaction_success_screen.dart';
 class AddTransactionScreen extends StatefulWidget {
   final TransactionModel? initialTransaction;
   final TransactionType? initialType;
+  final String? initialCategory;
 
   const AddTransactionScreen({
     super.key,
     this.initialTransaction,
     this.initialType,
+    this.initialCategory,
   });
 
   /// Static helper for smooth bottom-to-top swipe-up route transition
   static Route<T> route<T>({
     TransactionModel? initialTransaction,
     TransactionType? initialType,
+    String? initialCategory,
   }) {
     return SlideUpRoute(
       page: AddTransactionScreen(
         initialTransaction: initialTransaction,
         initialType: initialType,
+        initialCategory: initialCategory,
       ),
     );
   }
@@ -66,7 +70,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     _amountController = TextEditingController(text: initialAmount);
     _titleController = TextEditingController(text: tx?.title ?? '');
     _noteController = TextEditingController(text: tx?.note ?? '');
-    _selectedCategory = tx?.categoryName ?? 'Food & Beverage';
+    _selectedCategory = tx != null
+        ? CategoryModel.normalizeCategoryName(tx.categoryName)
+        : (widget.initialCategory != null
+            ? CategoryModel.normalizeCategoryName(widget.initialCategory!)
+            : 'Makanan & Minuman');
     _selectedWalletId = tx?.walletId ?? 'w_bank';
     _fromWalletId = tx?.fromWalletId ?? 'w_bank';
     _toWalletId = tx?.toWalletId ?? 'w_cash';
@@ -109,14 +117,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     final dayName = days[date.weekday - 1];
     final monthName = months[date.month - 1];
     return '$dayName, ${date.day} $monthName ${date.year}';
-  }
-
-  void _addQuickAmount(double delta) {
-    final next = _currentAmount + delta;
-    setState(() {
-      _amountController.text =
-          ThousandsSeparatorInputFormatter.formatNumber(next.toStringAsFixed(0));
-    });
   }
 
   Future<void> _pickDate() async {
@@ -466,7 +466,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
   Widget _buildAmountCard(TransactionProvider provider, bool isDark) {
     return NestedCard(
-      title: 'Nominal',
+      title: 'Nominal & Keterangan',
       action: provider.currency,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
@@ -521,45 +521,54 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                _buildQuickChip('+10rb', 10000, isDark),
-                const SizedBox(width: 8),
-                _buildQuickChip('+20rb', 20000, isDark),
-                const SizedBox(width: 8),
-                _buildQuickChip('+50rb', 50000, isDark),
-                const SizedBox(width: 8),
-                _buildQuickChip('+100rb', 100000, isDark),
-              ],
+            const SizedBox(height: 12),
+            Container(
+              height: 1,
+              color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFE2E8F0),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isDark ? Colors.white.withOpacity(0.07) : const Color(0xFFE2E8F0),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.edit_note_rounded,
+                    size: 18,
+                    color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _titleController,
+                      style: GoogleFonts.manrope(
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      decoration: InputDecoration(
+                        border: InputBorder.none,
+                        hintText: 'Catatan / judul transaksi (cth: Mie Goreng, Bensin)...',
+                        hintStyle: GoogleFonts.manrope(
+                          color: isDark ? const Color(0xFF65788F) : const Color(0xFF94A3B8),
+                          fontSize: 12,
+                        ),
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickChip(String label, double amount, bool isDark) {
-    return Expanded(
-      child: InkWell(
-        onTap: () => _addQuickAmount(amount),
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFF1F5F9),
-            borderRadius: BorderRadius.circular(10),
-            border: isDark ? null : Border.all(color: const Color(0xFFCBD5E1)),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: GoogleFonts.manrope(
-              color: isDark ? Colors.white.withOpacity(0.85) : const Color(0xFF0F172A),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
         ),
       ),
     );
@@ -1074,47 +1083,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       size: 15,
                     ),
                   ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // Note/Title textfield
-            Text(
-              'Catatan / Judul',
-              style: GoogleFonts.manrope(
-                color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-                fontSize: 11.5,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Container(
-              height: 38,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFCBD5E1),
-                ),
-              ),
-              alignment: Alignment.centerLeft,
-              child: TextField(
-                controller: _titleController,
-                style: GoogleFonts.manrope(
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
-                  fontSize: 12.5,
-                ),
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  hintText: 'Misal: Es Kopi Susu, Bensin Pertamax...',
-                  hintStyle: TextStyle(
-                    color: isDark ? const Color(0xFF65788F) : const Color(0xFF94A3B8),
-                    fontSize: 12,
-                  ),
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
                 ),
               ),
             ),

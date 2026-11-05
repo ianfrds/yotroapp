@@ -61,20 +61,18 @@ void main() {
       expect(controller.text, '2.000.000');
     });
 
-    testWidgets('Quick amount chips increment amount with thousands dots', (tester) async {
+    testWidgets('Nominal card contains title/note field and accepts input', (tester) async {
       final provider = TransactionProvider();
       await tester.pumpWidget(buildTestScreen(const AddTransactionScreen(), provider));
       await tester.pumpAndSettle();
 
-      // Tap +10rb chip
-      await tester.tap(find.text('+10rb'));
-      await tester.pumpAndSettle();
-      expect(find.text('10.000'), findsOneWidget);
+      final noteFieldFinder = find.widgetWithText(TextField, 'Catatan / judul transaksi (cth: Mie Goreng, Bensin)...');
+      expect(noteFieldFinder, findsOneWidget);
 
-      // Tap +50rb chip -> total 60.000
-      await tester.tap(find.text('+50rb'));
+      await tester.enterText(noteFieldFinder, 'Nasi Goreng Spesial');
       await tester.pumpAndSettle();
-      expect(find.text('60.000'), findsOneWidget);
+
+      expect(find.text('Nasi Goreng Spesial'), findsOneWidget);
     });
 
     testWidgets('Edit transaction formats existing amount with dots', (tester) async {

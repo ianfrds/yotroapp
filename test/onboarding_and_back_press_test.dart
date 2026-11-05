@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:money_tracker/providers/transaction_provider.dart';
 import 'package:money_tracker/screens/onboarding_profile_screen.dart';
 import 'package:money_tracker/screens/main_shell.dart';
-import 'package:money_tracker/screens/notification_reader_screen.dart';
+import 'package:money_tracker/screens/notifications_center_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -38,7 +38,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('Profil Pengguna'), findsOneWidget);
+      expect(find.text('Selamat Datang'), findsOneWidget);
       expect(find.text('Nama Lengkap'), findsOneWidget);
       expect(find.text('Nomor Telepon (Opsional)'), findsOneWidget);
       expect(find.text('Jenis Kelamin'), findsOneWidget);
@@ -63,6 +63,19 @@ void main() {
       expect(provider.userName, 'Budi Santoso');
       expect(provider.userPhone, '081299998888');
       expect(provider.userGender, 'Wanita');
+    });
+
+    testWidgets('TransactionProvider logout resets isOnboardingCompleted to false', (tester) async {
+      final provider = TransactionProvider();
+      await provider.completeOnboarding(
+        name: 'Ian Firdaus',
+        phone: '08111111',
+        gender: 'Pria',
+      );
+      expect(provider.isOnboardingCompleted, isTrue);
+
+      await provider.logout();
+      expect(provider.isOnboardingCompleted, isFalse);
     });
   });
 
@@ -115,26 +128,21 @@ void main() {
   });
 
   group('Notification Anti-Slop Tests', () {
-    testWidgets('NotificationReaderScreen has zero emojis and clean action chips', (tester) async {
+    testWidgets('NotificationsCenterScreen renders without slop or emojis', (tester) async {
       tester.view.physicalSize = const Size(800, 2600);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
       final provider = TransactionProvider();
       await tester.pumpWidget(buildTestWidget(
-        child: const NotificationReaderScreen(),
+        child: const NotificationsCenterScreen(),
         provider: provider,
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('Pembaca Notifikasi'), findsOneWidget);
-      expect(find.text('Uji Coba Deteksi Notifikasi'), findsOneWidget);
-      expect(find.text('Aturan & Filter Aplikasi'), findsOneWidget);
-      expect(find.text('+ Tambah'), findsOneWidget);
-
-      // Verify no emoji in simulation chips
-      expect(find.textContaining('myBCA: QRIS Rp 45.000'), findsOneWidget);
-      expect(find.textContaining('GoPay: Bayar Rp 22.000'), findsOneWidget);
+      expect(find.text('Notifikasi'), findsOneWidget);
+      expect(find.text('Aktivitas Transaksi'), findsOneWidget);
+      expect(find.text('Belum Ada Aktivitas'), findsOneWidget);
     });
   });
 }

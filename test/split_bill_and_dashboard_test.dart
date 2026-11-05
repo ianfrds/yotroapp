@@ -161,6 +161,88 @@ void main() {
       // 330.000 / 3 orang = 110.000 per orang
       expect(find.text('Rp 110.000'), findsWidgets);
     });
+
+    testWidgets('SplitBillScreen supports mode switching, tax/service toggling, and button consistency', (tester) async {
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final provider = TransactionProvider();
+      await tester.pumpWidget(buildTestWidget(
+        child: const SplitBillScreen(),
+        provider: provider,
+      ));
+      await tester.pumpAndSettle();
+
+      // Verify mode tabs
+      expect(find.text('Bagi Rata'), findsOneWidget);
+      expect(find.text('Bagi Kustom'), findsOneWidget);
+      expect(find.text('Per Item'), findsOneWidget);
+
+      // Verify standardized action buttons
+      expect(find.text('Salin Teks'), findsOneWidget);
+      expect(find.text('Catat Bagian Saya'), findsOneWidget);
+
+      // Switch to Bagi Kustom
+      await tester.tap(find.text('Bagi Kustom'));
+      await tester.pumpAndSettle();
+
+      // Switch to Per Item
+      await tester.tap(find.text('Per Item'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Item Pesanan (0)'), findsOneWidget);
+      expect(find.text('Tambah Item'), findsOneWidget);
+
+      // Toggle Tax off
+      final switchFinders = find.byType(Switch);
+      expect(switchFinders, findsNWidgets(2)); // Tax & Service
+      await tester.tap(switchFinders.first);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('SplitBillScreen handles itemized calculation correctly', (tester) async {
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final provider = TransactionProvider();
+      await tester.pumpWidget(buildTestWidget(
+        child: const SplitBillScreen(),
+        provider: provider,
+      ));
+      await tester.pumpAndSettle();
+
+      // Switch to Per Item
+      await tester.tap(find.text('Per Item'));
+      await tester.pumpAndSettle();
+
+      // Tap + Tambah Item
+      await tester.tap(find.text('Tambah Item'));
+      await tester.pumpAndSettle();
+
+      // Enter item name and price
+      final nameInput = find.widgetWithText(TextField, 'Misal: Nasi Goreng Spesial');
+      await tester.enterText(nameInput, 'Pizza');
+      final priceInput = find.widgetWithText(TextField, '0');
+      await tester.enterText(priceInput, '50000');
+      await tester.pumpAndSettle();
+
+      // Tap + inside item sheet to increase qty to 2
+      await tester.tap(find.byIcon(Icons.add_rounded).last);
+      await tester.pumpAndSettle();
+
+      // Verify dynamic total preview appears (2 x 50.000 = 100.000)
+      expect(find.text('Total Item: Rp 100.000'), findsOneWidget);
+
+      // Save item
+      await tester.tap(find.text('Simpan Item'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Pizza'), findsOneWidget);
+      // 100.000 subtotal + 10% tax (10.000) = 110.000 total bill / 3 members = 36.666,67
+      expect(find.text('Rp 110.000'), findsOneWidget);
+    });
   });
 }
 

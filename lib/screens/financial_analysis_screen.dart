@@ -167,13 +167,25 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
       }
     }
 
-    if (monthTxs.isEmpty) {
-      income = provider.totalIncome;
-      expense = provider.totalExpense;
-      for (final tx in provider.transactions.where((t) => t.type == TransactionType.expense)) {
-        categoryTotals[tx.categoryName] =
-            (categoryTotals[tx.categoryName] ?? 0.0) + tx.amount;
-      }
+    final hasData = monthTxs.isNotEmpty;
+    if (!hasData) {
+      return const FinancialHealthMetrics(
+        score: 0,
+        status: 'Belum Ada Data',
+        statusColor: Color(0xFF8CA7C5),
+        monthIncome: 0.0,
+        monthExpense: 0.0,
+        netCashFlow: 0.0,
+        savingsRate: 0.0,
+        expenseRatio: 0.0,
+        dailyAverageSpend: 0.0,
+        projectedMonthEnd: 0.0,
+        topCategoryName: '-',
+        topCategoryAmount: 0.0,
+        topCategoryPct: 0.0,
+        txCount: 0,
+        diagnosis: 'Belum ada transaksi tercatat pada periode ini.',
+      );
     }
 
     final netCashFlow = income - expense;
@@ -849,6 +861,51 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
     );
   }
 
+  Widget _buildEmptyAnalysisState(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF1F5F9),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.insights_rounded,
+                size: 26,
+                color: isDark ? const Color(0xFF6F8197) : const Color(0xFF94A3B8),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Belum Ada Data Analisis',
+              style: GoogleFonts.interTight(
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Catat transaksi pengeluaran atau pemasukan pertama Anda untuk melihat skor kesehatan finansial, proyeksi arus kas, dan diagnosa otomatis.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.manrope(
+                color: isDark ? const Color(0xFF8CA7C5) : const Color(0xFF64748B),
+                fontSize: 12.5,
+                height: 1.45,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -949,11 +1006,17 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
-                children: [
-                  _buildFinancialHealthCard(provider, healthMetrics, isDark),
-                  const SizedBox(height: 12),
-                  _buildCashFlowStatsCard(provider, healthMetrics, isDark),
-                ],
+                children: healthMetrics.txCount == 0 &&
+                        healthMetrics.monthIncome == 0 &&
+                        healthMetrics.monthExpense == 0
+                    ? [
+                        _buildEmptyAnalysisState(isDark),
+                      ]
+                    : [
+                        _buildFinancialHealthCard(provider, healthMetrics, isDark),
+                        const SizedBox(height: 12),
+                        _buildCashFlowStatsCard(provider, healthMetrics, isDark),
+                      ],
               ),
             ),
           ],
@@ -974,12 +1037,15 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Financial Health Score & Diagnostics Card
-            _buildFinancialHealthCard(provider, healthMetrics, isDark),
-            const SizedBox(height: 12),
-
-            // Financial Velocity & Cash Flow Stats Card
-            _buildCashFlowStatsCard(provider, healthMetrics, isDark),
+            if (healthMetrics.txCount == 0 &&
+                healthMetrics.monthIncome == 0 &&
+                healthMetrics.monthExpense == 0)
+              _buildEmptyAnalysisState(isDark)
+            else ...[
+              _buildFinancialHealthCard(provider, healthMetrics, isDark),
+              const SizedBox(height: 12),
+              _buildCashFlowStatsCard(provider, healthMetrics, isDark),
+            ],
           ],
         ),
       ),

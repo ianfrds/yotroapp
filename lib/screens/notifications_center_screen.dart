@@ -10,7 +10,6 @@ import '../theme/app_colors.dart';
 import '../widgets/app_snackbar.dart';
 import '../widgets/nested_card.dart';
 import '../widgets/standard_screen_header.dart';
-import 'notification_reader_screen.dart';
 
 class NotificationsCenterScreen extends StatelessWidget {
   const NotificationsCenterScreen({super.key});
@@ -44,16 +43,12 @@ class NotificationsCenterScreen extends StatelessWidget {
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
           children: [
-            // Standard Screen Header with Settings Action
+            // Standard Screen Header
             StandardScreenHeader(
               title: 'Notifikasi',
-              actionWidget: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (provider.pendingNotificationsCount > 0)
-                    Container(
+              actionWidget: provider.pendingNotificationsCount > 0
+                  ? Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      margin: const EdgeInsets.only(right: 8),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFF6B7A),
                         borderRadius: BorderRadius.circular(10),
@@ -66,18 +61,8 @@ class NotificationsCenterScreen extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                    ),
-                  IconButton(
-                    onPressed: () => Navigator.push(context, NotificationReaderScreen.route()),
-                    icon: Icon(
-                      Icons.tune_rounded,
-                      size: 20,
-                      color: textColor,
-                    ),
-                    tooltip: 'Pengaturan Pembaca Notifikasi',
-                  ),
-                ],
-              ),
+                    )
+                  : null,
             ),
             const SizedBox(height: 12),
 
@@ -128,7 +113,6 @@ class NotificationsCenterScreen extends StatelessWidget {
                       },
                     ),
             ),
-
             const SizedBox(height: 12),
 
             // Section 2: Activity Notifications Log

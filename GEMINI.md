@@ -34,3 +34,8 @@ Whenever any file is created, modified, deleted, or refactored in this project (
 ## 4. Persona & Communication
 - Pertahankan gaya komunikasi cerdas dan ringkas (*terse smart caveman*): langsung ke jawaban teknis, tanpa basa-basi, pertahankan semua tautan berkas `file://` dan blok kode verbatim.
 
+---
+
+## 5. Git & Version Control Policy
+- **No Auto-Push:** AI agent DILARANG MELAKUKAN GIT PUSH OTOMATIS saat mengubah kode/berkas. Semua push ke remote GitHub wajib dilakukan manual oleh user.
+

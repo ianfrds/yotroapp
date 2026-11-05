@@ -24,8 +24,8 @@ void main() {
       final expenses = provider.getCategories(TransactionType.expense);
       final incomes = provider.getCategories(TransactionType.income);
 
-      expect(expenses.any((c) => c.name == 'Food & Beverage'), isTrue);
-      expect(incomes.any((c) => c.name == 'Salary'), isTrue);
+      expect(expenses.any((c) => c.name == 'Makanan & Minuman' || c.name == 'Food & Beverage'), isTrue);
+      expect(incomes.any((c) => c.name == 'Gaji' || c.name == 'Salary'), isTrue);
     });
 
     test('Add custom Tabler category and Emoji category', () async {
@@ -151,7 +151,7 @@ void main() {
       expect(find.text('Kelola Kategori'), findsOneWidget);
       expect(find.textContaining('Pengeluaran'), findsWidgets);
       expect(find.textContaining('Pemasukan'), findsWidgets);
-      expect(find.text('Food & Beverage'), findsOneWidget);
+      expect(find.text('Makanan & Minuman'), findsOneWidget);
 
       // Tap Tambah button - opens new page EditCategoryScreen
       await tester.tap(find.text('Tambah'));

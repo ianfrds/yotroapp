@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:notification_listener_service/notification_listener_service.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import '../config/app_capabilities.dart';
@@ -225,74 +224,9 @@ class NativeNotificationService {
     }
   }
 
-  // --- Notification Listener Service (Real-time Detection) ---
-
-  Future<bool> isListenerPermissionGranted() async {
-    if (!AppCapabilities.notificationReaderEnabled ||
-        !_isSupportedMobile ||
-        !Platform.isAndroid) {
-      return false;
-    }
-    try {
-      return await NotificationListenerService.isPermissionGranted();
-    } catch (_) {
-      return false;
-    }
-  }
-
-  Future<bool> requestListenerPermission() async {
-    if (!AppCapabilities.notificationReaderEnabled ||
-        !_isSupportedMobile ||
-        !Platform.isAndroid) {
-      return false;
-    }
-    try {
-      return await NotificationListenerService.requestPermission();
-    } catch (_) {
-      return false;
-    }
-  }
-
-  void startListening(NotificationReceivedCallback onNotificationReceived) {
-    if (!AppCapabilities.notificationReaderEnabled ||
-        !_isSupportedMobile ||
-        !Platform.isAndroid) {
-      return;
-    }
-    _subscription?.cancel();
-
-    try {
-      _subscription = NotificationListenerService.notificationsStream.listen(
-        (event) {
-          if (event.hasRemoved) return;
-          final title = (event.title ?? '').trim();
-          final content = (event.content ?? '').trim();
-          final packageName = (event.packageName ?? '').trim();
-
-          // Ignore self-generated notifications
-          if (packageName == 'com.moneytracker.app') return;
-          if (title.isEmpty && content.isEmpty) return;
-
-          final fullText = '$title $content'.trim();
-          final appName =
-              title.isNotEmpty ? title : packageName.split('.').last;
-          onNotificationReceived(
-            sourceApp: appName,
-            message: fullText,
-            packageName: packageName,
-          );
-        },
-        onError: (err) {
-          debugPrint('NotificationListenerStream error: $err');
-        },
-      );
-    } catch (e) {
-      debugPrint('Error starting notification listener stream: $e');
-    }
-  }
-
-  void stopListening() {
-    _subscription?.cancel();
-    _subscription = null;
-  }
+  // Notification reader permanently disabled for sideload safety
+  Future<bool> isListenerPermissionGranted() async => false;
+  Future<bool> requestListenerPermission() async => false;
+  void startListening(dynamic onNotificationReceived) {}
+  void stopListening() {}
 }

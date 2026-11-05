@@ -215,18 +215,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final sortedBreakdown = breakdownRaw.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    // Fallback seed categories if breakdown is empty
-    final breakdownList = sortedBreakdown.isNotEmpty
-        ? sortedBreakdown
-        : (isExpense
-            ? [
-                const MapEntry('Food & Beverage', 320000.0),
-                const MapEntry('Bills & Utilities', 54000.0),
-                const MapEntry('Transportation', 14000.0),
-              ]
-            : [
-                const MapEntry('Salary', 4000000.0),
-              ]);
+    // Category breakdown list
+    final breakdownList = sortedBreakdown;
 
     final totalAmount =
         breakdownList.fold<double>(0.0, (sum, item) => sum + item.value);
@@ -383,7 +373,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             // 3. Hero Report Card with Donut / Bar Toggle (Sejajar space-between)
             NestedCard(
               title: isExpense ? 'Aktivitas Pengeluaran' : 'Aktivitas Pemasukan',
-              actionWidget: _buildChartSwitch(isDark),
+              actionWidget: breakdownList.isNotEmpty ? _buildChartSwitch(isDark) : null,
               child: Padding(
                 padding: EdgeInsets.fromLTRB(
                   14,
@@ -391,21 +381,23 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   14,
                   _chartMode == ChartViewMode.bar ? 16 : 22,
                 ),
-                child: _chartMode == ChartViewMode.donut
-                    ? _buildDonutChartSection(
-                        breakdownList: breakdownList,
-                        totalAmount: totalAmount,
-                        activeIndex: activeIndex,
-                        isExpense: isExpense,
-                        provider: provider,
-                        isDark: isDark,
-                      )
-                    : WeeklyActivityChart(
-                        type: provider.analyticsTab,
-                        showCard: false,
-                        selectedMonth: _selectedMonth,
-                        enableWeekFilter: true,
-                      ),
+                child: breakdownList.isEmpty
+                    ? _buildEmptyChartSection(isDark, isExpense)
+                    : (_chartMode == ChartViewMode.donut
+                        ? _buildDonutChartSection(
+                            breakdownList: breakdownList,
+                            totalAmount: totalAmount,
+                            activeIndex: activeIndex,
+                            isExpense: isExpense,
+                            provider: provider,
+                            isDark: isDark,
+                          )
+                        : WeeklyActivityChart(
+                            type: provider.analyticsTab,
+                            showCard: false,
+                            selectedMonth: _selectedMonth,
+                            enableWeekFilter: true,
+                          )),
               ),
             ),
             const SizedBox(height: 12),
@@ -413,10 +405,35 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             // 4. Category Breakdown Section (NestedCard Pattern)
             NestedCard(
               title: isExpense ? 'Rincian Pengeluaran' : 'Rincian Pemasukan',
-              action: 'Total: ${provider.formatCurrency(totalAmount)}',
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: ListView.separated(
+              action: breakdownList.isNotEmpty
+                  ? 'Total: ${provider.formatCurrency(totalAmount)}'
+                  : null,
+              child: breakdownList.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.donut_large_rounded,
+                              size: 32,
+                              color: isDark ? const Color(0xFF6F8197) : const Color(0xFF94A3B8),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              'Belum ada rincian transaksi ${isExpense ? "pengeluaran" : "pemasukan"}.',
+                              style: GoogleFonts.manrope(
+                                color: isDark ? const Color(0xFF8CA7C5) : const Color(0xFF64748B),
+                                fontSize: 12.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: breakdownList.length,
@@ -561,6 +578,49 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     );
                   },
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyChartSection(bool isDark, bool isExpense) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      child: Center(
+        child: Column(
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF1F5F9),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.pie_chart_outline_rounded,
+                size: 24,
+                color: isDark ? const Color(0xFF6F8197) : const Color(0xFF94A3B8),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Belum Ada Transaksi',
+              style: GoogleFonts.interTight(
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Belum ada data ${isExpense ? 'pengeluaran' : 'pemasukan'} pada periode ini.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.manrope(
+                color: isDark ? const Color(0xFF8CA7C5) : const Color(0xFF64748B),
+                fontSize: 12,
               ),
             ),
           ],

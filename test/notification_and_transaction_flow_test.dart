@@ -71,6 +71,66 @@ void main() {
       await tester.tap(find.text('Catat Transaksi Lain'));
       expect(addAnotherTapped, isTrue);
     });
+
+    testWidgets('TransactionSuccessScreen auto redirects to home after 5 seconds', (tester) async {
+      bool homeRedirected = false;
+
+      final tx = TransactionModel(
+        id: 'tx_success_auto',
+        title: 'Beli Bensin',
+        amount: 50000.0,
+        type: TransactionType.expense,
+        categoryId: 'transport',
+        categoryName: 'Transportasi',
+        walletId: 'w_cash',
+        timestamp: DateTime(2026, 11, 4, 14, 0),
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: TransactionSuccessScreen(
+          transaction: tx,
+          onBackToHome: () => homeRedirected = true,
+        ),
+      ));
+
+      // Pump animation frames
+      await tester.pump(const Duration(milliseconds: 1000));
+      expect(homeRedirected, isFalse);
+
+      // Advance 5 seconds
+      await tester.pump(const Duration(seconds: 5));
+      expect(homeRedirected, isTrue);
+    });
+
+    testWidgets('TransactionSuccessScreen strictly respects anti-slop font semibold constraint', (tester) async {
+      final tx = TransactionModel(
+        id: 'tx_success_font',
+        title: 'Uji Font',
+        amount: 25000.0,
+        type: TransactionType.expense,
+        categoryId: 'other',
+        categoryName: 'Lainnya',
+        walletId: 'w_cash',
+        timestamp: DateTime(2026, 11, 4, 15, 0),
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: TransactionSuccessScreen(transaction: tx),
+      ));
+      await tester.pumpAndSettle();
+
+      // Ensure no bold (w700, w800, w900, bold) texts exist
+      final allTexts = tester.widgetList<Text>(find.byType(Text));
+      for (final text in allTexts) {
+        if (text.style != null && text.style!.fontWeight != null) {
+          expect(
+            text.style!.fontWeight!.index <= FontWeight.w600.index,
+            isTrue,
+            reason: 'Text "${text.data}" should not exceed semibold (w600), but was ${text.style!.fontWeight}',
+          );
+        }
+      }
+    });
   });
 
   group('Delete Transaction Confirmation Dialog Tests', () {

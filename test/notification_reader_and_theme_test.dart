@@ -7,7 +7,6 @@ import 'package:money_tracker/models/category_model.dart';
 import 'package:money_tracker/models/notification_rule_model.dart';
 import 'package:money_tracker/providers/transaction_provider.dart';
 import 'package:money_tracker/screens/dashboard_screen.dart';
-import 'package:money_tracker/screens/notification_reader_screen.dart';
 import 'package:money_tracker/screens/settings_screen.dart';
 
 void main() {
@@ -156,7 +155,7 @@ void main() {
       expect(find.text('Notifikasi & Pengingat'), findsOneWidget);
       expect(find.text('Izin Notifikasi Sistem'), findsOneWidget);
       expect(find.text('Pengingat Transaksi Harian'), findsOneWidget);
-      expect(find.text('Pembaca Notifikasi'), findsOneWidget);
+      expect(find.text('Tes Notifikasi HP'), findsOneWidget);
     });
   });
 
@@ -319,25 +318,17 @@ void main() {
       expect(provider.pendingNotifications, isEmpty);
     });
 
-    testWidgets('Notification Reader screen runs simulation chip correctly', (tester) async {
-      tester.view.physicalSize = const Size(800, 1600);
-      tester.view.devicePixelRatio = 2.0;
-      addTearDown(() => tester.view.resetPhysicalSize());
-
+    test('Pending notification approval is handled cleanly in provider', () async {
       final provider = TransactionProvider();
-
-      await tester.pumpWidget(buildApp(const NotificationReaderScreen(), provider));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Pembaca Notifikasi'), findsWidgets);
-      expect(find.text('Uji Coba Deteksi Notifikasi'), findsOneWidget);
-
-      // Tap myBCA simulation chip
-      await tester.tap(find.text('myBCA: QRIS Rp 45.000'));
-      await tester.pumpAndSettle();
-
-      // Expect 1 pending notification in provider
+      await provider.processIncomingNotification(
+        sourceApp: 'myBCA',
+        message: 'myBCA: QRIS Rp 45.000',
+      );
       expect(provider.pendingNotifications.length, equals(1));
+
+      final id = provider.pendingNotifications.first.id;
+      await provider.rejectNotification(id);
+      expect(provider.pendingNotifications, isEmpty);
     });
   });
 }

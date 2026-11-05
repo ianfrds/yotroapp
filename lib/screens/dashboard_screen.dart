@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -16,8 +17,8 @@ import 'budget_screen.dart';
 import 'wallets_screen.dart';
 import 'financial_analysis_screen.dart';
 import 'split_bill_screen.dart';
-import 'notification_reader_screen.dart';
 import 'notifications_center_screen.dart';
+import 'onboarding_profile_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   final ValueChanged<int>? onNavigateTab;
@@ -122,18 +123,64 @@ class DashboardScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 1),
-              Text(
-                provider.userName.isNotEmpty ? provider.userName : 'Pengguna Yotro',
-                style: GoogleFonts.interTight(
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: -0.2,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      provider.userName.isNotEmpty ? provider.userName : 'Pengguna Yotro',
+                      style: GoogleFonts.interTight(
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: -0.2,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Text('👋', style: TextStyle(fontSize: 15)),
+                ],
               ),
             ],
           ),
         ),
+        if (kIsWeb) ...[
+          InkWell(
+            onTap: () => _confirmWebLogout(context, provider),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF131A26) : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF55C7FF).withOpacity(0.3) : const Color(0xFFCBD5E1),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.logout_rounded,
+                    size: 14,
+                    color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF0F172A),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Logout',
+                    style: GoogleFonts.manrope(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF0F172A),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
         Stack(
           clipBehavior: Clip.none,
           children: [
@@ -172,6 +219,98 @@ class DashboardScreen extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+
+  void _confirmWebLogout(BuildContext context, TransactionProvider provider) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF0C131D) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border(
+            top: BorderSide(
+              color: isDark ? Colors.white.withOpacity(0.1) : const Color(0xFFE2E8F0),
+            ),
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.2) : const Color(0xFFCBD5E1),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Keluar Akun (Uji Onboarding)',
+                style: GoogleFonts.interTight(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Sesi onboarding akan di-reset agar Anda dapat langsung menguji tampilan onboarding profil baru.',
+                style: GoogleFonts.manrope(
+                  fontSize: 13,
+                  color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Text('Batal', style: GoogleFonts.manrope(fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        await provider.logout();
+                        if (!context.mounted) return;
+                        Navigator.of(context).pushAndRemoveUntil(
+                          OnboardingProfileScreen.route(),
+                          (route) => false,
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFF3B30),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Text('Keluar & Reset', style: GoogleFonts.manrope(fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

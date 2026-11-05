@@ -69,9 +69,9 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
                 onBack: () => Navigator.pop(context),
                 actionWidget: InkWell(
                   onTap: () {
-                    Navigator.push(
+                    EditCategoryScreen.showAsModalSheet(
                       context,
-                      EditCategoryScreen.route(initialType: _selectedTab),
+                      initialType: _selectedTab,
                     ).then((_) {
                       if (_scrollController.hasClients) {
                         _scrollController.jumpTo(0.0);
@@ -301,16 +301,14 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
                 ),
               ),
 
-              // Edit Action -> Navigates to EditCategoryScreen
+              // Edit Action -> Opens EditCategoryScreen modal sheet
               IconButton(
                 tooltip: 'Ubah kategori',
                 onPressed: () {
-                  Navigator.push(
+                  EditCategoryScreen.showAsModalSheet(
                     context,
-                    EditCategoryScreen.route(
-                      initialType: cat.type,
-                      categoryToEdit: cat,
-                    ),
+                    initialType: cat.type,
+                    categoryToEdit: cat,
                   ).then((_) {
                     if (_scrollController.hasClients) {
                       _scrollController.jumpTo(0.0);
