@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application>
+        <!-- Internet-sideloaded apps declaring a notification listener are
+             automatically blocked by Play Protect in supported markets. -->
+        <service
+            android:name="notification.listener.service.NotificationListener"
+            tools:node="remove" />
+    </application>
+</manifest>
