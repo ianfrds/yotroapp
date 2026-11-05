@@ -39,20 +39,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Selamat Datang'), findsOneWidget);
-      expect(find.text('Nama Lengkap'), findsOneWidget);
+      expect(find.text('Nama Lengkap *'), findsOneWidget);
       expect(find.text('Nomor Telepon (Opsional)'), findsOneWidget);
-      expect(find.text('Jenis Kelamin'), findsOneWidget);
-      expect(find.text('Pria'), findsOneWidget);
-      expect(find.text('Wanita'), findsOneWidget);
-      expect(find.text('Izin Notifikasi Otomatis'), findsOneWidget);
 
       // Enter name & phone
       await tester.enterText(find.byType(TextField).first, 'Budi Santoso');
       await tester.enterText(find.byType(TextField).at(1), '081299998888');
-      await tester.pumpAndSettle();
-
-      // Tap Wanita
-      await tester.tap(find.text('Wanita'));
       await tester.pumpAndSettle();
 
       // Tap submit button
@@ -62,7 +54,6 @@ void main() {
       expect(provider.isOnboardingCompleted, isTrue);
       expect(provider.userName, 'Budi Santoso');
       expect(provider.userPhone, '081299998888');
-      expect(provider.userGender, 'Wanita');
     });
 
     testWidgets('TransactionProvider logout resets isOnboardingCompleted to false', (tester) async {

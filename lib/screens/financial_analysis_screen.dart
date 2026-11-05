@@ -409,9 +409,41 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Kritis', style: GoogleFonts.manrope(color: isDark ? const Color(0xFF65788F) : const Color(0xFF94A3B8), fontSize: 9.5)),
-                          Text('Waspada', style: GoogleFonts.manrope(color: isDark ? const Color(0xFF65788F) : const Color(0xFF94A3B8), fontSize: 9.5)),
-                          Text('Sehat', style: GoogleFonts.manrope(color: isDark ? const Color(0xFF65788F) : const Color(0xFF94A3B8), fontSize: 9.5)),
+                          Flexible(
+                            child: Text(
+                              'Kritis',
+                              style: GoogleFonts.manrope(
+                                color: isDark ? const Color(0xFF65788F) : const Color(0xFF94A3B8),
+                                fontSize: 9.0,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                          Flexible(
+                            child: Text(
+                              'Waspada',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.manrope(
+                                color: isDark ? const Color(0xFF65788F) : const Color(0xFF94A3B8),
+                                fontSize: 9.0,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                          Flexible(
+                            child: Text(
+                              'Sehat',
+                              textAlign: TextAlign.right,
+                              style: GoogleFonts.manrope(
+                                color: isDark ? const Color(0xFF65788F) : const Color(0xFF94A3B8),
+                                fontSize: 9.0,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
                         ],
                       ),
                     ],

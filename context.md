@@ -379,7 +379,8 @@ money-tracker/
   - **Pulihkan Data (Restore):** Validasi format JSON otomatis (`validateBackupJson`), menampilkan ringkasan transaksi & dompet yang terdeteksi, serta dua pilihan aksi pemulihan aman: `Merge Data` (menggabungkan tanpa duplikasi ID) atau `Replace Data` (menimpa seluruh database) dalam bottom sheet modal.
 - **4. Zona Bahaya (Danger Zone — Modal Bottom Sheet):**
   - **Kosongkan Riwayat Transaksi:** Bottom sheet konfirmasi merah untuk menghapus seluruh riwayat mutasi dan menolkan saldo rekening.
-  - **Reset ke Data Bawaan (Factory Seed):** Bottom sheet konfirmasi oranye untuk mengembalikan state awal aplikasi (6 transaksi demo, 3 dompet, dan saldo contoh).
+  - **Reset ke Data Bawaan (Factory Seed):** Menyetel nama default pengguna menjadi **"John Doe"** dan memuat 17 transaksi realistis lintas 4 dompet dan 5 kategori anggaran.
+  - **Catatan Pembersihan:** Tombol "Keluar Akun (Uji Onboarding)" telah dihapus permanen dari zona bahaya dan beranda agar APK rilis bersih tanpa opsi logout pengujian.
 - **5. Tentang Aplikasi & Keamanan:**
   - Badge `Offline-First` hijau pada header.
   - Keterangan status database lokal (`SharedPreferences`), nihil pelacakan cloud, dan arsitektur anti-slop.
@@ -832,10 +833,20 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
   - **Penyelarasan Kolom & Spacing Rapat:** Icon dibungkus wadah tetap 22px sehingga teks label (Dompet, Kategori, Tipe, Waktu) rata vertikal persis, nilai kanan diperlebar fleksibel (tanpa terpotong ellipsis), dan jarak antar-baris dirapatkan menjadi 8px.
   - **Disiplin Tipografi Semibold:** Menghapus seluruh bobot bold/w700/w800, dibatasi maksimal `FontWeight.w600` (semibold) pada judul, nominal, dan isi.
   - **Standardisasi Tombol Reusable:** Tombol primer "Kembali ke Beranda" menggunakan Sapphire Blue (`#0066FF`), tombol sekunder "Catat Transaksi Lain" menggunakan `OutlinedButton`, keduanya seragam tinggi 48px dan radius 14px.
+- [x] Penghapusan Tombol Keluar Akun & Penyesuaian Reset Data Bawaan ([`lib/screens/settings_screen.dart`](lib/screens/settings_screen.dart), [`lib/screens/dashboard_screen.dart`](lib/screens/dashboard_screen.dart), [`lib/providers/transaction_provider.dart`](lib/providers/transaction_provider.dart)):
+  - Menghapus tombol "Keluar Akun (Uji Onboarding)" dari layar Pengaturan (Zona Bahaya) dan Beranda agar rilis APK bersih tanpa tombol logout uji coba.
+  - Memperbarui tombol "Reset ke Data Bawaan": menyetel nama pengguna default ke **"John Doe"** dan mengisi dataset realistis yang banyak (17 transaksi berbagai tanggal, 4 dompet aktif, dan 5 limit budget kategori).
+- [x] Redesain Total Onboarding Profile Anti-Scroll ([`lib/screens/onboarding_profile_screen.dart`](lib/screens/onboarding_profile_screen.dart)):
+  - Tampilan dirancang compact (~410px total tinggi kartu) yang pas di seluruh layar handphone tanpa perlu scrolling (*zero-scroll*).
+  - Mengikuti referensi visual: logo/emblem di atas, judul "Selamat Datang", subjudul ringkas 1 baris, kartu mengambang frosted (`#0E1726`), input "Nama Lengkap *", input "Nomor Telepon (Opsional)", dan tombol utama "Mulai Aplikasi" (Sapphire `#0066FF`, 48px, radius 12px, semibold).
+  - Menghapus elemen penggelembung (callout izin notifikasi & selector gender) dan menyertakan disclaimer 1 baris elegan di bawah kartu: *"Seluruh data tersimpan 100% aman di perangkat lokal."*
+- [x] Pencegahan Overflow Layar Finansial & Grafik Anggaran ([`lib/screens/financial_analysis_screen.dart`](lib/screens/financial_analysis_screen.dart), [`lib/screens/budget_detail_screen.dart`](lib/screens/budget_detail_screen.dart)):
+  - Membungkus label status meter skor (`Kritis`, `Waspada`, `Sehat`) dalam `Flexible` ber-`TextOverflow.ellipsis` agar aman di viewport sempit.
+  - Membatasi rentang grafik batang pengeluaran di `BudgetDetailScreen` ke maksimal 7 hari aktif terbaru dan menyelaraskan batang serta label tanggal X-axis dengan `Expanded` dan `FittedBox` sehingga bebas dari RenderFlex overflow.
 - [x] Kompilasi Ulang Web Release & Signed Release APK:
   - Seluruh 78 unit dan widget test lolos 100% (`flutter test`).
   - Web release diperbarui di `build/web/` dan live preview port `8080`.
-  - Android release APK diperbarui di [`yotro-app.apk`](yotro-app.apk) dan `build/web/yotro-app.apk` (61.5 MB).
+  - Android release APK diperbarui di [`yotro-app.apk`](yotro-app.apk) dan `build/web/yotro-app.apk`.
 - [x] Dokumentasi desain komprehensif di `design.md`.
 - [x] File handover AI context di `context.md`.
 - [x] Aturan otomatisasi workspace agent di `AGENTS.md` dan `GEMINI.md` (auto-sync `context.md`).

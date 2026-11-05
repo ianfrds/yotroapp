@@ -906,6 +906,9 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
       );
     }
 
+    // Limit displayed chart days to the last 7 active days to ensure optimal spacing and zero overflow
+    final displayDays = activeDays.length > 7 ? activeDays.sublist(activeDays.length - 7) : activeDays;
+
     // Determine scale ticks based on max single day spending
     final double maxSpent = dailyExpenses.values.fold(0.0, (m, v) => math.max(m, v));
     final double scaleMax = _calculateNiceScaleMax(maxSpent);
@@ -1068,9 +1071,8 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
                               builder: (ctx, constraints) {
                                 final plotHeight = constraints.maxHeight;
                                 return Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                                   crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: activeDays.map((day) {
+                                  children: displayDays.map((day) {
                                     final spent = dailyExpenses[day] ?? 0.0;
                                     final ratio = (spent / scaleMax).clamp(0.04, 1.0);
                                     final barHeight = (plotHeight * ratio).clamp(6.0, plotHeight);
@@ -1079,35 +1081,39 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
                                         _selectedChartDate!.month == day.month &&
                                         _selectedChartDate!.day == day.day;
 
-                                    return InkWell(
-                                      onTap: () {
-                                        setState(() {
-                                          _selectedChartDate = isSelected ? null : day;
-                                        });
-                                      },
-                                      borderRadius: BorderRadius.circular(6),
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                                        child: Container(
-                                          width: 14,
-                                          height: barHeight,
-                                          decoration: BoxDecoration(
-                                            color: isSelected
-                                                ? const Color(0xFFFF5252)
-                                                : const Color(0xFFEF4444),
-                                            borderRadius: const BorderRadius.vertical(
-                                              top: Radius.circular(5),
-                                              bottom: Radius.circular(2),
+                                    return Expanded(
+                                      child: Center(
+                                        child: InkWell(
+                                          onTap: () {
+                                            setState(() {
+                                              _selectedChartDate = isSelected ? null : day;
+                                            });
+                                          },
+                                          borderRadius: BorderRadius.circular(6),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 2),
+                                            child: Container(
+                                              width: 14,
+                                              height: barHeight,
+                                              decoration: BoxDecoration(
+                                                color: isSelected
+                                                    ? const Color(0xFFFF5252)
+                                                    : const Color(0xFFEF4444),
+                                                borderRadius: const BorderRadius.vertical(
+                                                  top: Radius.circular(5),
+                                                  bottom: Radius.circular(2),
+                                                ),
+                                                boxShadow: isSelected
+                                                    ? [
+                                                        BoxShadow(
+                                                          color: const Color(0xFFEF4444).withOpacity(0.6),
+                                                          blurRadius: 8,
+                                                          spreadRadius: 1,
+                                                        ),
+                                                      ]
+                                                    : null,
+                                              ),
                                             ),
-                                            boxShadow: isSelected
-                                                ? [
-                                                    BoxShadow(
-                                                      color: const Color(0xFFEF4444).withOpacity(0.6),
-                                                      blurRadius: 8,
-                                                      spreadRadius: 1,
-                                                    ),
-                                                  ]
-                                                : null,
                                           ),
                                         ),
                                       ),
@@ -1125,27 +1131,33 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
                     SizedBox(
                       height: 14,
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: activeDays.map((day) {
+                        children: displayDays.map((day) {
                           final isSelected = _selectedChartDate != null &&
                               _selectedChartDate!.year == day.year &&
                               _selectedChartDate!.month == day.month &&
                               _selectedChartDate!.day == day.day;
 
-                          return InkWell(
-                            onTap: () {
-                              setState(() {
-                                _selectedChartDate = isSelected ? null : day;
-                              });
-                            },
-                            child: Text(
-                              DateFormat('dd/MM').format(day),
-                              style: GoogleFonts.manrope(
-                                color: isSelected
-                                    ? (isDark ? Colors.white : const Color(0xFF0F172A))
-                                    : textMuted,
-                                fontSize: 9.5,
-                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          return Expanded(
+                            child: Center(
+                              child: InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedChartDate = isSelected ? null : day;
+                                  });
+                                },
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    DateFormat('dd/MM').format(day),
+                                    style: GoogleFonts.manrope(
+                                      color: isSelected
+                                          ? (isDark ? Colors.white : const Color(0xFF0F172A))
+                                          : textMuted,
+                                      fontSize: 9.5,
+                                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                           );

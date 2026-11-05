@@ -920,18 +920,6 @@ class SettingsScreen extends StatelessWidget {
           trailing:
               Icon(Icons.chevron_right_rounded, color: mutedColor, size: 20),
         ),
-        _buildDivider(context),
-        _buildSettingRow(
-          context: context,
-          icon: Icons.logout_rounded,
-          iconColor: const Color(0xFF55C7FF),
-          iconBg: const Color(0xFF55C7FF).withOpacity(0.14),
-          title: 'Keluar Akun (Uji Onboarding)',
-          subtitle: 'Reset sesi onboarding untuk menguji layar profil onboarding baru',
-          onTap: () => _showLogoutSheet(context, provider),
-          trailing:
-              Icon(Icons.chevron_right_rounded, color: mutedColor, size: 20),
-        ),
       ],
     );
   }
@@ -2146,76 +2134,6 @@ class SettingsScreen extends StatelessWidget {
                   child: Text('Reset Bawaan',
                       style: GoogleFonts.manrope(
                           color: Colors.white, fontWeight: FontWeight.w600)),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showLogoutSheet(
-      BuildContext context, TransactionProvider provider) {
-    _showModalCardSheet(
-      context: context,
-      title: 'Keluar Akun (Uji Onboarding)?',
-      titleIcon: Icons.logout_rounded,
-      titleIconColor: const Color(0xFF55C7FF),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF55C7FF).withOpacity(0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF55C7FF).withOpacity(0.25)),
-            ),
-            child: Text(
-              'Sesi onboarding akan di-reset agar Anda dapat langsung menguji tampilan onboarding pengisian profil baru.',
-              style: GoogleFonts.manrope(
-                  color: const Color(0xFF8EA4BE), fontSize: 12.5, height: 1.4),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    side: BorderSide(color: Colors.white.withOpacity(0.12)),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () => Navigator.pop(context),
-                  child: Text('Batal',
-                      style: GoogleFonts.manrope(
-                          color: Colors.white, fontWeight: FontWeight.w600)),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF3B30),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () async {
-                    Navigator.pop(context);
-                    await provider.logout();
-                    if (!context.mounted) return;
-                    Navigator.of(context).pushAndRemoveUntil(
-                      OnboardingProfileScreen.route(),
-                      (route) => false,
-                    );
-                  },
-                  child: Text('Keluar & Reset',
-                      style: GoogleFonts.manrope(fontWeight: FontWeight.w600)),
                 ),
               ),
             ],
