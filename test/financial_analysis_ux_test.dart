@@ -55,11 +55,11 @@ void main() {
       expect(find.text('Tabungan (Uang Tersimpan)'), findsOneWidget);
       expect(find.text('Rasio Beban (Porsi Belanja)'), findsOneWidget);
       expect(find.text('Arus Kas (Sisa Uang Bersih)'), findsOneWidget);
-      expect(find.text('Rata-rata Harian & Proyeksi Akhir Bulan'), findsOneWidget);
+      expect(find.text('Kurva Alur & Donut Arus Kas'), findsOneWidget);
     });
 
     testWidgets('Displays layman financial health, cash flow, and budget guidance cards', (tester) async {
-      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.physicalSize = const Size(800, 2600);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
@@ -82,14 +82,15 @@ void main() {
       expect(find.text('Sangat Baik'), findsWidgets);
       expect(find.text('Catatan & Saran Keuangan'), findsOneWidget);
 
-      // Verify Card 2: Statistik & Arus Kas
-      expect(find.text('Statistik & Arus Kas'), findsOneWidget);
-      expect(find.text('Rata-rata Harian'), findsOneWidget);
-      expect(find.text('Proyeksi Akhir Bulan'), findsOneWidget);
-      expect(find.text('Rasio Pemasukan vs Pengeluaran'), findsOneWidget);
+      // Verify Card 2: Alur Pemasukan & Pengeluaran (Curve Chart)
+      expect(find.text('Alur Pemasukan & Pengeluaran'), findsOneWidget);
+
+      // Verify Card 3: Pemasukan vs Pengeluaran (Donut Chart)
+      expect(find.text('Pemasukan vs Pengeluaran'), findsOneWidget);
+      expect(find.text('Arus Kas Bersih'), findsOneWidget);
       expect(find.text('Pengeluaran Terbanyak'), findsOneWidget);
 
-      // Verify Card 3: Target & Anggaran Belanja (Budget = 0 CTA)
+      // Verify Card 4: Target & Anggaran Belanja (Budget = 0 CTA)
       await tester.scrollUntilVisible(find.text('Target & Anggaran Belanja'), 200);
       expect(find.text('Target & Anggaran Belanja'), findsOneWidget);
       expect(find.text('Ingin belanja lebih terarah?'), findsOneWidget);
@@ -97,7 +98,7 @@ void main() {
     });
 
     testWidgets('Budget guidance reflects active budget when limit is configured', (tester) async {
-      tester.view.physicalSize = const Size(800, 2000);
+      tester.view.physicalSize = const Size(800, 2600);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
@@ -111,6 +112,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
+      await tester.scrollUntilVisible(find.text('Pantauan Anggaran Bulanan'), 200);
       expect(find.text('Pantauan Anggaran Bulanan'), findsOneWidget);
       expect(find.textContaining('Batas: Rp 5.000.000'), findsOneWidget);
     });
@@ -133,7 +135,7 @@ void main() {
 
       // Find bridge banner
       expect(find.text('Cek Analisis Finansial & Saran'), findsOneWidget);
-      expect(find.text('Skor kesehatan, proyeksi akhir bulan, dan saran hemat'), findsOneWidget);
+      expect(find.text('Skor kesehatan, kurva arus kas, dan saran hemat'), findsOneWidget);
 
       // Tap banner to trigger bottom sheet
       await tester.tap(find.text('Cek Analisis Finansial & Saran'));

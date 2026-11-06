@@ -36,7 +36,7 @@ money-tracker/
 ├── assets/
 │   ├── icon/                       # Quick action vector SVGs (Analisis.svg, Budget.svg, Dompet.svg, Split Bill.svg)
 │   └── images/                     # Master assets (app_icon.png, logo.png, logo_splash.png) + onboarding_bg.jpg
-├── yotro-app.apk                   # Signed release APK v1.0.6+7 siap instal di HP (91 MB)
+├── yotro-app.apk                   # Signed release APK v1.0.6+7 ramping ARM64 siap instal di HP (33 MB)
 ├── web/
 │   ├── favicon.png                 # Official brand 32x32 favicon
 │   ├── icons/                      # Web icons (192x192, 512x512 maskable)
@@ -48,7 +48,14 @@ money-tracker/
 │   ├── widgets/
 │   │   ├── app_snackbar.dart       # High-contrast floating snackbar helper (anti-slop, rounded, with status icons)
 │   │   ├── standard_screen_header.dart # Header terstandarisasi untuk semua sub-halaman (tombol back + judul)
-│   ├── theme/
+│   │   ├── donut_chart_painter.dart # Reusable Annular Wedge Donut Chart CustomPainter berfillet lingkaran halus
+│   │   ├── semicircle_budget_gauge.dart # Semicircular speedometer gauge 180° untuk monitoring batas budget bulanan
+│   │   ├── receipt_adjustment_sheet.dart # Modal sheet penyesuaian data struk OCR & persetujuan catat transaksi
+│   │   ├── weekly_activity_chart.dart # Grafik batang aktivitas mingguan (single / dual bar)
+│   │   ├── spending_calendar_card.dart # Kalender pengeluaran harian
+│   │   ├── nested_card.dart        # Reusable card-inside-card container
+│   │   ├── modal_card_sheet.dart   # Reusable floating modal bottom sheet
+│   │   └── bottom_nav_bar.dart     # Fixed bottom nav bar dengan scooped cradle cutout dan 4 ikon vektor murni
 │   │   ├── app_colors.dart         # Token warna, gradien, dan palet gelap matte
 │   │   └── app_theme.dart          # Integrasi Forui & Google Fonts ThemeData
 │   ├── models/
@@ -237,7 +244,7 @@ money-tracker/
 ### 3.6 Reports & Analytics (Layar Laporan / Report Screen Redesign)
 - **Rhythm & Spasi Antar-Kartu (Universal 12px Spacing):**
   - Jarak spasi vertikal antar-kartu di Layar Laporan disamakan dengan Beranda menjadi `12px` (`const SizedBox(height: 12)`) antara Segmented Pill, Hero Report Card, dan Rincian Kategori.
-- **Default View Mode:** Saat layar Laporan pertama kali dibuka, visualisasi default adalah **Bar Chart** (`WeeklyActivityChart`), dengan tombol toggle cepat untuk beralih ke Donut Chart.
+- **Default View Mode:** Saat layar Laporan pertama kali dibuka, visualisasi default adalah **Donut Chart** (`ChartViewMode.donut`), dengan tombol toggle cepat untuk beralih ke Bar Chart.
 - **Top App Bar (Anti-Slop):**
   - Judul `Laporan Keuangan` (20px, `w600`, Inter Tight) di kiri tanpa tombol back (karena merupakan tab root bottom dock, bukan subpage).
   - Pill dropdown pemilih bulan (contoh: "November 2026 ∨") di kanan atas dengan modal bottom-sheet pemilih bulan.
@@ -495,9 +502,12 @@ money-tracker/
 ### 3.17 Pemindaian Struk Belanja OCR On-Device & Bilah Aksi 3 Tombol (`lib/screens/add_transaction_screen.dart`, `lib/widgets/receipt_adjustment_sheet.dart`)
 - **Bilah Aksi Bawah 3 Tombol (`AddTransactionScreen`):**
   - Menggantikan tombol simpan tunggal sebelumnya dengan bilah aksi 3 tombol horizontal presisi tinggi:
-    1. **Tombol Sirkular Kamera `[ 📷 ]` (Kiri, 48x48px):** Wadah bulat abu-abu terang `#E2E8F0` / dark-tint `#222D3D` dengan ikon `Icons.camera_alt_outlined` (22px). Mengetuk tombol membuka modal bottom sheet untuk memilih sumber: **Kamera** atau **Galeri Foto**.
+    1. **Tombol Sirkular Kamera `[ 📷 ]` (Kiri, 48x48px):** Outlined circular button (background transparan, border outline halus `1.2px` `rgba(255,255,255,0.18)` / `#CBD5E1`) dengan ikon `Icons.camera_alt_outlined` (22px). Mengetuk tombol membuka modal bottom sheet untuk memilih sumber: **Kamera** atau **Galeri Foto**.
     2. **Tombol Pill Utama `[ Simpan Transaksi ]` (Tengah, `Expanded`, tinggi 48px):** Tombol aksi utama biru safir `#2F91E4` dengan sudut bulat pill `BorderRadius.circular(24)`, teks putih bersih `Manrope w600 15px`.
-    3. **Tombol Sirkular Mikrofon `[ 🎙️ ]` (Kanan, 48x48px):** Wadah bulat abu-abu terang `#E2E8F0` / dark-tint `#222D3D` dengan ikon `Icons.mic_none_rounded` (22px). Dialokasikan untuk fitur input suara catatan transaksi rilis mendatang; saat ini menampilkan notifikasi info via `AppSnackBar`.
+    3. **Tombol Sirkular Mikrofon `[ 🎙️ ]` (Kanan, 48x48px):** Outlined circular button (background transparan, border outline halus `1.2px` `rgba(255,255,255,0.18)` / `#CBD5E1`) dengan ikon `Icons.mic_none_rounded` (22px). Dialokasikan untuk fitur input suara catatan transaksi rilis mendatang; saat ini menampilkan notifikasi info via `AppSnackBar`.
+- **Keyboard Hygiene pada Pemilihan Kategori (`AddTransactionScreen`):**
+  - Pemilihan kategori melalui modal bottom sheet `Lainnya` otomatis meng-unfocus dan menonaktifkan re-focus ke input nominal (`_amountFocusNode.canRequestFocus = false`).
+  - Setelah kategori dipilih dan sheet tertutup, keyboard tidak muncul kembali secara otomatis sehingga antarmuka tetap bersih dan tenang.
 - **Pemrosesan OCR 100% On-Device & Offline:**
   - Memanfaatkan `google_mlkit_text_recognition: ^1.0.0` (Latin script) dan `image_picker: ^1.2.4`.
   - Bersih dari dependensi cloud atau pengiriman gambar ke server luar, menjaga privasi finansial pengguna sepenuhnya.
@@ -517,6 +527,26 @@ money-tracker/
   - **Dua Tombol Alur Penyelesaian (Opsi 2 User Flow):**
     1. **"Setujui & Simpan" (Tombol Utama Safir):** 1-klik langsung mencatat transaksi pengeluaran baru ke `TransactionProvider`, menutup sheet, dan membuka layar sukses penuh `TransactionSuccessScreen`.
     2. **"Buka di Form" (Tombol Outlined):** Menerapkan nominal, merchant/catatan, tanggal, kategori, dan dompet yang telah disesuaikan langsung ke form `AddTransactionScreen` untuk pengisian tambahan.
+
+### 3.18 Redesain Analisis Keuangan: Half Circular Gauge, Kurva Alur, & Donut Chart (`lib/screens/financial_analysis_screen.dart`, `lib/widgets/donut_chart_painter.dart`)
+- **Half Circular Health Gauge (Arch 180°):**
+  - Menggantikan visual linear meter lama dengan busur setengah lingkaran murni (`_HalfCircularHealthPainter`) dari $\pi$ (180°) ke $2\pi$ (360°), dengan ujung melengkung halus `StrokeCap.round` (lebar stroke 14px) sesuai referensi wireframe.
+  - Background track berpalet gelap `#232D3B` (atau `#E2E8F0` di mode terang), progress arc dinamis sesuai skor 0-100 dengan warna status (`statusColor`).
+  - Indikator thumb knob sirkular putih dengan stroke warna status di ujung progres.
+  - Di dalam kubah busur: Display angka skor finansial besar `${metrics.score}` (`Inter Tight 38px bold`) berdampingan dengan ` / 100`, dan badge pill status kesehatan (misal `Sangat Baik` atau `Aman & Stabil`).
+  - Di bawah busur: **Baris 4 Zona Konteks** (`Kurang` <50 merah, `Waspada` 50-64 amber, `Aman` 65-79 cyan, `Sangat Baik` 80-100 hijau) dengan penyorotan aktif (*active highlight pill*) pada zona skor pengguna saat ini.
+- **Diagram Kurva Alur Pemasukan & Pengeluaran (`_CashFlowCurvePainter`):**
+  - Grafik garis kurva halus (*C1-continuous cubic bezier spline*) yang memetakan tren perputaran kas bulan terpilih pada interval tanggal kunci (`Tgl 1, 7, 14, 21, 28, Akhir Bulan`).
+  - Kurva Hijau (`#39D98A`) untuk Pemasukan dan Kurva Cyan (`#55C7FF`) untuk Pengeluaran, masing-masing dilengkapi area fill gradien vertikal lembut di bawah garis.
+  - Interaktif: Mengetuk checkpoint tanggal menampilkan baris kursor vertikal dan kartu info posisi tgl terpilih (`Posisi Tgl X: Masuk Rp ... | Keluar Rp ...`).
+- **Donut Chart Komparasi Pemasukan vs Pengeluaran (`DonutChartPainter`):**
+  - Menggunakan komponen `DonutChartPainter` bergaya annular rounded wedge presisi tinggi dengan sudut rounded 6px dan celah radial 3.5° identik dengan Laporan Keuangan.
+  - Bagian tengah donut memuat label `Arus Kas Bersih`, nominal bersih terformat, dan badge status `Surplus` / `Defisit`.
+  - Dilengkapi 2 kartu mini berdampingan (`Uang Masuk` & `Uang Keluar`) dengan persentase share perputaran kas, serta pod pengeluaran terbanyak.
+- **Eliminasi Metrik Lama:**
+  - Pod "Rata-rata Harian" (*Daily Burn Rate*) dan "Proyeksi Akhir Bulan" (*Projected Month-End Spend*) dihapus sepenuhnya dari layar analisis dan modal sheet panduan bantuan.
+- **Urutan Switch Tab Laporan Keuangan (`AnalyticsScreen`):**
+  - Urutan switcher ikon chart pada menu Laporan Keuangan dibalik: ikon Donut Chart (`Icons.pie_chart_rounded`) ditaruh di sebelah kiri, sedangkan ikon Bar Chart (`Icons.bar_chart_rounded`) di sebelah kanan. Default view mode adalah `ChartViewMode.donut`.
 
 ---
 
@@ -1021,11 +1051,24 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
     - **"Buka di Form"**: Memindahkan seluruh data yang disesuaikan langsung ke form input `AddTransactionScreen` untuk pengisian/penyesuaian lebih lanjut.
   - **Pengujian Lengkap**: 95 unit dan widget tests lolos 100% (`flutter test`).
   - **Web Parity & Rebuild**: Kompilasi `build/web/` terbaru dan sinkronisasi `build/web/yotro-app.apk` pada live server port 8080.
-- [x] Pembuatan Signed Release APK Android v1.0.6+7 ([`yotro-app.apk`](yotro-app.apk) & `build/web/yotro-app.apk`):
+- [x] Pembuatan Signed Release APK Android v1.0.6+7 Ramping ([`yotro-app.apk`](yotro-app.apk) & `build/web/yotro-app.apk`):
   - Konfigurasi ProGuard R8 rules di [`android/app/proguard-rules.pro`](android/app/proguard-rules.pro) untuk ML Kit Text Recognition (`-dontwarn com.google.mlkit.vision.text.**`).
-  - Berhasil mengompilasi signed release APK dengan JDK 17 dan Android SDK lokal: `build/app/outputs/flutter-apk/app-release.apk` (91 MB).
-  - Berkas disalin ke root [`yotro-app.apk`](yotro-app.apk) dan `build/web/yotro-app.apk`.
+  - Mengaktifkan tree-shaking font asset (`tabler-icons.ttf` dan `MaterialIcons-Regular.otf` susut 98%).
+  - Menerapkan arsitektur `--split-per-abi`: memangkas ukuran biner dari 91 MB menjadi **33 MB** (ARM64-v8a) untuk smartphone Android modern.
+  - Tersedia opsi biner: `yotro-app.apk` / `yotro-app-arm64.apk` (33 MB), `yotro-app-arm32.apk` (27 MB), dan `yotro-app-universal.apk` (91 MB).
   - Tombol download tersedia langsung di preview web Pengaturan > Tentang Aplikasi & Privasi > "Unduh APK Android (v1.0.6)".
+- [x] Pembaruan UI Laporan Keuangan, Outlined Action Bar, & Keyboard Isolation ([`lib/screens/analytics_screen.dart`](lib/screens/analytics_screen.dart), [`lib/screens/add_transaction_screen.dart`](lib/screens/add_transaction_screen.dart)):
+  - **Default Donut Chart**: Layar Laporan Keuangan kini membuka Donut Chart secara default (`ChartViewMode.donut`); tombol switch beralih ke Bar Chart.
+  - **Isolasi Keyboard Kategori**: Menutup modal sheet kategori `Lainnya` tidak lagi memicu keyboard muncul kembali secara otomatis (`_amountFocusNode.canRequestFocus = false`).
+  - **Outlined Action Buttons**: Tombol Kamera (OCR) dan Mikrofon di bilah aksi bawah `AddTransactionScreen` diubah menjadi gaya Outlined Button melingkar transparan dengan border outline 1.2px.
+  - **Uji Suite & Paritas Web**: Seluruh 98 tests lolos 100% dan build web `build/web/` dikompilasi ulang serta dijalankan pada `http://localhost:8080/`.
+- [x] Redesain Analisis Keuangan: Half Circular Gauge, Kurva Alur, & Donut Komparasi ([`lib/screens/financial_analysis_screen.dart`](lib/screens/financial_analysis_screen.dart), [`lib/widgets/donut_chart_painter.dart`](lib/widgets/donut_chart_painter.dart), [`lib/screens/analytics_screen.dart`](lib/screens/analytics_screen.dart)):
+  - **Switcher Tab Laporan Keuangan**: Urutan dibalik — Donut chart di kiri (`Icons.pie_chart_rounded`) dan Bar chart di kanan (`Icons.bar_chart_rounded`).
+  - **Half Circular Health Gauge**: Busur setengah lingkaran murni 180° (`_HalfCircularHealthPainter`, stroke cap round) dengan angka skor besar di tengah, status badge, dan baris 4 zona konteks (Kurang, Waspada, Aman, Sangat Baik) ber-highlight aktif.
+  - **Diagram Kurva Alur Transaksi**: Smooth cubic bezier curve chart (`_CashFlowCurvePainter`) memetakan tren akumulasi uang masuk (hijau) vs uang keluar (cyan) sepanjang bulan terpilih dengan checkpoint interaktif.
+  - **Donut Chart Pemasukan vs Pengeluaran**: Annular wedge donut chart (`DonutChartPainter`) identik dengan style Laporan Keuangan, memuat nilai Arus Kas Bersih di tengah (Surplus/Defisit) dan breakdown kartu mini.
+  - **Hapus Metrik Lawas**: Menghapus pod "Rata-rata Harian" dan "Proyeksi Akhir Bulan" sepenuhnya dari layar analisis dan lembar panduan bantuan.
+  - **Pengujian & Build Web**: Seluruh 98 unit dan widget tests lulus 100%, Flutter Web release dikompilasi ulang ke `build/web/`, APK disinkronkan, dan live server aktif pada `http://localhost:8080/`.
 - [x] File handover AI context di `context.md`.
 - [x] Aturan otomatisasi workspace agent di `AGENTS.md` dan `GEMINI.md` (auto-sync `context.md`).
 

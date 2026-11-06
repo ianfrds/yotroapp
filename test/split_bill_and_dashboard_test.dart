@@ -89,7 +89,7 @@ void main() {
     });
 
     testWidgets('FinancialAnalysisScreen renders Financial Health and Cash Flow Stats cards', (tester) async {
-      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.physicalSize = const Size(800, 2400);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
@@ -107,11 +107,10 @@ void main() {
       expect(find.text('Rasio Beban'), findsOneWidget);
       expect(find.text('Arus Kas'), findsOneWidget);
 
-      // Cash Flow Stats Card
-      expect(find.text('Statistik & Arus Kas'), findsOneWidget);
-      expect(find.text('Rata-rata Harian'), findsOneWidget);
-      expect(find.text('Proyeksi Akhir Bulan'), findsOneWidget);
-      expect(find.text('Rasio Pemasukan vs Pengeluaran'), findsOneWidget);
+      // Cash Flow Curve & Donut Cards
+      expect(find.text('Alur Pemasukan & Pengeluaran'), findsOneWidget);
+      expect(find.text('Pemasukan vs Pengeluaran'), findsOneWidget);
+      expect(find.text('Arus Kas Bersih'), findsOneWidget);
     });
   });
 
@@ -134,6 +133,29 @@ void main() {
       // Verify health & stats cards are not present on Laporan Keuangan
       expect(find.text('Kesehatan Keuangan'), findsNothing);
       expect(find.text('Statistik & Arus Kas'), findsNothing);
+    });
+
+    testWidgets('AnalyticsScreen defaults to Donut Chart and switches to Bar Chart', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final provider = TransactionProvider();
+      await tester.pumpWidget(buildTestWidget(
+        child: const AnalyticsScreen(),
+        provider: provider,
+      ));
+      await tester.pumpAndSettle();
+
+      // Default should show Donut Chart center text (Total Pengeluaran)
+      expect(find.text('Total Pengeluaran'), findsOneWidget);
+
+      // Tap chart switcher (pie / bar)
+      await tester.tap(find.byIcon(Icons.bar_chart_rounded));
+      await tester.pumpAndSettle();
+
+      // Now switched to Bar Chart (WeeklyActivityChart title appears)
+      expect(find.text('Aktivitas Pengeluaran'), findsOneWidget);
     });
   });
 

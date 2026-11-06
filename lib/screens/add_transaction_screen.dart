@@ -692,7 +692,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         }
 
         final lainyaButton = InkWell(
-          onTap: () => _showCategoryPickerSheet(context, categories, isDark),
+          onTap: () {
+            _amountFocusNode.unfocus();
+            FocusScope.of(context).unfocus();
+            _showCategoryPickerSheet(context, categories, isDark);
+          },
           borderRadius: BorderRadius.circular(12),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
@@ -772,8 +776,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     BuildContext context,
     List<CategoryModel> categories,
     bool isDark,
-  ) {
-    showModalCardSheet(
+  ) async {
+    _amountFocusNode.unfocus();
+    _amountFocusNode.canRequestFocus = false;
+    FocusScope.of(context).unfocus();
+
+    await showModalCardSheet(
       context: context,
       title: _type == TransactionType.expense
           ? 'Pilih Kategori Pengeluaran'
@@ -800,6 +808,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     child: InkWell(
                       onTap: () {
                         setState(() => _selectedCategory = cat.name);
+                        _amountFocusNode.unfocus();
+                        FocusScope.of(context).unfocus();
                         Navigator.pop(context);
                       },
                       borderRadius: BorderRadius.circular(12),
@@ -855,6 +865,16 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         ),
       ),
     );
+
+    if (mounted) {
+      _amountFocusNode.unfocus();
+      FocusScope.of(context).unfocus();
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          _amountFocusNode.canRequestFocus = true;
+        }
+      });
+    }
   }
 
   Widget _buildDetailsCard(TransactionProvider provider, List<CategoryModel> categories, bool isDark) {
@@ -1170,13 +1190,18 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             )
           : Row(
               children: [
-                // Camera / OCR Button (Left)
+                // Camera / OCR Button (Left) - Outlined Button
                 SizedBox(
                   width: 48,
                   height: 48,
                   child: Material(
-                    color: isDark ? const Color(0xFF242D3D) : const Color(0xFFE2E8F0),
-                    shape: const CircleBorder(),
+                    color: Colors.transparent,
+                    shape: CircleBorder(
+                      side: BorderSide(
+                        color: isDark ? Colors.white.withOpacity(0.18) : const Color(0xFFCBD5E1),
+                        width: 1.2,
+                      ),
+                    ),
                     child: InkWell(
                       key: const Key('btn_scan_receipt'),
                       customBorder: const CircleBorder(),
@@ -1220,13 +1245,18 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 ),
                 const SizedBox(width: 10),
 
-                // Microphone / Voice Note Action (Right)
+                // Microphone / Voice Note Action (Right) - Outlined Button
                 SizedBox(
                   width: 48,
                   height: 48,
                   child: Material(
-                    color: isDark ? const Color(0xFF242D3D) : const Color(0xFFE2E8F0),
-                    shape: const CircleBorder(),
+                    color: Colors.transparent,
+                    shape: CircleBorder(
+                      side: BorderSide(
+                        color: isDark ? Colors.white.withOpacity(0.18) : const Color(0xFFCBD5E1),
+                        width: 1.2,
+                      ),
+                    ),
                     child: InkWell(
                       key: const Key('btn_voice_input'),
                       customBorder: const CircleBorder(),

@@ -9,6 +9,7 @@ import '../providers/transaction_provider.dart';
 import '../widgets/nested_card.dart';
 import '../widgets/modal_card_sheet.dart';
 import '../widgets/standard_screen_header.dart';
+import '../widgets/donut_chart_painter.dart';
 import 'budget_screen.dart';
 
 class FinancialHealthMetrics {
@@ -20,8 +21,6 @@ class FinancialHealthMetrics {
   final double netCashFlow;
   final double savingsRate;
   final double expenseRatio;
-  final double dailyAverageSpend;
-  final double projectedMonthEnd;
   final String topCategoryName;
   final double topCategoryAmount;
   final double topCategoryPct;
@@ -40,8 +39,6 @@ class FinancialHealthMetrics {
     required this.netCashFlow,
     required this.savingsRate,
     required this.expenseRatio,
-    required this.dailyAverageSpend,
-    required this.projectedMonthEnd,
     required this.topCategoryName,
     required this.topCategoryAmount,
     required this.topCategoryPct,
@@ -79,6 +76,8 @@ class FinancialAnalysisScreen extends StatefulWidget {
 
 class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
   DateTime _selectedMonth = DateTime.now();
+  int? _selectedCurvePoint;
+  int? _selectedDonutIndex;
 
   static const _monthNames = [
     'Januari',
@@ -112,6 +111,8 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
             onTap: () {
               setState(() {
                 _selectedMonth = DateTime(now.year, monthNum, 1);
+                _selectedCurvePoint = null;
+                _selectedDonutIndex = null;
               });
               Navigator.pop(context);
             },
@@ -139,9 +140,7 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
                       ? (isDark ? Colors.black : Colors.white)
                       : (isDark ? Colors.white : const Color(0xFF0F172A)),
                   fontSize: 12.5,
-                  fontWeight: isSelected
-                      ? FontWeight.w600
-                      : FontWeight.w500,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 ),
               ),
             ),
@@ -198,11 +197,11 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
           ),
           const SizedBox(height: 10),
           _buildHelpGuideItem(
-            icon: Icons.speed_rounded,
+            icon: Icons.show_chart_rounded,
             iconColor: const Color(0xFF38BDF8),
-            title: 'Rata-rata Harian & Proyeksi Akhir Bulan',
+            title: 'Kurva Alur & Donut Arus Kas',
             description:
-                'Menghitung rata-rata uang yang Anda keluarkan setiap hari dan memproyeksikan estimasi total belanja sampai akhir bulan jika pola belanja Anda berlanjut.',
+                'Diagram kurva menunjukkan alur akumulasi uang masuk vs pengeluaran sepanjang bulan, sedangkan donut chart memperlihatkan proporsi perbandingan keduanya.',
             isDark: isDark,
           ),
         ],
@@ -301,8 +300,6 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
         netCashFlow: 0.0,
         savingsRate: 0.0,
         expenseRatio: 0.0,
-        dailyAverageSpend: 0.0,
-        projectedMonthEnd: 0.0,
         topCategoryName: '-',
         topCategoryAmount: 0.0,
         topCategoryPct: 0.0,
@@ -323,9 +320,6 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
     final daysInMonth = DateTime(selectedMonth.year, selectedMonth.month + 1, 0).day;
     final daysPassed = isCurrentMonth ? math.max(1, now.day) : daysInMonth;
     final remainingDays = math.max(1, daysInMonth - daysPassed);
-
-    final dailyAverageSpend = daysPassed > 0 ? (expense / daysPassed) : 0.0;
-    final projectedMonthEnd = dailyAverageSpend * daysInMonth;
 
     String topCat = 'Lainnya';
     double topCatAmount = 0.0;
@@ -393,7 +387,7 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
       status = 'Sangat Baik';
       statusColor = const Color(0xFF39D98A);
     } else if (score >= 65) {
-      status = 'Sehat & Stabil';
+      status = 'Aman & Stabil';
       statusColor = const Color(0xFF55C7FF);
     } else if (score >= 50) {
       status = 'Perlu Waspada';
@@ -436,8 +430,6 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
       netCashFlow: netCashFlow,
       savingsRate: savingsRate,
       expenseRatio: expenseRatio,
-      dailyAverageSpend: dailyAverageSpend,
-      projectedMonthEnd: projectedMonthEnd,
       topCategoryName: topCat,
       topCategoryAmount: topCatAmount,
       topCategoryPct: topCatPct,
@@ -466,6 +458,7 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
     return absAmount.round().toString();
   }
 
+  // 1. Half Circular Financial Health Card
   Widget _buildFinancialHealthCard(
     TransactionProvider provider,
     FinancialHealthMetrics metrics,
@@ -492,123 +485,92 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Row 1: Skor & Progress Meter 4 Zona
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                RichText(
-                  text: TextSpan(
-                    children: [
-                      TextSpan(
-                        text: '${metrics.score}',
-                        style: GoogleFonts.interTight(
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
-                          fontSize: 34,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.6,
-                        ),
-                      ),
-                      TextSpan(
-                        text: ' / 100',
-                        style: GoogleFonts.manrope(
-                          color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
+            const SizedBox(height: 4),
+            // Half Circular Chart with Score in the center
+            SizedBox(
+              width: 250,
+              height: 136,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.topCenter,
+                children: [
+                  CustomPaint(
+                    size: const Size(250, 136),
+                    painter: _HalfCircularHealthPainter(
+                      score: metrics.score,
+                      statusColor: metrics.statusColor,
+                      trackColor: isDark
+                          ? const Color(0xFF232D3B)
+                          : const Color(0xFFE2E8F0),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(5),
-                        child: Container(
-                          height: 8,
-                          color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFE2E8F0),
-                          child: Stack(
+                  Positioned(
+                    bottom: 2,
+                    left: 0,
+                    right: 0,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        RichText(
+                          text: TextSpan(
                             children: [
-                              FractionallySizedBox(
-                                widthFactor: (metrics.score / 100.0).clamp(0.0, 1.0),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: metrics.statusColor,
-                                    borderRadius: BorderRadius.circular(5),
-                                  ),
+                              TextSpan(
+                                text: '${metrics.score}',
+                                style: GoogleFonts.interTight(
+                                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                  fontSize: 38,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.6,
+                                ),
+                              ),
+                              TextSpan(
+                                text: ' / 100',
+                                style: GoogleFonts.manrope(
+                                  color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 5),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              'Kurang',
-                              style: GoogleFonts.manrope(
-                                color: isDark ? const Color(0xFF65788F) : const Color(0xFF94A3B8),
-                                fontSize: 9.5,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
+                        const SizedBox(height: 3),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2.5),
+                          decoration: BoxDecoration(
+                            color: metrics.statusColor.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: metrics.statusColor.withOpacity(0.3),
+                              width: 1,
                             ),
                           ),
-                          Flexible(
-                            child: Text(
-                              'Waspada',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.manrope(
-                                color: isDark ? const Color(0xFF65788F) : const Color(0xFF94A3B8),
-                                fontSize: 9.5,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
+                          child: Text(
+                            metrics.status,
+                            style: GoogleFonts.manrope(
+                              color: metrics.statusColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                          Flexible(
-                            child: Text(
-                              'Aman',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.manrope(
-                                color: isDark ? const Color(0xFF65788F) : const Color(0xFF94A3B8),
-                                fontSize: 9.5,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
-                            ),
-                          ),
-                          Flexible(
-                            child: Text(
-                              'Sangat Baik',
-                              textAlign: TextAlign.right,
-                              style: GoogleFonts.manrope(
-                                color: isDark ? const Color(0xFF65788F) : const Color(0xFF94A3B8),
-                                fontSize: 9.5,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
+
+            // 4-Zone Context Row: Kurang (<50), Waspada (50-64), Aman (65-79), Sangat Baik (80-100)
+            _buildZoneContextRow(metrics.score, isDark),
+            const SizedBox(height: 14),
             Divider(color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFE2E8F0), height: 1),
             const SizedBox(height: 12),
 
-            // Row 2: 3 Mini Metric Pods
+            // 3 Mini Metric Pods: Tabungan, Rasio Beban, Arus Kas
             Row(
               children: [
                 Expanded(
@@ -647,7 +609,7 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Row 3: Smart Diagnostic Insight Box (Bahasa Ramah & Edukatif)
+            // Smart Diagnostic Insight Box
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
@@ -697,6 +659,91 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildZoneContextRow(int score, bool isDark) {
+    final zones = [
+      _HealthZoneData('Kurang', '<50', const Color(0xFFFF6B7A), score < 50),
+      _HealthZoneData('Waspada', '50-64', const Color(0xFFFFC857), score >= 50 && score < 65),
+      _HealthZoneData('Aman', '65-79', const Color(0xFF55C7FF), score >= 65 && score < 80),
+      _HealthZoneData('Sangat Baik', '80-100', const Color(0xFF39D98A), score >= 80),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.02) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFE2E8F0),
+        ),
+      ),
+      child: Row(
+        children: zones.map((zone) {
+          return Expanded(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
+              decoration: BoxDecoration(
+                color: zone.isActive
+                    ? zone.color.withOpacity(isDark ? 0.16 : 0.12)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: zone.isActive
+                      ? zone.color.withOpacity(0.45)
+                      : Colors.transparent,
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 5.5,
+                        height: 5.5,
+                        decoration: BoxDecoration(
+                          color: zone.color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          zone.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.manrope(
+                            color: zone.isActive
+                                ? (isDark ? Colors.white : const Color(0xFF0F172A))
+                                : (isDark ? const Color(0xFF65788F) : const Color(0xFF94A3B8)),
+                            fontSize: 10,
+                            fontWeight: zone.isActive ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    zone.range,
+                    style: GoogleFonts.manrope(
+                      color: zone.isActive
+                          ? zone.color
+                          : (isDark ? const Color(0xFF4B5D73) : const Color(0xFF94A3B8)),
+                      fontSize: 8.5,
+                      fontWeight: zone.isActive ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -769,287 +816,526 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
     );
   }
 
-  Widget _buildCashFlowStatsCard(
+  // 2. Diagram Kurva Alur Pengeluaran & Pemasukan (Cash Flow Curve Chart)
+  Widget _buildCashFlowCurveCard(
     TransactionProvider provider,
     FinancialHealthMetrics metrics,
     bool isDark,
   ) {
-    final totalFlow = metrics.monthIncome + metrics.monthExpense;
-    final incomeFactor = totalFlow > 0 ? (metrics.monthIncome / totalFlow) : 0.5;
-    final expenseFactor = totalFlow > 0 ? (metrics.monthExpense / totalFlow) : 0.5;
+    final daysInMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
+    final checkpoints = <int>[
+      1,
+      math.min(7, daysInMonth),
+      math.min(14, daysInMonth),
+      math.min(21, daysInMonth),
+      math.min(28, daysInMonth),
+      daysInMonth,
+    ].toSet().toList()..sort();
+
+    final monthTxs = provider.transactions.where((t) {
+      return t.timestamp.year == _selectedMonth.year &&
+          t.timestamp.month == _selectedMonth.month;
+    }).toList();
+
+    final incomePoints = <double>[];
+    final expensePoints = <double>[];
+
+    for (final day in checkpoints) {
+      double cumIncome = 0.0;
+      double cumExpense = 0.0;
+      for (final tx in monthTxs) {
+        if (tx.timestamp.day <= day) {
+          if (tx.type == TransactionType.income) {
+            cumIncome += tx.amount;
+          } else if (tx.type == TransactionType.expense) {
+            cumExpense += tx.amount;
+          }
+        }
+      }
+      incomePoints.add(cumIncome);
+      expensePoints.add(cumExpense);
+    }
+
+    final selectedIdx = _selectedCurvePoint;
+    final selectedDay = (selectedIdx != null && selectedIdx >= 0 && selectedIdx < checkpoints.length)
+        ? checkpoints[selectedIdx]
+        : null;
+    final selectedIncome = (selectedIdx != null && selectedIdx >= 0 && selectedIdx < incomePoints.length)
+        ? incomePoints[selectedIdx]
+        : null;
+    final selectedExpense = (selectedIdx != null && selectedIdx >= 0 && selectedIdx < expensePoints.length)
+        ? expensePoints[selectedIdx]
+        : null;
 
     return NestedCard(
-      title: 'Statistik & Arus Kas',
+      title: 'Alur Pemasukan & Pengeluaran',
       action: '${metrics.txCount} Transaksi',
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Pod 1 & Pod 2: Rata-rata Harian vs Proyeksi Akhir Bulan
+            // Top Legend Row
             Row(
               children: [
                 Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white.withOpacity(0.03) : const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFE2E8F0)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.speed_rounded, size: 14, color: Color(0xFF55C7FF)),
-                            const SizedBox(width: 5),
-                            Flexible(
-                              child: Text(
-                                'Rata-rata Harian',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.manrope(
-                                  color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF39D98A),
+                          shape: BoxShape.circle,
                         ),
-                        const SizedBox(height: 6),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            provider.formatCurrency(metrics.dailyAverageSpend),
-                            style: GoogleFonts.interTight(
-                              color: isDark ? Colors.white : const Color(0xFF0F172A),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Pengeluaran per hari',
-                          maxLines: 2,
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          'Pemasukan: ${_formatCompactAmount(metrics.monthIncome)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.manrope(
-                            color: isDark ? const Color(0xFF65788F) : const Color(0xFF94A3B8),
-                            fontSize: 10,
-                            height: 1.15,
+                            color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white.withOpacity(0.03) : const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFE2E8F0)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.trending_up_rounded, size: 14, color: Color(0xFFFFC857)),
-                            const SizedBox(width: 5),
-                            Flexible(
-                              child: Text(
-                                'Proyeksi Akhir Bulan',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.manrope(
-                                  color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF55C7FF),
+                          shape: BoxShape.circle,
                         ),
-                        const SizedBox(height: 6),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            provider.formatCurrency(metrics.projectedMonthEnd),
-                            style: GoogleFonts.interTight(
-                              color: isDark ? Colors.white : const Color(0xFF0F172A),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Perkiraan akhir bulan',
-                          maxLines: 2,
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          'Pengeluaran: ${_formatCompactAmount(metrics.monthExpense)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
                           style: GoogleFonts.manrope(
-                            color: isDark ? const Color(0xFF65788F) : const Color(0xFF94A3B8),
-                            fontSize: 10,
-                            height: 1.15,
+                            color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 14),
 
-            // Cash Flow Proportion Mini Chart Bar
-            Text(
-              'Rasio Pemasukan vs Pengeluaran',
-              style: GoogleFonts.manrope(
-                color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-                fontSize: 11.5,
-                fontWeight: FontWeight.w500,
+            // Active Checkpoint Info Badge when tapped
+            if (selectedDay != null && selectedIncome != null && selectedExpense != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFE2E8F0),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Posisi Tgl $selectedDay',
+                      style: GoogleFonts.manrope(
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      'Masuk: ${_formatCompactAmount(selectedIncome)}  |  Keluar: ${_formatCompactAmount(selectedExpense)}',
+                      style: GoogleFonts.interTight(
+                        color: const Color(0xFF55C7FF),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Curve Chart CustomPaint with Gesture Listener
+            SizedBox(
+              height: 160,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return GestureDetector(
+                    onTapUp: (details) {
+                      final boxWidth = constraints.maxWidth;
+                      final tapX = details.localPosition.dx;
+                      final count = checkpoints.length;
+                      if (count > 0 && boxWidth > 0) {
+                        final step = boxWidth / (count - 1);
+                        final nearestIdx = (tapX / step).round().clamp(0, count - 1);
+                        setState(() {
+                          _selectedCurvePoint = _selectedCurvePoint == nearestIdx ? null : nearestIdx;
+                        });
+                      }
+                    },
+                    child: CustomPaint(
+                      size: Size(constraints.maxWidth, 160),
+                      painter: _CashFlowCurvePainter(
+                        incomePoints: incomePoints,
+                        expensePoints: expensePoints,
+                        selectedIndex: _selectedCurvePoint,
+                        isDark: isDark,
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
             const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: SizedBox(
-                height: 10,
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: (incomeFactor * 100).round().clamp(1, 99),
-                      child: Container(
-                        color: const Color(0xFF39D98A),
+
+            // Checkpoints Label Row (Tgl 1, 7, 14, ...)
+            Row(
+              children: List.generate(checkpoints.length, (idx) {
+                final day = checkpoints[idx];
+                final isSelected = _selectedCurvePoint == idx;
+                return Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedCurvePoint = isSelected ? null : idx;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? (isDark
+                                ? const Color(0xFF55C7FF).withOpacity(0.18)
+                                : const Color(0xFF0F172A).withOpacity(0.1))
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'Tgl $day',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.manrope(
+                          color: isSelected
+                              ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF0F172A))
+                              : (isDark ? const Color(0xFF65788F) : const Color(0xFF94A3B8)),
+                          fontSize: 9,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 2),
-                    Expanded(
-                      flex: (expenseFactor * 100).round().clamp(1, 99),
-                      child: Container(
-                        color: const Color(0xFF55C7FF),
+                  ),
+                );
+              }),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 3. Donut Chart Pemasukan vs Pengeluaran Card (Matching Laporan Keuangan Style)
+  Widget _buildCashFlowDonutCard(
+    TransactionProvider provider,
+    FinancialHealthMetrics metrics,
+    bool isDark,
+  ) {
+    final income = metrics.monthIncome;
+    final expense = metrics.monthExpense;
+    final totalFlow = income + expense;
+
+    final incomeShare = totalFlow > 0 ? (income / totalFlow) : 0.5;
+    final expenseShare = totalFlow > 0 ? (expense / totalFlow) : 0.5;
+
+    final values = totalFlow > 0 ? [income, expense] : <double>[];
+    final colors = [const Color(0xFF39D98A), const Color(0xFF55C7FF)];
+
+    return NestedCard(
+      title: 'Pemasukan vs Pengeluaran',
+      action: 'Rasio Arus Kas',
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          children: [
+            // Center Donut Chart with Annular Rounded Wedge Painter
+            Center(
+              child: SizedBox(
+                width: 240,
+                height: 240,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    GestureDetector(
+                      onTapUp: (details) {
+                        final center = const Offset(120, 120);
+                        final dx = details.localPosition.dx - center.dx;
+                        final dy = details.localPosition.dy - center.dy;
+                        final dist = math.sqrt(dx * dx + dy * dy);
+                        if (dist >= 50 && dist <= 125) {
+                          // Angle in radians (-pi to pi)
+                          final angle = math.atan2(dy, dx);
+                          // Slices start at -pi/2
+                          var normAngle = angle + math.pi / 2;
+                          if (normAngle < 0) normAngle += 2 * math.pi;
+                          final incomeSweep = incomeShare * 2 * math.pi;
+                          setState(() {
+                            if (normAngle <= incomeSweep) {
+                              _selectedDonutIndex = _selectedDonutIndex == 0 ? null : 0;
+                            } else {
+                              _selectedDonutIndex = _selectedDonutIndex == 1 ? null : 1;
+                            }
+                          });
+                        }
+                      },
+                      child: CustomPaint(
+                        size: const Size(240, 240),
+                        painter: DonutChartPainter(
+                          values: values,
+                          colors: colors,
+                          selectedIndex: _selectedDonutIndex,
+                          baseRo: 106.0,
+                          baseRi: 64.0,
+                          emptyTrackColor: isDark
+                              ? const Color(0xFF202A38)
+                              : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                    ),
+                    // Center Info: Arus Kas Bersih (Surplus / Defisit)
+                    IgnorePointer(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _selectedDonutIndex == 0
+                                ? 'Total Masuk'
+                                : (_selectedDonutIndex == 1 ? 'Total Keluar' : 'Arus Kas Bersih'),
+                            style: GoogleFonts.manrope(
+                              color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            _selectedDonutIndex == 0
+                                ? provider.formatCurrency(income)
+                                : (_selectedDonutIndex == 1
+                                    ? provider.formatCurrency(expense)
+                                    : '${metrics.netCashFlow >= 0 ? '+' : '-'}${_formatCompactAmount(metrics.netCashFlow)}'),
+                            style: GoogleFonts.interTight(
+                              color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.4,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                            decoration: BoxDecoration(
+                              color: (_selectedDonutIndex == 0 || (_selectedDonutIndex == null && metrics.netCashFlow >= 0))
+                                  ? const Color(0xFF39D98A).withOpacity(0.14)
+                                  : const Color(0xFFFF6B7A).withOpacity(0.14),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _selectedDonutIndex == 0
+                                  ? '${(incomeShare * 100).round()}% dari Alur'
+                                  : (_selectedDonutIndex == 1
+                                      ? '${(expenseShare * 100).round()}% dari Alur'
+                                      : (metrics.netCashFlow >= 0 ? 'Surplus' : 'Defisit')),
+                              style: GoogleFonts.manrope(
+                                color: (_selectedDonutIndex == 0 || (_selectedDonutIndex == null && metrics.netCashFlow >= 0))
+                                    ? const Color(0xFF39D98A)
+                                    : const Color(0xFFFF6B7A),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 14),
+
+            // 2-Column Breakdown Cards (Uang Masuk vs Uang Keluar)
             Row(
               children: [
                 Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white.withOpacity(0.025) : const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFE2E8F0),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 7,
-                              height: 7,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF39D98A),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              'Uang Masuk',
-                              style: GoogleFonts.manrope(
-                                color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
+                  child: InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedDonutIndex = _selectedDonutIndex == 0 ? null : 0;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _selectedDonutIndex == 0
+                            ? const Color(0xFF39D98A).withOpacity(isDark ? 0.14 : 0.08)
+                            : (isDark ? Colors.white.withOpacity(0.025) : const Color(0xFFF8FAFC)),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: _selectedDonutIndex == 0
+                              ? const Color(0xFF39D98A).withOpacity(0.5)
+                              : (isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFE2E8F0)),
                         ),
-                        const SizedBox(height: 3),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            provider.formatCurrency(metrics.monthIncome),
-                            style: GoogleFonts.interTight(
-                              color: isDark ? Colors.white : const Color(0xFF0F172A),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 7,
+                                height: 7,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF39D98A),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                'Uang Masuk',
+                                style: GoogleFonts.manrope(
+                                  color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              provider.formatCurrency(metrics.monthIncome),
+                              style: GoogleFonts.interTight(
+                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 2),
+                          Text(
+                            '${(incomeShare * 100).round()}% total flow',
+                            style: GoogleFonts.manrope(
+                              color: const Color(0xFF39D98A),
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white.withOpacity(0.025) : const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFE2E8F0),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 7,
-                              height: 7,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF55C7FF),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              'Uang Keluar',
-                              style: GoogleFonts.manrope(
-                                color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
+                  child: InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedDonutIndex = _selectedDonutIndex == 1 ? null : 1;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _selectedDonutIndex == 1
+                            ? const Color(0xFF55C7FF).withOpacity(isDark ? 0.14 : 0.08)
+                            : (isDark ? Colors.white.withOpacity(0.025) : const Color(0xFFF8FAFC)),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: _selectedDonutIndex == 1
+                              ? const Color(0xFF55C7FF).withOpacity(0.5)
+                              : (isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFE2E8F0)),
                         ),
-                        const SizedBox(height: 3),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            provider.formatCurrency(metrics.monthExpense),
-                            style: GoogleFonts.interTight(
-                              color: isDark ? Colors.white : const Color(0xFF0F172A),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 7,
+                                height: 7,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF55C7FF),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                'Uang Keluar',
+                                style: GoogleFonts.manrope(
+                                  color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              provider.formatCurrency(metrics.monthExpense),
+                              style: GoogleFonts.interTight(
+                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 2),
+                          Text(
+                            '${(expenseShare * 100).round()}% total flow',
+                            style: GoogleFonts.manrope(
+                              color: const Color(0xFF55C7FF),
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
 
-            // Top Expense Focus Pod
+            // Top Expense Category Pod
             if (metrics.topCategoryAmount > 0)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1137,6 +1423,7 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
     );
   }
 
+  // 4. Budget Guidance Card
   Widget _buildBudgetGuidanceCard(
     BuildContext context,
     TransactionProvider provider,
@@ -1431,6 +1718,22 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
       ),
     );
 
+    final contentCards = healthMetrics.txCount == 0 &&
+            healthMetrics.monthIncome == 0 &&
+            healthMetrics.monthExpense == 0
+        ? [
+            _buildEmptyAnalysisState(isDark),
+          ]
+        : [
+            _buildFinancialHealthCard(provider, healthMetrics, isDark),
+            const SizedBox(height: 12),
+            _buildCashFlowCurveCard(provider, healthMetrics, isDark),
+            const SizedBox(height: 12),
+            _buildCashFlowDonutCard(provider, healthMetrics, isDark),
+            const SizedBox(height: 12),
+            _buildBudgetGuidanceCard(context, provider, healthMetrics, isDark),
+          ];
+
     if (widget.isSheet) {
       return Container(
         height: MediaQuery.of(context).size.height * 0.94,
@@ -1443,7 +1746,6 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
         ),
         child: Column(
           children: [
-            // Drag handle
             Container(
               margin: const EdgeInsets.only(top: 8, bottom: 4),
               width: 36,
@@ -1453,7 +1755,6 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            // Header with title, help button, period selector, and close button
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 6, 8, 10),
               child: Row(
@@ -1495,19 +1796,7 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
-                children: healthMetrics.txCount == 0 &&
-                        healthMetrics.monthIncome == 0 &&
-                        healthMetrics.monthExpense == 0
-                    ? [
-                        _buildEmptyAnalysisState(isDark),
-                      ]
-                    : [
-                        _buildFinancialHealthCard(provider, healthMetrics, isDark),
-                        const SizedBox(height: 12),
-                        _buildCashFlowStatsCard(provider, healthMetrics, isDark),
-                        const SizedBox(height: 12),
-                        _buildBudgetGuidanceCard(context, provider, healthMetrics, isDark),
-                      ],
+                children: contentCards,
               ),
             ),
           ],
@@ -1521,7 +1810,6 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
           children: [
-            // Top App Bar
             StandardScreenHeader(
               title: 'Analisis Keuangan',
               actionWidget: Row(
@@ -1534,21 +1822,313 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
               ),
             ),
             const SizedBox(height: 12),
-
-            if (healthMetrics.txCount == 0 &&
-                healthMetrics.monthIncome == 0 &&
-                healthMetrics.monthExpense == 0)
-              _buildEmptyAnalysisState(isDark)
-            else ...[
-              _buildFinancialHealthCard(provider, healthMetrics, isDark),
-              const SizedBox(height: 12),
-              _buildCashFlowStatsCard(provider, healthMetrics, isDark),
-              const SizedBox(height: 12),
-              _buildBudgetGuidanceCard(context, provider, healthMetrics, isDark),
-            ],
+            ...contentCards,
           ],
         ),
       ),
     );
+  }
+}
+
+class _HealthZoneData {
+  final String name;
+  final String range;
+  final Color color;
+  final bool isActive;
+
+  const _HealthZoneData(this.name, this.range, this.color, this.isActive);
+}
+
+// -------------------------------------------------------------
+// Custom Painter: Half Circular Financial Health Chart (Arch 180°)
+// -------------------------------------------------------------
+class _HalfCircularHealthPainter extends CustomPainter {
+  final int score;
+  final Color statusColor;
+  final Color trackColor;
+  final double strokeWidth;
+
+  const _HalfCircularHealthPainter({
+    required this.score,
+    required this.statusColor,
+    required this.trackColor,
+    this.strokeWidth = 14.0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Semicircle center at bottom center with stroke padding
+    final center = Offset(size.width / 2, size.height - 12);
+    final radius = (size.width / 2) - strokeWidth - 4;
+
+    final trackPaint = Paint()
+      ..color = trackColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    final progressPaint = Paint()
+      ..color = statusColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    // 1. Draw 180-degree background track arch (from math.pi to 2 * math.pi)
+    canvas.drawArc(rect, math.pi, math.pi, false, trackPaint);
+
+    // 2. Draw active progress arch proportional to score / 100
+    final sweepAngle = math.pi * (score / 100.0).clamp(0.0, 1.0);
+    if (sweepAngle > 0.005) {
+      canvas.drawArc(rect, math.pi, sweepAngle, false, progressPaint);
+
+      // Indicator thumb knob at current progress angle
+      final currentAngle = math.pi + sweepAngle;
+      final thumbX = center.dx + radius * math.cos(currentAngle);
+      final thumbY = center.dy + radius * math.sin(currentAngle);
+      final thumbCenter = Offset(thumbX, thumbY);
+
+      // White fill circle
+      final thumbFillPaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(thumbCenter, 7.5, thumbFillPaint);
+
+      // Accent border circle
+      final thumbBorderPaint = Paint()
+        ..color = statusColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.0;
+      canvas.drawCircle(thumbCenter, 7.5, thumbBorderPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _HalfCircularHealthPainter oldDelegate) {
+    return oldDelegate.score != score ||
+        oldDelegate.statusColor != statusColor ||
+        oldDelegate.trackColor != trackColor ||
+        oldDelegate.strokeWidth != strokeWidth;
+  }
+}
+
+// -------------------------------------------------------------
+// Custom Painter: Cash Flow Curve Chart (Smooth Bezier Line Chart)
+// -------------------------------------------------------------
+class _CashFlowCurvePainter extends CustomPainter {
+  final List<double> incomePoints;
+  final List<double> expensePoints;
+  final int? selectedIndex;
+  final bool isDark;
+
+  const _CashFlowCurvePainter({
+    required this.incomePoints,
+    required this.expensePoints,
+    required this.selectedIndex,
+    required this.isDark,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (incomePoints.isEmpty || expensePoints.isEmpty) return;
+
+    const topPadding = 14.0;
+    const bottomPadding = 20.0;
+    final chartHeight = size.height - topPadding - bottomPadding;
+    final chartWidth = size.width;
+
+    double maxVal = 0.0;
+    for (final v in incomePoints) {
+      if (v > maxVal) maxVal = v;
+    }
+    for (final v in expensePoints) {
+      if (v > maxVal) maxVal = v;
+    }
+    if (maxVal <= 0) maxVal = 100000.0;
+    // Add 10% headroom
+    maxVal *= 1.1;
+
+    // 1. Draw 3 subtle horizontal gridlines
+    final gridPaint = Paint()
+      ..color = isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFE2E8F0)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    for (int i = 0; i < 3; i++) {
+      final y = topPadding + (chartHeight / 2) * i;
+      canvas.drawLine(Offset(0, y), Offset(chartWidth, y), gridPaint);
+    }
+
+    final count = incomePoints.length;
+    final stepX = count > 1 ? chartWidth / (count - 1) : chartWidth;
+
+    List<Offset> computeOffsets(List<double> values) {
+      final offsets = <Offset>[];
+      for (int i = 0; i < values.length; i++) {
+        final x = count > 1 ? i * stepX : chartWidth / 2;
+        final norm = (values[i] / maxVal).clamp(0.0, 1.0);
+        final y = topPadding + chartHeight - (norm * chartHeight);
+        offsets.add(Offset(x, y));
+      }
+      return offsets;
+    }
+
+    final incOffsets = computeOffsets(incomePoints);
+    final expOffsets = computeOffsets(expensePoints);
+
+    // 2. Draw Income Curve (Green)
+    _drawCurve(
+      canvas: canvas,
+      size: size,
+      offsets: incOffsets,
+      lineColor: const Color(0xFF39D98A),
+      topPadding: topPadding,
+      chartHeight: chartHeight,
+    );
+
+    // 3. Draw Expense Curve (Cyan)
+    _drawCurve(
+      canvas: canvas,
+      size: size,
+      offsets: expOffsets,
+      lineColor: const Color(0xFF55C7FF),
+      topPadding: topPadding,
+      chartHeight: chartHeight,
+    );
+
+    // 4. Draw Selected Checkpoint Cursor Line & Highlight Dots
+    if (selectedIndex != null &&
+        selectedIndex! >= 0 &&
+        selectedIndex! < count) {
+      final selX = incOffsets[selectedIndex!].dx;
+
+      final cursorPaint = Paint()
+        ..color = isDark ? Colors.white.withOpacity(0.25) : const Color(0xFF94A3B8)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2;
+
+      canvas.drawLine(
+        Offset(selX, topPadding - 4),
+        Offset(selX, topPadding + chartHeight + 6),
+        cursorPaint,
+      );
+
+      // Income point highlight
+      final incPt = incOffsets[selectedIndex!];
+      canvas.drawCircle(
+        incPt,
+        6.0,
+        Paint()..color = Colors.white,
+      );
+      canvas.drawCircle(
+        incPt,
+        6.0,
+        Paint()
+          ..color = const Color(0xFF39D98A)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.0,
+      );
+
+      // Expense point highlight
+      final expPt = expOffsets[selectedIndex!];
+      canvas.drawCircle(
+        expPt,
+        6.0,
+        Paint()..color = Colors.white,
+      );
+      canvas.drawCircle(
+        expPt,
+        6.0,
+        Paint()
+          ..color = const Color(0xFF55C7FF)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.0,
+      );
+    }
+  }
+
+  void _drawCurve({
+    required Canvas canvas,
+    required Size size,
+    required List<Offset> offsets,
+    required Color lineColor,
+    required double topPadding,
+    required double chartHeight,
+  }) {
+    if (offsets.isEmpty) return;
+
+    final path = Path();
+    path.moveTo(offsets[0].dx, offsets[0].dy);
+
+    if (offsets.length == 1) {
+      path.lineTo(size.width, offsets[0].dy);
+    } else {
+      for (int i = 0; i < offsets.length - 1; i++) {
+        final p0 = i > 0 ? offsets[i - 1] : offsets[i];
+        final p1 = offsets[i];
+        final p2 = offsets[i + 1];
+        final p3 = i < offsets.length - 2 ? offsets[i + 2] : p2;
+
+        final cp1x = p1.dx + (p2.dx - p0.dx) / 6.0;
+        final cp1y = p1.dy + (p2.dy - p0.dy) / 6.0;
+        final cp2x = p2.dx - (p3.dx - p1.dx) / 6.0;
+        final cp2y = p2.dy - (p3.dy - p1.dy) / 6.0;
+
+        path.cubicTo(cp1x, cp1y, cp2x, cp2y, p2.dx, p2.dy);
+      }
+    }
+
+    // Area Fill Gradient below the curve
+    final fillPath = Path.from(path)
+      ..lineTo(offsets.last.dx, topPadding + chartHeight)
+      ..lineTo(offsets.first.dx, topPadding + chartHeight)
+      ..close();
+
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          lineColor.withOpacity(0.18),
+          lineColor.withOpacity(0.0),
+        ],
+      ).createShader(Rect.fromLTWH(0, topPadding, size.width, chartHeight))
+      ..style = PaintingStyle.fill;
+
+    canvas.drawPath(fillPath, fillPaint);
+
+    // Stroke line
+    final strokePaint = Paint()
+      ..color = lineColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round
+      ..isAntiAlias = true;
+
+    canvas.drawPath(path, strokePaint);
+
+    // Dots at each checkpoint
+    final dotPaint = Paint()
+      ..color = lineColor
+      ..style = PaintingStyle.fill;
+
+    final dotBorderPaint = Paint()
+      ..color = isDark ? const Color(0xFF131A26) : Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+
+    for (final pt in offsets) {
+      canvas.drawCircle(pt, 3.5, dotPaint);
+      canvas.drawCircle(pt, 3.5, dotBorderPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CashFlowCurvePainter oldDelegate) {
+    return oldDelegate.incomePoints != incomePoints ||
+        oldDelegate.expensePoints != expensePoints ||
+        oldDelegate.selectedIndex != selectedIndex ||
+        oldDelegate.isDark != isDark;
   }
 }

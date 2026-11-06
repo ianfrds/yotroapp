@@ -94,6 +94,85 @@ void main() {
       expect(find.byKey(const Key('btn_pick_camera')), findsOneWidget);
       expect(find.byKey(const Key('btn_pick_gallery')), findsOneWidget);
     });
+
+    testWidgets('Camera and Mic buttons have transparent outlined circular styling', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final provider = TransactionProvider();
+      await provider.loadData();
+
+      await tester.pumpWidget(buildTestWidget(
+        child: const AddTransactionScreen(),
+        provider: provider,
+      ));
+      await tester.pumpAndSettle();
+
+      // Check Camera button Material
+      final cameraFinder = find.ancestor(
+        of: find.byKey(const Key('btn_scan_receipt')),
+        matching: find.byType(Material),
+      ).first;
+      final cameraMaterial = tester.widget<Material>(cameraFinder);
+      expect(cameraMaterial.color, Colors.transparent);
+      expect(cameraMaterial.shape, isA<CircleBorder>());
+      final cameraBorder = cameraMaterial.shape as CircleBorder;
+      expect(cameraBorder.side.width, 1.2);
+
+      // Check Mic button Material
+      final micFinder = find.ancestor(
+        of: find.byKey(const Key('btn_voice_input')),
+        matching: find.byType(Material),
+      ).first;
+      final micMaterial = tester.widget<Material>(micFinder);
+      expect(micMaterial.color, Colors.transparent);
+      expect(micMaterial.shape, isA<CircleBorder>());
+      final micBorder = micMaterial.shape as CircleBorder;
+      expect(micBorder.side.width, 1.2);
+    });
+
+    testWidgets('Selecting category from Lainnya bottom sheet does not refocus amount keyboard', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final provider = TransactionProvider();
+      await provider.loadData();
+
+      await tester.pumpWidget(buildTestWidget(
+        child: const AddTransactionScreen(),
+        provider: provider,
+      ));
+      await tester.pumpAndSettle();
+
+      // Open Lainnya category sheet
+      final lainnyaFinder = find.text('Lainnya');
+      expect(lainnyaFinder, findsOneWidget);
+      await tester.tap(lainnyaFinder);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Pilih Kategori Pengeluaran'), findsOneWidget);
+
+      // Tap on a category item, e.g. 'Tagihan & Utilitas' or any category in the sheet
+      final targetCat = find.text('Tagihan & Utilitas');
+      if (targetCat.evaluate().isNotEmpty) {
+        await tester.tap(targetCat.first);
+      } else {
+        // Fallback to first available category in sheet
+        final anyCat = find.byType(InkWell).last;
+        await tester.tap(anyCat);
+      }
+      await tester.pumpAndSettle();
+
+      // Modal is closed
+      expect(find.text('Pilih Kategori Pengeluaran'), findsNothing);
+
+      // Focus should NOT be on the amount text field
+      final amountFieldFinder = find.byType(TextField).first;
+      final textField = tester.widget<TextField>(amountFieldFinder);
+      expect(textField.focusNode!.hasFocus, isFalse);
+    });
   });
 
   group('ReceiptAdjustmentSheet Tests', () {
