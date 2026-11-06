@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -549,12 +550,10 @@ class SettingsScreen extends StatelessWidget {
           onTap: () async {
             await provider.sendTestPushNotification();
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content:
-                      Text('Notifikasi tes berhasil dikirim ke status bar HP.'),
-                  backgroundColor: Color(0xFF131A26),
-                ),
+              AppSnackBar.show(
+                context,
+                'Notifikasi tes berhasil dikirim ke status bar HP.',
+                type: SnackBarType.success,
               );
             }
           },
@@ -939,14 +938,19 @@ class SettingsScreen extends StatelessWidget {
         Row(
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(9),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: borderColor),
               ),
-              child: Icon(Icons.shield_outlined, color: mutedColor, size: 19),
+              clipBehavior: Clip.antiAlias,
+              child: Image.asset(
+                'assets/images/logo.png',
+                width: 38,
+                height: 38,
+                fit: BoxFit.cover,
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -995,6 +999,39 @@ class SettingsScreen extends StatelessWidget {
             ],
           ),
         ),
+        if (kIsWeb) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 42,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                BackupStorageService.downloadApk();
+                AppSnackBar.show(
+                  context,
+                  'Mengunduh berkas yotro-app.apk...',
+                  type: SnackBarType.info,
+                );
+              },
+              icon: const Icon(Icons.download_rounded, size: 18),
+              label: Text(
+                'Unduh APK Android (v1.0.6)',
+                style: GoogleFonts.manrope(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF02539A),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

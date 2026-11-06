@@ -31,18 +31,16 @@ money-tracker/
 │   └── workflows/
 │       └── build-apk.yml           # CI test + signed safe-release APK + Flutter Web
 ├── android/                        # Android harness (AGP 8.11.1, Kotlin 2.2.21, SDK 37, AndroidX)
+│   ├── app/proguard-rules.pro      # Aturan ProGuard R8 untuk ML Kit Latin Text Recognition
 │   └── key.properties.example      # Template konfigurasi signing; key asli wajib private/diabaikan Git
 ├── assets/
-│   └── images/                     # Official brand logos (logo_blue_transparent, logo_white_black, logo_white_blue, logo.png) + onboarding_bg.jpg (fluted blue glass artwork)
-├── yotro-app.apk                   # Signed release APK v1.0.4+5 (siap diunduh langsung via web runner atau disalin ke HP)
-├── yotro-safe-release.apk          # Legacy APK v1.0.3+4
-├── yotro-safe-release.apk.sha256   # Checksum integritas APK aman
-├── yotro-release.apk               # Legacy debug-signed APK; jangan didistribusikan
-├── money-tracker-release.apk       # Legacy debug-signed APK; jangan didistribusikan
+│   ├── icon/                       # Quick action vector SVGs (Analisis.svg, Budget.svg, Dompet.svg, Split Bill.svg)
+│   └── images/                     # Master assets (app_icon.png, logo.png, logo_splash.png) + onboarding_bg.jpg
+├── yotro-app.apk                   # Signed release APK v1.0.6+7 siap instal di HP (91 MB)
 ├── web/
 │   ├── favicon.png                 # Official brand 32x32 favicon
 │   ├── icons/                      # Web icons (192x192, 512x512 maskable)
-│   └── index.html                  # Bootstrap Flutter Web/PWA + Floating Unduh APK pill
+│   └── index.html                  # Bootstrap Flutter Web/PWA bersih (zero floating overlay)
 ├── lib/
 │   ├── main.dart                   # Entry point aplikasi Flutter (YotroApp)
 │   ├── config/
@@ -58,7 +56,8 @@ money-tracker/
 │   │   ├── category_model.dart     # Kategori pengeluaran & pemasukan default/kustom
 │   │   ├── wallet_model.dart       # Model dompet/rekening (Bank, Cash, E-Wallet, dsb)
 │   │   ├── budget_model.dart       # Model anggaran bulanan & anggaran per kategori
-│   │   └── notification_rule_model.dart # Aturan pemicu/abaikan deteksi notifikasi & antrean pending approval
+│   │   ├── notification_rule_model.dart # Aturan pemicu/abaikan deteksi notifikasi & antrean pending approval
+│   │   └── receipt_data_model.dart # Model ekstraksi data struk OCR (total, merchant, tanggal, kategori, alternatif)
 │   ├── providers/
 │   │   └── transaction_provider.dart # State manager, mutasi saldo, kalkulasi budget, tema, pembaca notifikasi, I/O
 │   ├── services/
@@ -66,7 +65,14 @@ money-tracker/
 │   │   ├── backup_storage_service.dart # Export/Download berkas cadangan JSON lintas platform (Web & Android)
 │   │   ├── backup_storage_stub.dart    # Implementasi ekspor cadangan via temporary file & system share sheet (Android/iOS)
 │   │   ├── backup_storage_web.dart     # Implementasi unduh berkas cadangan via Blob & HTML anchor download (Web)
-│   │   └── native_notification_service.dart # Notifikasi lokal, jadwal inexact, dan listener internal yang digate capability
+│   │   ├── native_notification_service.dart # Notifikasi lokal, jadwal inexact, dan listener internal yang digate capability
+│   │   └── receipt_scanner/        # Layanan pemindaian & parsing OCR struk belanja
+│   │       ├── receipt_parser_service.dart   # Mesin parsing cerdas teks struk (grand total vs subtotal, merchant, tanggal, auto-kategori)
+│   │       ├── receipt_scanner_service.dart  # Facade abstraksi pemindai struk lintas platform
+│   │       ├── receipt_scanner_mobile.dart   # Implementasi OCR native Google ML Kit Text Recognition
+│   │       ├── receipt_scanner_web.dart      # Fallback simulasi cerdas OCR untuk web runner
+│   │       ├── receipt_scanner_stub.dart     # Stub implementasi platform
+│   │       └── receipt_scanner_platform.dart # Conditional export lintas platform
 │   ├── screens/
 │   │   ├── splash_screen.dart      # Layar Splash Screen beranimasi dengan logo Yotro & navigasi kondisional onboarding/main
 │   │   ├── onboarding_profile_screen.dart # Layar Baru Onboarding Data Pengguna Pertama Kali (Nama, No Telp, Gender & trigger izin notifikasi native)
@@ -101,8 +107,11 @@ money-tracker/
 │       ├── mesh_card.dart          # Komponen kartu virtual hero
 │       ├── transaction_tile.dart   # Baris transaksi dengan badge warna kategori
 │       ├── balance_card.dart       # Kartu metrik finansial
-│       └── category_chip.dart      # Chip pemilihan kategori
-├── test/                           # Unit & Widget test suite (85 tests passed)
+│       ├── category_chip.dart      # Chip pemilihan kategori
+│       └── receipt_adjustment_sheet.dart # Modal sheet penyesuaian/persetujuan hasil scan OCR struk
+├── test/                           # Unit & Widget test suite (95 tests passed)
+│   ├── receipt_parser_test.dart    # Test unit mesin ekstraksi & heuristik OCR struk
+│   ├── add_transaction_ocr_action_bar_test.dart # Test widget 3-button bottom bar & receipt adjustment sheet
 │   ├── month_filter_and_budget_empty_test.dart # Test filter bulanan beranda & empty state budget
 │   ├── transactions_filter_unified_test.dart   # Test filter waktu lengkap riwayat transaksi
 │   └── financial_analysis_ux_test.dart         # Test UX bahasa awam analisis keuangan & panduan bantuan
@@ -337,8 +346,8 @@ money-tracker/
 - **Daftar Anggota Tagihan (`NestedCard`):**
   - Default 3 orang (`Kamu`, `Teman 1`, `Teman 2`) dengan opsi tambah, edit nama via modal sheet, hapus (jika > 2 orang), dan status pembayaran `Lunas` / `Belum`.
 - **Standardisasi Desain Tombol (Universal Consistency):**
-  - Tombol aksi utama diseragamkan dengan seluruh aplikasi: `ElevatedButton.icon` sapphire `#0066FF`, tinggi `48px`, border radius `14px`, teks putih `w600` (zero cyan-black slop).
-  - Tombol sekunder `OutlinedButton.icon` ("Salin Teks") dengan tinggi `48px`, radius `14px`, dan border halus `0.12`.
+  - Tombol aksi utama diseragamkan dengan seluruh aplikasi: `ElevatedButton.icon` sapphire `#02539A`, tinggi `48px`, border radius `14px`, teks putih `w600`.
+  - Tombol salin ringkasan menggunakan tombol ikon ringkas (`OutlinedButton`, 48x48px, `Icons.copy_rounded`, radius `14px`) yang berdampingan rapi dengan tombol utama "Catat Bagian Saya" tanpa memicu pemotongan atau baris baru (*anti-wrapping*).
   - Tombol modal simpan item & edit nama menggunakan tombol elevated standar `44px` beradius `12px`.
 
 ### 3.14 Filter Bulanan Interaktif di Beranda & Empty State Anggaran
@@ -434,7 +443,7 @@ money-tracker/
     - **Tab `Icon`:** Bar pencarian bersih (`Cari ikon...`) + grid 6-kolom ikon vektor Tabler terkurasi dengan hover/selected state cyan.
     - **Tab `Emoji`:** Input custom emoji keyboard sistem + grid 7-kolom emoji terpopuler.
     - **Label Tab Bersih:** Secara konsisten dan tegas hanya berlabel **`Icon`** dan **`Emoji`** (tanpa label "Tabler/Icon").
-- **Aksi Simpan:** Tombol primer elevated oceanic sapphire (`#02539A`) dengan validasi nama tidak kosong.
+- **Aksi Simpan:** Tombol primer elevated oceanic sapphire (`#02539A`) ditempatkan **fixed / pinned di bagian bawah layar/sheet** (di luar scroll view) sehingga pengguna tidak perlu menggulir ke bawah melewati daftar emoji. Tombol otomatis ter-disable dan hanya aktif saat seluruh form terisi valid (`_nameController.text.trim().isNotEmpty` dan `_selectedEmoji != null`).
 
 ### 3.12 Standar Universal Modal Bottom Sheet Bergaya Kartu (`lib/widgets/modal_card_sheet.dart`)
 - **Pola Floating Card Inside Card:**
@@ -474,6 +483,40 @@ money-tracker/
   - Zero AI Rainbow Slop: Dilarang menggunakan gradien ungu/pink atau warna jenuh generik.
 - **Toggle Mode:** Switch adaptif langsung di menu "Profil & Pengaturan" > "Mode Tampilan" yang tersimpan persisten ke SharedPreferences.
 - **Komponen Adaptif Tema:** Seluruh komponen (`NestedCard`, `StandardScreenHeader`, `BottomNavBar`, form input, dialog sheet) secara dinamis mengadaptasi kanvas, border, teks, dan ikon mengikuti `Theme.of(context).brightness`.
+
+### 3.16 Ikon Aksi Cepat Beranda Berbasis Vektor SVG (`lib/screens/dashboard_screen.dart` & `assets/icon/`)
+- Keempat menu aksi cepat pada sapphire balance card di Beranda menggunakan berkas vektor SVG resmi yang tersimpan di `assets/icon/`:
+  - `Dompet` -> `assets/icon/Dompet.svg`
+  - `Budget` -> `assets/icon/Budget.svg`
+  - `Analisis` -> `assets/icon/Analisis.svg`
+  - `Split Bill` -> `assets/icon/Split Bill.svg`
+- Menggunakan `SvgPicture.asset` (`flutter_svg: ^2.3.2`) dengan ukuran diperbesar menjadi **36x36px** (mengkompensasi internal padding SVG 512px sehingga glif terlihat ~20-22px) dan filter warna adaptif (`ColorFilter.mode(isDark ? Colors.white : const Color(0xFF0F172A), BlendMode.srcIn)`).
+
+### 3.17 Pemindaian Struk Belanja OCR On-Device & Bilah Aksi 3 Tombol (`lib/screens/add_transaction_screen.dart`, `lib/widgets/receipt_adjustment_sheet.dart`)
+- **Bilah Aksi Bawah 3 Tombol (`AddTransactionScreen`):**
+  - Menggantikan tombol simpan tunggal sebelumnya dengan bilah aksi 3 tombol horizontal presisi tinggi:
+    1. **Tombol Sirkular Kamera `[ 📷 ]` (Kiri, 48x48px):** Wadah bulat abu-abu terang `#E2E8F0` / dark-tint `#222D3D` dengan ikon `Icons.camera_alt_outlined` (22px). Mengetuk tombol membuka modal bottom sheet untuk memilih sumber: **Kamera** atau **Galeri Foto**.
+    2. **Tombol Pill Utama `[ Simpan Transaksi ]` (Tengah, `Expanded`, tinggi 48px):** Tombol aksi utama biru safir `#2F91E4` dengan sudut bulat pill `BorderRadius.circular(24)`, teks putih bersih `Manrope w600 15px`.
+    3. **Tombol Sirkular Mikrofon `[ 🎙️ ]` (Kanan, 48x48px):** Wadah bulat abu-abu terang `#E2E8F0` / dark-tint `#222D3D` dengan ikon `Icons.mic_none_rounded` (22px). Dialokasikan untuk fitur input suara catatan transaksi rilis mendatang; saat ini menampilkan notifikasi info via `AppSnackBar`.
+- **Pemrosesan OCR 100% On-Device & Offline:**
+  - Memanfaatkan `google_mlkit_text_recognition: ^1.0.0` (Latin script) dan `image_picker: ^1.2.4`.
+  - Bersih dari dependensi cloud atau pengiriman gambar ke server luar, menjaga privasi finansial pengguna sepenuhnya.
+  - Arsitektur abstraksi lintas platform dengan *conditional export* (`receipt_scanner_mobile.dart`, `receipt_scanner_web.dart`, `receipt_scanner_stub.dart`).
+  - Web runner menyediakan fallback simulasi cerdas OCR sehingga seluruh alur dapat diuji coba tanpa batas di browser port 8080.
+- **Mesin Parsing Cerdas Struk (`ReceiptParserService` — `lib/services/receipt_scanner/receipt_parser_service.dart`):**
+  - **Prioritas Grand Total vs Subtotal:** Membagi kata kunci pencarian menjadi Tier 1 (`GRAND TOTAL`, `TOTAL BAYAR`, `TOTAL BELANJA`, `TOTAL AKHIR`, `TAGIHAN`) dan Tier 2 (`SUBTOTAL`, `SUB TOTAL`, `JUMLAH`). Memindai baris dari bawah ke atas agar nilai akhir faktur selalu menjadi nominal utama.
+  - **Daftar Nominal Alternatif:** Mengumpulkan seluruh nominal terdeteksi dari struk ke dalam daftar `alternativeAmounts` untuk dipilih pengguna jika nominal otomatis tidak sesuai.
+  - **Ekstraksi Nama Toko / Merchant:** Memindai baris awal struk dengan filter cerdas mengabaikan teks header non-nama seperti `JL.`, `JALAN`, `TELP`, `NPWP`, `KASIR`, `STRUK`, dsb.
+  - **Deteksi Tanggal Otomatis:** Mendukung format numerik (`DD/MM/YYYY`, `DD-MM-YYYY`) dan nama bulan bahasa Indonesia / Inggris (`12 Nov 2026`, `24 Oktober 2026`).
+  - **Deteksi Kategori Cerdas:** Pencocokan nama brand toko (contoh: Indomaret/Alfamart -> Belanja, Starbucks/KFC -> Makanan & Minuman, Shell/Pertamina -> Transportasi, PLN/PDAM -> Tagihan & Utilitas) diprioritaskan sebelum pencocokan kata kunci item isi struk.
+- **Lembar Penyesuaian & Persetujuan Struk (`ReceiptAdjustmentSheet` — `lib/widgets/receipt_adjustment_sheet.dart`):**
+  - Muncul otomatis setelah pemrosesan OCR selesai sebagai modal sheet bergaya Card-Inside-Card (~90% tinggi layar).
+  - **Card 1 (Nominal Transaksi):** Menampilkan nominal terdeteksi dalam text field rupiah yang dapat diedit langsung. Jika struk mendeteksi beberapa nominal angka lain, ditampilkan deretan chip horizontal "Nominal lain dari struk" yang dapat diketuk untuk beralih nominal seketika.
+  - **Card 2 (Toko & Tanggal):** Input teks nama toko/merchant (autofill dari OCR, dapat diedit) dan tombol pemilih tanggal kalender.
+  - **Card 3 (Kategori & Dompet Pembayaran):** Dropdown pilihan kategori pengeluaran (autoselect dari deteksi cerdas) dan pilihan akun dompet asal.
+  - **Dua Tombol Alur Penyelesaian (Opsi 2 User Flow):**
+    1. **"Setujui & Simpan" (Tombol Utama Safir):** 1-klik langsung mencatat transaksi pengeluaran baru ke `TransactionProvider`, menutup sheet, dan membuka layar sukses penuh `TransactionSuccessScreen`.
+    2. **"Buka di Form" (Tombol Outlined):** Menerapkan nominal, merchant/catatan, tanggal, kategori, dan dompet yang telah disesuaikan langsung ke form `AddTransactionScreen` untuk pengisian tambahan.
 
 ---
 
@@ -925,8 +968,64 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
 - [x] Pengurangan Shadow Tombol (+) dan Bilah Navbar ([`lib/widgets/bottom_nav_bar.dart`](lib/widgets/bottom_nav_bar.dart)):
   - **Tombol Tambah (+)**: Mengurangi intensitas double shadow dari 0.50 blue blur 14 + 0.40 black blur 8 menjadi shadow halus minimalis (0.20 blue blur 6 + 0.10 black blur 4) agar tidak pekat/muddy.
   - **Canvas Navbar Bar**: Mengurangi drop shadow canvas `drawShadow` dari opacity 0.55 / elevasi 14.0 menjadi opacity 0.20 / elevasi 6.0 untuk tampilan bersih dan anti-slop.
-- [x] Kompilasi Ulang Web Release:
+- [x] Pembaruan Logo Resmi & Splash Screen Murni:
+  - **Logo Resmi ([`assets/images/logo.png`](assets/images/logo.png))**: Menggunakan karya seni logo resmi terbaru (mark 'Y' putih murni + background gradien biru safir bersih tanpa saku). Diterapkan pada layar Profil 'Tentang Aplikasi & Privasi' ([`lib/screens/settings_screen.dart`](lib/screens/settings_screen.dart)) dan onboarding ([`lib/screens/onboarding_profile_screen.dart`](lib/screens/onboarding_profile_screen.dart)).
+  - **Splash Screen ([`lib/screens/splash_screen.dart`](lib/screens/splash_screen.dart))**: Menggunakan logo murni transparan ([`assets/images/logo_splash.png`](assets/images/logo_splash.png)) dengan mark putih murni presisi tinggi tanpa kotak pembungkus.
+  - **App Icon Dipertahankan**: Seluruh ikon instalasi aplikasi (`assets/images/app_icon.png`, Android `mipmap-*`, Web favicon dan PWA) tetap dipertahankan sesuai permintaan pengguna ("yang app icon biarkan saja").
+- [x] Pembaruan Ikon Aplikasi Pure-White & Kompilasi Signed Release APK:
+  - **Ikon Instalasi Aplikasi (Android & Web)**: Menerapkan karya seni ikon terbaru dengan mark 'Y' putih murni (`#FFFFFF`, RGB `255, 255, 255`) dan gelombang saku kaca safir (`assets/images/app_icon.png` & `assets/images/logo.png`) ke seluruh direktori mipmap Android (`mipmap-mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`), web favicon, dan ikon PWA web.
+  - **Kompilasi Signed Release APK**: Membangun APK release bertanda tangan ke [`yotro-app.apk`](yotro-app.apk) dan `build/web/yotro-app.apk` sehingga pengguna dapat mengunduh langsung dari banner web browser HP (`http://localhost:8080/yotro-app.apk`) atau memasangnya secara lokal.
+  - **Restorasi Live Web Server Port 8080**: Membangun ulang `build/web/` dan merestart daemon server lokal; diverifikasi via curl mengembalikan `HTTP 200 OK` baik untuk web runner maupun berkas unduhan APK.
+- [x] Pembaruan Ikon Aplikasi, Logo Splash, & Ikon Profil Tentang Aplikasi:
+  - **Ikon Instalasi Aplikasi (Android & Web)**: Menggunakan karya seni ikon terbaru dengan lengkungan gelombang simetris (`assets/images/app_icon.png` & `assets/images/logo.png`) untuk seluruh ukuran Android launcher icon (`android/app/src/main/res/mipmap-*`), web favicon (`web/favicon.png`), dan ikon web PWA (`web/icons/*`).
+  - **Ikon Profil "Tentang Aplikasi & Privasi" ([`lib/screens/settings_screen.dart`](lib/screens/settings_screen.dart))**: Mengganti ikon perisai generik dengan logo resmi aplikasi Yotro (`assets/images/app_icon.png`) berukuran 38x38 ber-radius sudut melengkung 10px dan border halus adaptif.
+  - **Emblem Layar Splash ([`lib/screens/splash_screen.dart`](lib/screens/splash_screen.dart))**: Menggunakan logo murni transparan (`assets/images/logo_splash.png`) tanpa pembungkus kotak/kontainer (`BoxDecoration`/`boxShadow`), dengan adaptasi warna otomatis pada dark mode dan light mode.
+  - **Pengujian Unit & Web Build**: Seluruh 86 tests lolos 100% dan Flutter Web release dikompilasi ulang ke `build/web/`.
+- [x] Pengembalian Tampilan Layar Dompet ke Layout Asal ([`lib/screens/wallets_screen.dart`](lib/screens/wallets_screen.dart)):
+  - **Restorasi Layout Klasik**: Mengembalikan tata letak daftar akun & dompet ke desain awal (`NestedCard` dengan `ListView.separated`) yang bersih, rapi, dan mudah dinavigasi, sesuai permintaan pengguna ("kembalikan seperti sebelumnya saja untuk dompet").
+  - **Detail Komponen List**: Setiap dompet ditampilkan dalam baris rapi dengan badge ikon melingkar, nama akun, tipe dompet, saldo terformat Inter Tight, dan tombol edit pensil.
+  - **Kartu Callout Transfer Tetap Selaras**: Kartu aksi cepat transfer saldo antar-dompet tetap menggunakan tombol safir terpadu `Color(0xFF02539A)` yang konsisten di seluruh aplikasi.
+  - **Uji Suite & Web Release**: Seluruh 86 tests lolos 100% dan build web release terbaru berhasil dikompilasi ke `build/web/`.
+- [x] Tombol Tutup (X) Pada Setiap Snackbar ([`lib/widgets/app_snackbar.dart`](lib/widgets/app_snackbar.dart)):
+  - **Tombol Close Cepat**: Menambahkan ikon `Icons.close_rounded` melingkar (`26x26`) di sisi kanan setiap snackbar untuk menutup pesan secara instan saat diklik (`messenger.hideCurrentSnackBar()`).
+  - **Standardisasi Menyeluruh**: Mengintegrasikan `AppSnackBar` ke seluruh layar ([`lib/screens/dashboard_screen.dart`](lib/screens/dashboard_screen.dart), [`lib/screens/settings_screen.dart`](lib/screens/settings_screen.dart), [`lib/screens/add_transaction_screen.dart`](lib/screens/add_transaction_screen.dart), [`lib/screens/edit_category_screen.dart`](lib/screens/edit_category_screen.dart), [`lib/screens/main_shell.dart`](lib/screens/main_shell.dart), [`lib/widgets/notification_permission_sheet.dart`](lib/widgets/notification_permission_sheet.dart)).
+  - **Pengujian Unit & Widget**: Menambahkan [`test/snackbar_close_button_test.dart`](test/snackbar_close_button_test.dart) yang memverifikasi kehadiran dan fungsi interaktif tombol tutup (seluruh 88 tests lolos 100%).
+- [x] Tombol Salin Ringkas Berbasis Ikon di Split Bill ([`lib/screens/split_bill_screen.dart`](lib/screens/split_bill_screen.dart)):
+  - Mengganti tombol teks "Salin Teks" yang memicu pemotongan/pembungkusan baris ke bawah dengan tombol kotak ringkas (`SizedBox(width: 48, height: 48)`) berikon `Icons.copy_rounded` (OutlinedButton, radius 14px, padding zero).
+  - Memberikan ruang horizontal penuh (`Expanded`) untuk tombol aksi utama "Catat Bagian Saya" sehingga tampilan rapi dan sejajar.
+- [x] Tombol Simpan Kategori Fixed/Pinned di Bawah & Validasi Form Penuh ([`lib/screens/edit_category_screen.dart`](lib/screens/edit_category_screen.dart)):
+  - Memindahkan tombol "Simpan Kategori" / "Simpan Perubahan" keluar dari `ListView` menjadi pinned bottom bar tetap di bagian bawah modal bottom sheet / halaman.
+  - Pengguna tidak perlu menggulir ke bawah melewati daftar panjang emoji untuk menekan tombol simpan.
+  - Validasi ketat: Tombol otomatis disabled (`onPressed: null`, latar redup) sampai seluruh form wajib terisi (`_nameController.text.trim().isNotEmpty` dan `_selectedEmoji != null`).
+  - Membungkus modal sheet dengan `Material` untuk mencegah ketiadaan ancestor Material pada ink splashes.
+- [x] Ikon Aksi Cepat Kartu Saldo Beranda Menggunakan Berkas SVG Asli ([`lib/screens/dashboard_screen.dart`](lib/screens/dashboard_screen.dart) & `assets/icon/`):
+  - Memasang dependensi `flutter_svg: ^2.3.2` dan mendaftarkan folder `assets/icon/` pada `pubspec.yaml`.
+  - Mengarahkan keempat menu aksi cepat di balance card Beranda ke berkas SVG resmi yang disediakan user: `Dompet.svg`, `Budget.svg`, `Analisis.svg`, dan `Split Bill.svg`.
+  - Ukuran ikon diperbesar dari 28x28px menjadi **36x36px** (divider `height: 36px`) agar proporsional dan jelas terbaca.
+  - Menyesuaikan tint warna secara dinamis mengikuti tema aktif (`isDark ? Colors.white : Color(0xFF0F172A)`).
+- [x] Kompilasi Ulang Web Release & Signed Release APK:
   - Berhasil membangun `build/web/` terbaru untuk daemon live server port `8080`.
+  - Menyalin signed APK ke `build/web/yotro-app.apk` sehingga tombol unduh APK pada browser HP aktif dan mengembalikan HTTP 200 OK.
+  - Seluruh 87 unit dan widget tests lulus 100% (`flutter test`).
+- [x] Eliminasi Floating Overlay APK Web & Integrasi Native ke Pengaturan ([`web/index.html`](web/index.html), [`lib/screens/settings_screen.dart`](lib/screens/settings_screen.dart), [`lib/services/backup_storage_service.dart`](lib/services/backup_storage_service.dart)):
+  - Menghapus floating pill HTML `apk-download-banner` dari `web/index.html` sehingga preview web 100% bersih tanpa menutupi header/lonceng notifikasi.
+  - Menambahkan tombol native "Unduh APK Android (v1.0.5)" pada layar Pengaturan > Tentang Aplikasi & Privasi khusus saat dijalankan di browser web (`kIsWeb`).
+  - Memanfaatkan `BackupStorageService.downloadApk()` berbasis HTML anchor download lintas platform.
+- [x] Pemindaian Struk Belanja OCR On-Device & Bilah Aksi 3 Tombol ([`lib/screens/add_transaction_screen.dart`](lib/screens/add_transaction_screen.dart), [`lib/widgets/receipt_adjustment_sheet.dart`](lib/widgets/receipt_adjustment_sheet.dart), [`lib/services/receipt_scanner/`](lib/services/receipt_scanner/)):
+  - **Bilah Aksi Bawah 3 Tombol**: Menerapkan tata letak sesuai referensi desain pengguna: tombol Kamera sirkular (48x48px), tombol pill safir "Simpan Transaksi" (Expanded, 48px), dan tombol Mikrofon sirkular (48x48px).
+  - **OCR 100% On-Device & Offline**: Memanfaatkan `google_mlkit_text_recognition` dan `image_picker` tanpa ketergantungan API cloud atau server eksternal demi privasi data finansial.
+  - **Mesin Parsing Cerdas (`ReceiptParserService`)**: Heuristik pencarian nominal bertingkat (prioritas Grand Total keywords dari baris bawah ke atas), penyusunan chip nominal alternatif, filter pembersih nama merchant, deteksi tanggal format angka/nama bulan, dan auto-kategori berdasarkan brand toko dan item belanja.
+  - **Lembar Penyesuaian Struk (`ReceiptAdjustmentSheet`)**: Menampilkan modal sheet interaktif di mana pengguna dapat mengedit nominal langsung, memilih nominal alternatif struk via chip, mengubah nama toko, tanggal, dompet, dan kategori.
+  - **Dua Alur Keputusan (Opsi 2 User Flow)**:
+    - **"Setujui & Simpan"**: Menyimpan transaksi secara instan ke `TransactionProvider` dan mengarahkan langsung ke `TransactionSuccessScreen`.
+    - **"Buka di Form"**: Memindahkan seluruh data yang disesuaikan langsung ke form input `AddTransactionScreen` untuk pengisian/penyesuaian lebih lanjut.
+  - **Pengujian Lengkap**: 95 unit dan widget tests lolos 100% (`flutter test`).
+  - **Web Parity & Rebuild**: Kompilasi `build/web/` terbaru dan sinkronisasi `build/web/yotro-app.apk` pada live server port 8080.
+- [x] Pembuatan Signed Release APK Android v1.0.6+7 ([`yotro-app.apk`](yotro-app.apk) & `build/web/yotro-app.apk`):
+  - Konfigurasi ProGuard R8 rules di [`android/app/proguard-rules.pro`](android/app/proguard-rules.pro) untuk ML Kit Text Recognition (`-dontwarn com.google.mlkit.vision.text.**`).
+  - Berhasil mengompilasi signed release APK dengan JDK 17 dan Android SDK lokal: `build/app/outputs/flutter-apk/app-release.apk` (91 MB).
+  - Berkas disalin ke root [`yotro-app.apk`](yotro-app.apk) dan `build/web/yotro-app.apk`.
+  - Tombol download tersedia langsung di preview web Pengaturan > Tentang Aplikasi & Privasi > "Unduh APK Android (v1.0.6)".
 - [x] File handover AI context di `context.md`.
 - [x] Aturan otomatisasi workspace agent di `AGENTS.md` dan `GEMINI.md` (auto-sync `context.md`).
 
@@ -945,19 +1044,22 @@ Saat melanjutkan proyek ini:
 3. **Pahami Pemisahan Mode Tampilan & Saldo:**
    - `dashboardViewMode`: Enum 3 mode (`complete`, `incomeExpense`, `expenseOnly`).
    - Pada mode `expenseOnly`, kartu hero menampilkan "Total Pengeluaran" dan sub-kartu disembunyikan.
-4. **Keamanan Sideload & Izin Minimal:**
+4. **Fitur OCR Struk & Bilah Aksi:**
+   - OCR menggunakan arsitektur modular di `lib/services/receipt_scanner/` dengan conditional imports agar kompatibel web dan mobile.
+   - Bilah aksi `AddTransactionScreen` terdiri dari 3 tombol: Kamera (kiri), Simpan Transaksi (tengah), dan Mic (kanan). Tombol mic disiapkan untuk rilis mendatang (voice notes / audio logging).
+5. **Keamanan Sideload & Izin Minimal:**
    - Fitur pembaca notifikasi real-time (`BIND_NOTIFICATION_LISTENER_SERVICE`) telah **dihapus permanen** agar APK sideload tidak memicu peringatan Android Restricted Settings atau dianggap membahayakan.
    - Aplikasi hanya menggunakan izin notifikasi standar lokal (`POST_NOTIFICATIONS`, `VIBRATE`, `RECEIVE_BOOT_COMPLETED`) untuk pengingat transaksi harian offline.
    - Jangan pernah menambahkan kembali service pembaca notifikasi tanpa persetujuan eksplisit user.
-5. **Kategori Finansial:**
+6. **Kategori Finansial:**
    - Seluruh kategori default wajib menggunakan Bahasa Indonesia (Makanan & Minuman, Transportasi, Belanja, Tagihan & Utilitas, dsb).
    - Layar tambah/edit kategori dibuka via modal bottom sheet setinggi 94% layar (`EditCategoryScreen.showAsModalSheet`).
-6. **Cadangan & Pemulihan:**
+7. **Cadangan & Pemulihan:**
    - Ekspor menggunakan `BackupStorageService` yang menghasilkan berkas `.json` nyata.
    - Pulihkan mendukung pilih berkas `.json` via `FilePicker` atau tempel teks.
-7. **Aktivitas Transaksi Dual Bar:**
+8. **Aktivitas Transaksi Dual Bar:**
    - Gunakan `WeeklyActivityChart(isDualBar: true, title: 'Aktivitas Transaksi')` di Beranda. Auto-hide saat minggu kosong.
-8. **Sinkronisasi `context.md` Wajib:** Setiap kali berkas diubah, perbarui `context.md` sebelum mengakhiri giliran.
-9. **Tone Komunikasi:** Sesuai preferensi user, berikan jawaban terfokus pada hasil teknis (*terse smart caveman*), langsung ke fakta dan link berkas.
-10. **Preview Web:** Build Flutter Web adalah sumber preview yang setara dengan kode `lib/`; disajikan di `http://localhost:8080/`.
+9. **Sinkronisasi `context.md` Wajib:** Setiap kali berkas diubah, perbarui `context.md` sebelum mengakhiri giliran.
+10. **Tone Komunikasi:** Sesuai preferensi user, berikan jawaban terfokus pada hasil teknis (*terse smart caveman*), langsung ke fakta dan link berkas.
+11. **Preview Web:** Build Flutter Web adalah sumber preview yang setara dengan kode `lib/`; disajikan di `http://localhost:8080/`.
 

@@ -8,5 +8,9 @@ class BackupStorageService {
   }) async {
     return platform_impl.saveAndExportJsonFile(jsonContent, fileName);
   }
+
+  static void downloadApk() {
+    platform_impl.triggerApkDownload();
+  }
 }
 

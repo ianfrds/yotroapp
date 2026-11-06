@@ -236,5 +236,31 @@ void main() {
       expect(find.text('Kartu Konfirmasi'), findsOneWidget);
       expect(find.text('Konten di dalam kartu'), findsOneWidget);
     });
+
+    testWidgets('EditCategoryScreen submit button is fixed and disabled until form is valid', (tester) async {
+      await tester.pumpWidget(
+        ChangeNotifierProvider<TransactionProvider>.value(
+          value: TransactionProvider(),
+          child: const MaterialApp(
+            home: EditCategoryScreen(isSheet: true),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Submit button is found and initially disabled because name is empty
+      final buttonFinder = find.byKey(const Key('save_category_button'));
+      expect(buttonFinder, findsOneWidget);
+      final ElevatedButton initialBtn = tester.widget(buttonFinder);
+      expect(initialBtn.onPressed, isNull);
+
+      // Enter name
+      await tester.enterText(find.byType(TextField).first, 'Transportasi');
+      await tester.pumpAndSettle();
+
+      // Now enabled
+      final ElevatedButton activeBtn = tester.widget(buttonFinder);
+      expect(activeBtn.onPressed, isNotNull);
+    });
   });
 }

@@ -16,3 +16,11 @@ Future<bool> saveAndExportJsonFile(String jsonContent, String fileName) async {
   }
 }
 
+void triggerApkDownload() {
+  try {
+    final anchor = html.AnchorElement(href: 'yotro-app.apk')
+      ..setAttribute('download', 'yotro-app.apk')
+      ..click();
+  } catch (_) {}
+}
+

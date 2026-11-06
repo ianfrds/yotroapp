@@ -6,6 +6,7 @@ import '../providers/transaction_provider.dart';
 import '../utils/icon_catalog.dart';
 import '../widgets/nested_card.dart';
 import '../widgets/standard_screen_header.dart';
+import '../widgets/app_snackbar.dart';
 
 class EditCategoryScreen extends StatefulWidget {
   final TransactionType initialType;
@@ -98,10 +99,22 @@ class _EditCategoryScreenState extends State<EditCategoryScreen> {
 
     _emojiCustomController = TextEditingController();
     _searchIconController = TextEditingController();
+    _nameController.addListener(_onFormChanged);
   }
+
+  void _onFormChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  bool get _isFormValid =>
+      _nameController.text.trim().isNotEmpty &&
+      (_selectedEmoji != null && _selectedEmoji!.trim().isNotEmpty);
 
   @override
   void dispose() {
+    _nameController.removeListener(_onFormChanged);
     _nameController.dispose();
     _emojiCustomController.dispose();
     _searchIconController.dispose();
@@ -481,66 +494,105 @@ class _EditCategoryScreenState extends State<EditCategoryScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 20),
-
-        // Submit CTA Button
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF02539A),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            onPressed: _saveCategory,
-            child: Text(
-              isEditing ? 'Simpan Perubahan' : 'Simpan Kategori',
-              style: GoogleFonts.manrope(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
       ],
     );
 
     if (widget.isSheet) {
-      return Container(
-        height: MediaQuery.of(context).size.height * 0.94,
-        decoration: BoxDecoration(
-          color: isDark ? _bgCanvas : const Color(0xFFF4F5F7),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border.all(
-            color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFE2E8F0),
+      return Material(
+        color: Colors.transparent,
+        child: Container(
+          height: MediaQuery.of(context).size.height * 0.94,
+          decoration: BoxDecoration(
+            color: isDark ? _bgCanvas : const Color(0xFFF4F5F7),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border.all(
+              color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFE2E8F0),
+            ),
           ),
-        ),
-        child: Column(
-          children: [
-            Center(
-              child: Container(
-                margin: const EdgeInsets.only(top: 10, bottom: 4),
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white.withOpacity(0.2) : const Color(0xFFCBD5E1),
-                  borderRadius: BorderRadius.circular(2),
+          child: Column(
+            children: [
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 10, bottom: 4),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.2) : const Color(0xFFCBD5E1),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            Expanded(child: body),
-          ],
+              Expanded(child: body),
+              _buildFixedSubmitButton(isDark, isEditing),
+            ],
+          ),
         ),
       );
     }
 
     return Scaffold(
       backgroundColor: isDark ? _bgCanvas : const Color(0xFFF4F5F7),
-      body: SafeArea(child: body),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Expanded(child: body),
+            _buildFixedSubmitButton(isDark, isEditing),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFixedSubmitButton(bool isDark, bool isEditing) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        12,
+        16,
+        12 + (bottomInset > 0 ? bottomInset : MediaQuery.of(context).padding.bottom),
+      ),
+      decoration: BoxDecoration(
+        color: isDark ? _surfaceDark : Colors.white,
+        border: Border(
+          top: BorderSide(
+            color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFE2E8F0),
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 48,
+        child: ElevatedButton(
+          key: const Key('save_category_button'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF02539A),
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+            disabledForegroundColor: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          onPressed: _isFormValid ? _saveCategory : null,
+          child: Text(
+            isEditing ? 'Simpan Perubahan' : 'Simpan Kategori',
+            style: GoogleFonts.manrope(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -674,11 +726,10 @@ class _EditCategoryScreenState extends State<EditCategoryScreen> {
   void _saveCategory() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Nama kategori tidak boleh kosong'),
-          backgroundColor: Color(0xFFF43F5E),
-        ),
+      AppSnackBar.show(
+        context,
+        'Nama kategori tidak boleh kosong',
+        type: SnackBarType.danger,
       );
       return;
     }

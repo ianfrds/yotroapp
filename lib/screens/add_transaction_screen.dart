@@ -11,6 +11,8 @@ import '../widgets/app_snackbar.dart';
 import '../widgets/modal_card_sheet.dart';
 import '../widgets/nested_card.dart';
 import '../widgets/slide_up_route.dart';
+import '../widgets/receipt_adjustment_sheet.dart';
+import '../services/receipt_scanner/receipt_scanner_service.dart';
 import 'transaction_success_screen.dart';
 
 class AddTransactionScreen extends StatefulWidget {
@@ -145,11 +147,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   Future<void> _save() async {
     final amount = _currentAmount;
     if (amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Nominal transaksi harus lebih dari 0'),
-          backgroundColor: Color(0xFFF43F5E),
-        ),
+      AppSnackBar.show(
+        context,
+        'Nominal transaksi harus lebih dari 0',
+        type: SnackBarType.danger,
       );
       return;
     }
@@ -1167,28 +1168,250 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 ),
               ],
             )
-          : SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: _save,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isDark ? Colors.white : const Color(0xFF02539A),
-                  foregroundColor: isDark ? Colors.black : Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+          : Row(
+              children: [
+                // Camera / OCR Button (Left)
+                SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Material(
+                    color: isDark ? const Color(0xFF242D3D) : const Color(0xFFE2E8F0),
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      key: const Key('btn_scan_receipt'),
+                      customBorder: const CircleBorder(),
+                      onTap: _openReceiptScannerSheet,
+                      child: Center(
+                        child: Icon(
+                          Icons.camera_alt_outlined,
+                          size: 22,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-                child: Text(
-                  'Simpan Transaksi',
-                  style: GoogleFonts.manrope(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w600,
+                const SizedBox(width: 10),
+
+                // Primary Save Action (Pill Center)
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: ElevatedButton(
+                      key: const Key('btn_save_transaction'),
+                      onPressed: _save,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isDark ? Colors.white : const Color(0xFF02539A),
+                        foregroundColor: isDark ? Colors.black : Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                      ),
+                      child: Text(
+                        'Simpan Transaksi',
+                        style: GoogleFonts.manrope(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   ),
+                ),
+                const SizedBox(width: 10),
+
+                // Microphone / Voice Note Action (Right)
+                SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Material(
+                    color: isDark ? const Color(0xFF242D3D) : const Color(0xFFE2E8F0),
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      key: const Key('btn_voice_input'),
+                      customBorder: const CircleBorder(),
+                      onTap: _onMicTapped,
+                      child: Center(
+                        child: Icon(
+                          Icons.mic_none_rounded,
+                          size: 22,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
+  void _onMicTapped() {
+    AppSnackBar.show(
+      context,
+      'Fitur input suara akan hadir di pembaruan berikutnya',
+      type: SnackBarType.info,
+    );
+  }
+
+  void _openReceiptScannerSheet() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1C2229) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          border: Border.all(
+            color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFE2E8F0),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withOpacity(0.2) : const Color(0xFFCBD5E1),
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
+            Text(
+              'Pindai Struk Belanja (OCR)',
+              style: GoogleFonts.interTight(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Pilih sumber foto untuk membaca total, toko, dan kategori',
+              style: GoogleFonts.manrope(
+                fontSize: 12,
+                color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const Key('btn_pick_camera'),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _scanFromSource(ReceiptImageSource.camera);
+                    },
+                    icon: const Icon(Icons.camera_alt_outlined, size: 18),
+                    label: const Text('Kamera'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      foregroundColor: isDark ? Colors.white : const Color(0xFF0F172A),
+                      side: BorderSide(
+                        color: isDark ? Colors.white.withOpacity(0.12) : const Color(0xFFCBD5E1),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const Key('btn_pick_gallery'),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _scanFromSource(ReceiptImageSource.gallery);
+                    },
+                    icon: const Icon(Icons.photo_library_outlined, size: 18),
+                    label: const Text('Galeri'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      foregroundColor: isDark ? Colors.white : const Color(0xFF0F172A),
+                      side: BorderSide(
+                        color: isDark ? Colors.white.withOpacity(0.12) : const Color(0xFFCBD5E1),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _scanFromSource(ReceiptImageSource source) async {
+    AppSnackBar.show(
+      context,
+      'Memindai struk belanja dengan OCR...',
+      type: SnackBarType.info,
+    );
+
+    final data = await ReceiptScannerService.scanReceipt(context, source: source);
+    if (!mounted) return;
+
+    if (data == null) {
+      AppSnackBar.show(
+        context,
+        'Pemindaian struk dibatalkan atau gambar tidak ditemukan',
+        type: SnackBarType.warning,
+      );
+      return;
+    }
+
+    ReceiptAdjustmentSheet.show(
+      context,
+      receiptData: data,
+      onApplyToForm: (adjusted, walletId) {
+        setState(() {
+          _amountController.text = ThousandsSeparatorInputFormatter.formatNumber(
+            adjusted.totalAmount.toStringAsFixed(0),
+          );
+          _titleController.text = adjusted.merchantName;
+          _selectedCategory = adjusted.suggestedCategory;
+          _selectedDate = adjusted.date;
+          _selectedWalletId = walletId;
+        });
+        AppSnackBar.show(
+          context,
+          'Data struk berhasil diterapkan ke formulir!',
+          type: SnackBarType.success,
+        );
+      },
+      onApproveAndSave: (adjusted, walletId) async {
+        final provider = context.read<TransactionProvider>();
+        final categoryId = adjusted.suggestedCategory.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+
+        final newTx = await provider.addTransaction(
+          title: adjusted.merchantName.isNotEmpty ? adjusted.merchantName : 'Struk Belanja',
+          amount: adjusted.totalAmount,
+          type: TransactionType.expense,
+          categoryName: adjusted.suggestedCategory,
+          categoryId: categoryId,
+          walletId: walletId,
+          date: adjusted.date,
+          note: 'Dicatat otomatis via OCR struk belanja',
+        );
+
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TransactionSuccessScreen(
+              transaction: newTx,
+            ),
+          ),
+        );
+      },
     );
   }
 

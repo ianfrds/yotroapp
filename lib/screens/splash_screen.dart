@@ -124,29 +124,15 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // App Emblem
-                  Container(
-                    width: 78,
-                    height: 78,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(22),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF00498C).withOpacity(0.35),
-                          blurRadius: 24,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Image.asset(
-                      'assets/images/logo.png',
-                      width: 78,
-                      height: 78,
-                      fit: BoxFit.cover,
-                    ),
+                  // App Emblem (Clean Logo Mark without enclosing box)
+                  Image.asset(
+                    'assets/images/logo_splash.png',
+                    width: 84,
+                    height: 64,
+                    fit: BoxFit.contain,
+                    color: isDark ? null : const Color(0xFF0F172A),
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 20),
 
                   // Brand Title
                   Text(

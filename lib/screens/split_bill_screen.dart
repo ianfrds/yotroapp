@@ -1667,32 +1667,24 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
             // Standardized Action Buttons
             Row(
               children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 48,
-                    child: OutlinedButton.icon(
-                      onPressed: _copySummary,
-                      icon: const Icon(Icons.copy_rounded, size: 16),
-                      label: Text(
-                        'Salin Teks',
-                        style: GoogleFonts.manrope(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
+                SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: OutlinedButton(
+                    onPressed: _copySummary,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDark ? Colors.white : const Color(0xFF0F172A),
+                      side: BorderSide(
+                        color: isDark ? Colors.white.withOpacity(0.12) : const Color(0xFFCBD5E1),
                       ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: isDark ? Colors.white : const Color(0xFF0F172A),
-                        side: BorderSide(
-                          color: isDark ? Colors.white.withOpacity(0.12) : const Color(0xFFCBD5E1),
-                        ),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      padding: EdgeInsets.zero,
                     ),
+                    child: const Icon(Icons.copy_rounded, size: 20),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  flex: 2,
                   child: SizedBox(
                     height: 48,
                     child: ElevatedButton.icon(

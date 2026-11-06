@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -44,6 +45,7 @@ void main() {
       expect(find.text('Budget'), findsWidgets);
       expect(find.text('Analisis'), findsOneWidget);
       expect(find.text('Split Bill'), findsOneWidget);
+      expect(find.byType(SvgPicture), findsNWidgets(4));
 
       // Verify Masuk and Keluar quick action buttons are gone
       expect(find.widgetWithText(InkWell, 'Masuk'), findsNothing);
@@ -180,7 +182,7 @@ void main() {
       expect(find.text('Per Item'), findsOneWidget);
 
       // Verify standardized action buttons
-      expect(find.text('Salin Teks'), findsOneWidget);
+      expect(find.byIcon(Icons.copy_rounded), findsWidgets);
       expect(find.text('Catat Bagian Saya'), findsOneWidget);
 
       // Switch to Bagi Kustom

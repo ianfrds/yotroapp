@@ -87,13 +87,39 @@ class _MainShellState extends State<MainShell> {
           ScaffoldMessenger.of(context).clearSnackBars();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                'Tekan sekali lagi untuk keluar dari Yotro',
-                style: GoogleFonts.manrope(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white,
-                ),
+              content: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Tekan sekali lagi untuk keluar dari Yotro',
+                      style: GoogleFonts.manrope(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    key: const Key('btn_close_snackbar'),
+                    onTap: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.08),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: const Icon(
+                        Icons.close_rounded,
+                        color: Color(0xFF94A3B8),
+                        size: 15,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               duration: const Duration(seconds: 2),
               backgroundColor: isDark ? const Color(0xFF131A26) : const Color(0xFF0F172A),

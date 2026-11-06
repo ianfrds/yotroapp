@@ -133,6 +133,8 @@ void showNotificationPermissionSheet({
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               backgroundColor: const Color(0xFF131A26),
+                              showCloseIcon: true,
+                              closeIconColor: const Color(0xFF94A3B8),
                               content: Text(
                                 'Izin notifikasi ditolak oleh perangkat. Anda dapat mengaktifkannya di Pengaturan HP.',
                                 style: GoogleFonts.manrope(color: Colors.white, fontSize: 12),

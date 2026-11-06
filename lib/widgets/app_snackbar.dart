@@ -69,6 +69,28 @@ class AppSnackBar {
                 ),
               ),
             ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              key: const Key('btn_close_snackbar'),
+              onTap: () {
+                messenger.hideCurrentSnackBar();
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.08),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.close_rounded,
+                  color: Color(0xFF94A3B8),
+                  size: 16,
+                ),
+              ),
+            ),
           ],
         ),
       ),

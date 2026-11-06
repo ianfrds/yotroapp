@@ -18,3 +18,5 @@ Future<bool> saveAndExportJsonFile(String jsonContent, String fileName) async {
   }
 }
 
+void triggerApkDownload() {}
+

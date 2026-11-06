@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
@@ -12,6 +13,7 @@ import '../widgets/nested_card.dart';
 import '../widgets/weekly_activity_chart.dart';
 import '../widgets/spending_calendar_card.dart';
 import '../widgets/transaction_tile.dart';
+import '../widgets/app_snackbar.dart';
 import 'add_transaction_screen.dart';
 import 'budget_screen.dart';
 import 'wallets_screen.dart';
@@ -333,7 +335,7 @@ class DashboardScreen extends StatelessWidget {
                 Expanded(
                   child: _buildQuickActionItem(
                     context: context,
-                    icon: Icons.account_balance_wallet_outlined,
+                    svgAsset: 'assets/icon/Dompet.svg',
                     label: 'Dompet',
                     onTap: () {
                       Navigator.push(context, WalletsScreen.route());
@@ -344,7 +346,7 @@ class DashboardScreen extends StatelessWidget {
                 Expanded(
                   child: _buildQuickActionItem(
                     context: context,
-                    icon: Icons.donut_small_rounded,
+                    svgAsset: 'assets/icon/Budget.svg',
                     label: 'Budget',
                     onTap: () {
                       Navigator.push(context, BudgetScreen.route());
@@ -355,7 +357,7 @@ class DashboardScreen extends StatelessWidget {
                 Expanded(
                   child: _buildQuickActionItem(
                     context: context,
-                    icon: Icons.pie_chart_outline_rounded,
+                    svgAsset: 'assets/icon/Analisis.svg',
                     label: 'Analisis',
                     onTap: () {
                       FinancialAnalysisScreen.showAsModalSheet(context);
@@ -366,7 +368,7 @@ class DashboardScreen extends StatelessWidget {
                 Expanded(
                   child: _buildQuickActionItem(
                     context: context,
-                    icon: Icons.call_split_rounded,
+                    svgAsset: 'assets/icon/Split Bill.svg',
                     label: 'Split Bill',
                     onTap: () {
                       Navigator.push(context, SplitBillScreen.route());
@@ -836,14 +838,15 @@ class DashboardScreen extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: 1,
-      height: 32,
+      height: 36,
       color: isDark ? Colors.white.withOpacity(.08) : const Color(0xFFE2E8F0),
     );
   }
 
   Widget _buildQuickActionItem({
     required BuildContext context,
-    required IconData icon,
+    String? svgAsset,
+    IconData? icon,
     required String label,
     required VoidCallback onTap,
   }) {
@@ -856,11 +859,22 @@ class DashboardScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: isDark ? Colors.white : const Color(0xFF0F172A),
-              size: 22,
-            ),
+            if (svgAsset != null)
+              SvgPicture.asset(
+                svgAsset,
+                width: 36,
+                height: 36,
+                colorFilter: ColorFilter.mode(
+                  isDark ? Colors.white : const Color(0xFF0F172A),
+                  BlendMode.srcIn,
+                ),
+              )
+            else if (icon != null)
+              Icon(
+                icon,
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                size: 36,
+              ),
             const SizedBox(height: 6),
             Text(
               label,
@@ -1164,15 +1178,10 @@ class DashboardScreen extends StatelessWidget {
                           onTap: () async {
                             await provider.approveNotification(item.id);
                             if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  backgroundColor: const Color(0xFF131A26),
-                                  content: Text(
-                                    'Transaksi ${provider.formatCurrency(item.amount)} disetujui & dicatat ke saldo!',
-                                    style: GoogleFonts.manrope(color: Colors.white, fontSize: 12),
-                                  ),
-                                  duration: const Duration(seconds: 2),
-                                ),
+                              AppSnackBar.show(
+                                context,
+                                'Transaksi ${provider.formatCurrency(item.amount)} disetujui & dicatat ke saldo!',
+                                type: SnackBarType.success,
                               );
                             }
                           },
