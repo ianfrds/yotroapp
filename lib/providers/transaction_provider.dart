@@ -88,6 +88,8 @@ class TransactionProvider with ChangeNotifier {
   String _userGender = 'Pria';
   bool _isOnboardingCompleted = false;
   String _selectedPeriod = 'this_month';
+  DateTime _selectedDashboardMonth =
+      DateTime(DateTime.now().year, DateTime.now().month, 1);
   bool _isBalanceVisible = true;
   DashboardViewMode _dashboardViewMode = DashboardViewMode.complete;
   ThemeMode _themeMode = ThemeMode.dark;
@@ -123,6 +125,7 @@ class TransactionProvider with ChangeNotifier {
   String get userGender => _userGender;
   bool get isOnboardingCompleted => _isOnboardingCompleted;
   String get selectedPeriod => _selectedPeriod;
+  DateTime get selectedDashboardMonth => _selectedDashboardMonth;
   bool get isBalanceVisible => _isBalanceVisible;
   DashboardViewMode get dashboardViewMode => _dashboardViewMode;
   bool get hideBalanceSection =>
@@ -230,6 +233,29 @@ class TransactionProvider with ChangeNotifier {
   double get totalExpense {
     return _transactions
         .where((t) => t.type == TransactionType.expense)
+        .fold(0.0, (sum, t) => sum + t.amount);
+  }
+
+  void setSelectedDashboardMonth(DateTime month) {
+    _selectedDashboardMonth = DateTime(month.year, month.month, 1);
+    notifyListeners();
+  }
+
+  double get dashboardMonthIncome {
+    return _transactions
+        .where((t) =>
+            t.type == TransactionType.income &&
+            t.timestamp.year == _selectedDashboardMonth.year &&
+            t.timestamp.month == _selectedDashboardMonth.month)
+        .fold(0.0, (sum, t) => sum + t.amount);
+  }
+
+  double get dashboardMonthExpense {
+    return _transactions
+        .where((t) =>
+            t.type == TransactionType.expense &&
+            t.timestamp.year == _selectedDashboardMonth.year &&
+            t.timestamp.month == _selectedDashboardMonth.month)
         .fold(0.0, (sum, t) => sum + t.amount);
   }
 

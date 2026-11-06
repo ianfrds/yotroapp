@@ -20,6 +20,7 @@ class AppColors {
   static const Color accentWhite = Color(0xFFFFFFFF);
   static const Color accentDark = Color(0xFF0F172A);
   static const Color accentPrimary = Color(0xFF55C7FF);
+  static const Color primaryButton = Color(0xFF02539A); // Universal Sapphire Primary Button
   static const Color backgroundDark = background;
   static const Color highlightLavender = Color(0xFFA5B4FC);
   static const Color highlightPeriwinkle = Color(0xFF939CFE);

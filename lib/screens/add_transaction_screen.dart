@@ -1148,8 +1148,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       key: const Key('btn_save_transaction'),
                       onPressed: _save,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: isDark ? const Color(0xFF55C7FF) : const Color(0xFF0F172A),
-                        foregroundColor: isDark ? const Color(0xFF09101C) : Colors.white,
+                        backgroundColor: isDark ? Colors.white : const Color(0xFF02539A),
+                        foregroundColor: isDark ? Colors.black : Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
@@ -1173,7 +1173,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               child: ElevatedButton(
                 onPressed: _save,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: isDark ? Colors.white : const Color(0xFF0F172A),
+                  backgroundColor: isDark ? Colors.white : const Color(0xFF02539A),
                   foregroundColor: isDark ? Colors.black : Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(

@@ -176,7 +176,7 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
                 if (context.mounted) Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0066FF),
+                backgroundColor: const Color(0xFF02539A),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -198,23 +198,36 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
   }
 
   void _confirmDeleteBudget(BuildContext context, TransactionProvider provider) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF131A26),
+        backgroundColor: isDark ? const Color(0xFF131A26) : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           'Hapus Budget Kategori?',
-          style: GoogleFonts.interTight(color: Colors.white, fontWeight: FontWeight.w600),
+          style: GoogleFonts.interTight(
+            color: isDark ? Colors.white : const Color(0xFF0F172A),
+            fontWeight: FontWeight.w600,
+          ),
         ),
         content: Text(
           'Target budget untuk "${widget.categoryName}" akan dihapus. Transaksi tidak akan terpengaruh.',
-          style: GoogleFonts.manrope(color: const Color(0xFF8EA4BE), fontSize: 13),
+          style: GoogleFonts.manrope(
+            color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+            fontSize: 13,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Batal', style: GoogleFonts.manrope(color: Colors.white70)),
+            child: Text(
+              'Batal',
+              style: GoogleFonts.manrope(
+                color: isDark ? Colors.white70 : const Color(0xFF64748B),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -680,7 +693,7 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
                             ElevatedButton(
                               onPressed: () => setState(() => _selectedChartDate = null),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF0066FF),
+                                backgroundColor: const Color(0xFF02539A),
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -703,7 +716,7 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
                                 );
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF0066FF),
+                                backgroundColor: const Color(0xFF02539A),
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -888,7 +901,7 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0066FF),
+                  backgroundColor: const Color(0xFF02539A),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

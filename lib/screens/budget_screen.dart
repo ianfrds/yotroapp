@@ -37,6 +37,7 @@ class BudgetScreen extends StatelessWidget {
     String? initialCategory,
     double? initialLimit,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isEditing = initialCategory != null;
     final expenseCategories = provider.getCategories(TransactionType.expense);
     final availableCategories = isEditing
@@ -53,6 +54,11 @@ class BudgetScreen extends StatelessWidget {
         : '';
     final amountController = TextEditingController(text: initialFormatted);
 
+    final inputBg = isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFF1F5F9);
+    final inputBorder = isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFCBD5E1);
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final labelColor = isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B);
+
     showModalCardSheet(
       context: context,
       title: isEditing ? 'Ubah Budget Kategori' : 'Tambah Budget Kategori',
@@ -68,7 +74,7 @@ class BudgetScreen extends StatelessWidget {
               Text(
                 'Kategori Pengeluaran',
                 style: GoogleFonts.manrope(
-                  color: const Color(0xFF8EA4BE),
+                  color: labelColor,
                   fontSize: 11.5,
                   fontWeight: FontWeight.w500,
                 ),
@@ -79,9 +85,9 @@ class BudgetScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
+                    color: inputBg,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withOpacity(0.08)),
+                    border: Border.all(color: inputBorder),
                   ),
                   child: Row(
                     children: [
@@ -101,7 +107,7 @@ class BudgetScreen extends StatelessWidget {
                       Text(
                         selectedCategory,
                         style: GoogleFonts.manrope(
-                          color: Colors.white,
+                          color: textColor,
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),
@@ -113,13 +119,13 @@ class BudgetScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.04),
+                    color: inputBg,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     'Semua kategori pengeluaran sudah memiliki budget.',
                     style: GoogleFonts.manrope(
-                      color: const Color(0xFF8EA4BE),
+                      color: labelColor,
                       fontSize: 12,
                     ),
                   ),
@@ -129,17 +135,17 @@ class BudgetScreen extends StatelessWidget {
                   height: 44,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
+                    color: inputBg,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withOpacity(0.08)),
+                    border: Border.all(color: inputBorder),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
                       value: selectedCategory.isNotEmpty ? selectedCategory : null,
-                      dropdownColor: const Color(0xFF0C131D),
+                      dropdownColor: isDark ? const Color(0xFF0C131D) : Colors.white,
                       isExpanded: true,
-                      icon: const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 22),
-                      style: GoogleFonts.manrope(color: Colors.white, fontSize: 13),
+                      icon: Icon(Icons.arrow_drop_down_rounded, color: textColor, size: 22),
+                      style: GoogleFonts.manrope(color: textColor, fontSize: 13),
                       items: availableCategories.map((c) {
                         return DropdownMenuItem<String>(
                           value: c.name,
@@ -147,7 +153,7 @@ class BudgetScreen extends StatelessWidget {
                             children: [
                               c.buildIconWidget(size: 16),
                               const SizedBox(width: 8),
-                              Text(c.name),
+                              Text(c.name, style: GoogleFonts.manrope(color: textColor)),
                             ],
                           ),
                         );
@@ -167,7 +173,7 @@ class BudgetScreen extends StatelessWidget {
               Text(
                 'Batas Nominal Budget',
                 style: GoogleFonts.manrope(
-                  color: const Color(0xFF8EA4BE),
+                  color: labelColor,
                   fontSize: 11.5,
                   fontWeight: FontWeight.w500,
                 ),
@@ -175,9 +181,9 @@ class BudgetScreen extends StatelessWidget {
               const SizedBox(height: 8),
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: inputBg,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white.withOpacity(0.08)),
+                  border: Border.all(color: inputBorder),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: Row(
@@ -185,7 +191,7 @@ class BudgetScreen extends StatelessWidget {
                     Text(
                       provider.currency == 'IDR' ? 'Rp ' : '\$ ',
                       style: GoogleFonts.interTight(
-                        color: Colors.white.withOpacity(0.7),
+                        color: isDark ? Colors.white.withOpacity(0.7) : const Color(0xFF475569),
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                       ),
@@ -196,7 +202,7 @@ class BudgetScreen extends StatelessWidget {
                         keyboardType: TextInputType.number,
                         inputFormatters: [ThousandsSeparatorInputFormatter()],
                         style: GoogleFonts.interTight(
-                          color: Colors.white,
+                          color: textColor,
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
                         ),
@@ -204,7 +210,7 @@ class BudgetScreen extends StatelessWidget {
                           border: InputBorder.none,
                           hintText: '0',
                           hintStyle: GoogleFonts.interTight(
-                            color: Colors.white.withOpacity(0.2),
+                            color: isDark ? Colors.white.withOpacity(0.2) : const Color(0xFF94A3B8),
                             fontSize: 18,
                           ),
                         ),
@@ -286,10 +292,16 @@ class BudgetScreen extends StatelessWidget {
   }
 
   void _showEditOverallBudgetSheet(BuildContext context, TransactionProvider provider) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final initialFormatted = ThousandsSeparatorInputFormatter.formatNumber(
       provider.budget.overallMonthlyLimit.round().toString(),
     );
     final controller = TextEditingController(text: initialFormatted);
+
+    final inputBg = isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFF1F5F9);
+    final inputBorder = isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFCBD5E1);
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final labelColor = isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B);
 
     showModalCardSheet(
       context: context,
@@ -303,16 +315,16 @@ class BudgetScreen extends StatelessWidget {
           Text(
             'Target batas pengeluaran bulanan global untuk memonitor kesehatan finansial.',
             style: GoogleFonts.manrope(
-              color: const Color(0xFF8EA4BE),
+              color: labelColor,
               fontSize: 12,
             ),
           ),
           const SizedBox(height: 14),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: inputBg,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withOpacity(0.08)),
+              border: Border.all(color: inputBorder),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Row(
@@ -320,7 +332,7 @@ class BudgetScreen extends StatelessWidget {
                 Text(
                   provider.currency == 'IDR' ? 'Rp ' : '\$ ',
                   style: GoogleFonts.interTight(
-                    color: Colors.white.withOpacity(0.7),
+                    color: isDark ? Colors.white.withOpacity(0.7) : const Color(0xFF475569),
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                   ),
@@ -331,7 +343,7 @@ class BudgetScreen extends StatelessWidget {
                     keyboardType: TextInputType.number,
                     inputFormatters: [ThousandsSeparatorInputFormatter()],
                     style: GoogleFonts.interTight(
-                      color: Colors.white,
+                      color: textColor,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                     ),
@@ -339,7 +351,7 @@ class BudgetScreen extends StatelessWidget {
                       border: InputBorder.none,
                       hintText: '0',
                       hintStyle: GoogleFonts.interTight(
-                        color: Colors.white.withOpacity(0.2),
+                        color: isDark ? Colors.white.withOpacity(0.2) : const Color(0xFF94A3B8),
                         fontSize: 18,
                       ),
                     ),
@@ -393,6 +405,8 @@ class BudgetScreen extends StatelessWidget {
 
     final categoryBudgets = provider.budget.categoryBudgets;
     final hasCategoryBudgets = categoryBudgets.isNotEmpty;
+    final hasOverallBudget = overallLimit > 0;
+    final hasAnyBudget = hasOverallBudget || hasCategoryBudgets;
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF1C2229) : const Color(0xFFF4F5F7),
@@ -438,112 +452,222 @@ class BudgetScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // 1. Overall Monthly Budget Card (NestedCard)
-            NestedCard(
-              title: 'Batas Budget Keseluruhan',
-              action: 'Ubah',
-              onActionTap: () => _showEditOverallBudgetSheet(context, provider),
-              actionWidget: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            // Empty State when NO budget is setup at all
+            if (!hasAnyBudget) ...[
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
                 decoration: BoxDecoration(
-                  color: isOver
-                      ? _negativeRed.withOpacity(0.18)
-                      : (isWarn ? _warningAmber.withOpacity(0.18) : _positiveGreen.withOpacity(0.18)),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  isOver ? '100% Terlampaui' : (isWarn ? '80% Waspada' : 'Aman'),
-                  style: GoogleFonts.manrope(
-                    color: isOver ? _negativeRed : (isWarn ? _warningAmber : _positiveGreen),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                  color: isDark ? const Color(0xFF131A26) : Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFE2E8F0),
                   ),
                 ),
-              ),
-              child: InkWell(
-                onTap: () => BudgetDetailScreen.show(context),
-                borderRadius: BorderRadius.circular(16),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              provider.formatCurrency(totalExpense),
-                              style: GoogleFonts.interTight(
-                                color: isDark ? Colors.white : const Color(0xFF0F172A),
-                                fontSize: 24,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Text(
-                              'dari ${provider.formatCurrency(overallLimit)}',
-                              style: GoogleFonts.manrope(
-                                color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: LinearProgressIndicator(
-                          value: overallLimit > 0 ? (budgetPct / 100).clamp(0.0, 1.0) : 0.0,
-                          backgroundColor: isDark ? const Color(0xFF0C0E14) : const Color(0xFFE2E8F0),
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            isOver ? _negativeRed : (isWarn ? _warningAmber : _positiveGreen),
-                          ),
-                          minHeight: 8,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: isDark ? _accentOceanic.withOpacity(0.2) : const Color(0xFFE0F2FE),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isDark ? _cyan.withOpacity(0.25) : const Color(0xFF0284C7).withOpacity(0.25),
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      alignment: Alignment.center,
+                      child: Icon(
+                        Icons.account_balance_wallet_outlined,
+                        size: 28,
+                        color: isDark ? _cyan : const Color(0xFF0284C7),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Belum Ada Anggaran',
+                      style: GoogleFonts.interTight(
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Atur batas anggaran bulanan atau per kategori untuk memantau pengeluaran Anda.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.manrope(
+                        color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                        fontSize: 12.5,
+                        height: 1.45,
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 44,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _showEditOverallBudgetSheet(context, provider),
+                        icon: const Icon(Icons.add_rounded, size: 16),
+                        label: Text(
+                          'Atur Anggaran Bulanan',
+                          style: GoogleFonts.manrope(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _accentOceanic,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 44,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _showAddOrEditCategoryBudgetSheet(context, provider),
+                        icon: Icon(
+                          Icons.donut_small_rounded,
+                          size: 16,
+                          color: isDark ? _cyan : const Color(0xFF0284C7),
+                        ),
+                        label: Text(
+                          'Tambah Budget Kategori',
+                          style: GoogleFonts.manrope(
+                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(
+                            color: isDark ? Colors.white.withOpacity(0.12) : const Color(0xFFCBD5E1),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              // 1. Overall Monthly Budget Card (Only shown if setup)
+              if (hasOverallBudget) ...[
+                NestedCard(
+                  title: 'Batas Budget Keseluruhan',
+                  action: 'Ubah',
+                  onActionTap: () => _showEditOverallBudgetSheet(context, provider),
+                  actionWidget: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isOver
+                          ? _negativeRed.withOpacity(0.18)
+                          : (isWarn ? _warningAmber.withOpacity(0.18) : _positiveGreen.withOpacity(0.18)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      isOver ? '100% Terlampaui' : (isWarn ? '80% Waspada' : 'Aman'),
+                      style: GoogleFonts.manrope(
+                        color: isOver ? _negativeRed : (isWarn ? _warningAmber : _positiveGreen),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  child: InkWell(
+                    onTap: () => BudgetDetailScreen.show(context),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Flexible(
-                            child: Text(
-                              'Sisa: ${provider.formatCurrency(provider.remainingBudget)}',
-                              style: GoogleFonts.manrope(
-                                color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w500,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  provider.formatCurrency(totalExpense),
+                                  style: GoogleFonts.interTight(
+                                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                              overflow: TextOverflow.ellipsis,
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  'dari ${provider.formatCurrency(overallLimit)}',
+                                  style: GoogleFonts.manrope(
+                                    color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: LinearProgressIndicator(
+                              value: overallLimit > 0 ? (budgetPct / 100).clamp(0.0, 1.0) : 0.0,
+                              backgroundColor: isDark ? const Color(0xFF0C0E14) : const Color(0xFFE2E8F0),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                isOver ? _negativeRed : (isWarn ? _warningAmber : _positiveGreen),
+                              ),
+                              minHeight: 8,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${budgetPct.toStringAsFixed(1)}%',
-                            style: GoogleFonts.manrope(
-                              color: isOver
-                                  ? _negativeRed
-                                  : (isWarn ? _warningAmber : (isDark ? Colors.white : const Color(0xFF0F172A))),
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          const SizedBox(height: 10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  'Sisa: ${provider.formatCurrency(provider.remainingBudget)}',
+                                  style: GoogleFonts.manrope(
+                                    color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${budgetPct.toStringAsFixed(1)}%',
+                                style: GoogleFonts.manrope(
+                                  color: isOver
+                                      ? _negativeRed
+                                      : (isWarn ? _warningAmber : (isDark ? Colors.white : const Color(0xFF0F172A))),
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 12),
+                const SizedBox(height: 12),
+              ],
 
             // 2. Category Budgets Section (NestedCard)
             NestedCard(
@@ -719,6 +843,7 @@ class BudgetScreen extends StatelessWidget {
                       ),
                     ),
             ),
+            ],
           ],
         ),
       ),

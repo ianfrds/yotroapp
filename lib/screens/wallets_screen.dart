@@ -284,6 +284,10 @@ class WalletsScreen extends StatelessWidget {
     TransactionProvider provider,
     WalletModel wallet,
   ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final mutedColor = isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B);
+
     showModalCardSheet(
       context: context,
       title: 'Hapus Dompet',
@@ -309,7 +313,7 @@ class WalletsScreen extends StatelessWidget {
                 child: Text(
                   'Hapus "${wallet.name}"?',
                   style: GoogleFonts.interTight(
-                    color: Colors.white,
+                    color: textColor,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -321,7 +325,7 @@ class WalletsScreen extends StatelessWidget {
           Text(
             'Seluruh riwayat transaksi yang terkait dengan dompet ini akan otomatis dialihkan ke dompet lain yang masih aktif.',
             style: GoogleFonts.manrope(
-              color: const Color(0xFF8EA4BE),
+              color: mutedColor,
               fontSize: 12.5,
               height: 1.45,
             ),
@@ -333,15 +337,15 @@ class WalletsScreen extends StatelessWidget {
                 child: OutlinedButton(
                   onPressed: () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF8EA4BE),
-                    side: BorderSide(color: Colors.white.withOpacity(0.12)),
+                    foregroundColor: textColor,
+                    side: BorderSide(color: isDark ? Colors.white.withOpacity(0.12) : const Color(0xFFCBD5E1)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: Text(
                     'Batal',
                     style: GoogleFonts.manrope(
-                      color: const Color(0xFF8EA4BE),
+                      color: textColor,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -556,7 +560,7 @@ class WalletsScreen extends StatelessWidget {
                         );
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: isDark ? _accentOceanic : const Color(0xFF0F172A),
+                        backgroundColor: _accentOceanic,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         shape: RoundedRectangleBorder(

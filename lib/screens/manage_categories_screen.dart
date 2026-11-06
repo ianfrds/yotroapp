@@ -380,6 +380,10 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
     TransactionProvider provider,
     CategoryModel category,
   ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final mutedColor = isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B);
+
     showModalCardSheet(
       context: context,
       title: 'Hapus Kategori',
@@ -405,7 +409,7 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
                 child: Text(
                   'Hapus "${category.name}"?',
                   style: GoogleFonts.interTight(
-                    color: Colors.white,
+                    color: textColor,
                     fontSize: 15.5,
                     fontWeight: FontWeight.w600,
                   ),
@@ -417,7 +421,7 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
           Text(
             'Transaksi yang terhubung dengan kategori ini akan dialihkan otomatis ke kategori "Others / Lainnya".',
             style: GoogleFonts.manrope(
-              color: const Color(0xFF8EA4BE),
+              color: mutedColor,
               fontSize: 12.5,
               height: 1.4,
             ),
@@ -429,15 +433,15 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
                 child: OutlinedButton(
                   onPressed: () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: BorderSide(color: Colors.white.withOpacity(0.12)),
+                    foregroundColor: textColor,
+                    side: BorderSide(color: isDark ? Colors.white.withOpacity(0.12) : const Color(0xFFCBD5E1)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: Text(
                     'Batal',
                     style: GoogleFonts.manrope(
-                      color: const Color(0xFF8EA4BE),
+                      color: textColor,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

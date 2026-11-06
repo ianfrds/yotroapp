@@ -167,9 +167,8 @@ class SettingsScreen extends StatelessWidget {
                   Text(
                     [
                       if (provider.userPhone.isNotEmpty) provider.userPhone,
-                      provider.userGender,
-                      '100% Offline & Privat',
-                    ].join(' · '),
+                      if (provider.userGender.isNotEmpty) provider.userGender,
+                    ].where((s) => s.trim().isNotEmpty).join(' · '),
                     style: GoogleFonts.manrope(
                       color: mutedColor,
                       fontSize: 11.5,
@@ -1993,6 +1992,7 @@ class SettingsScreen extends StatelessWidget {
 
   void _showClearTransactionsSheet(
       BuildContext context, TransactionProvider provider) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     _showModalCardSheet(
       context: context,
       title: 'Kosongkan Riwayat Transaksi?',
@@ -2004,14 +2004,20 @@ class SettingsScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: _danger.withOpacity(0.08),
+              color: isDark ? _danger.withOpacity(0.12) : const Color(0xFFFEE2E2),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _danger.withOpacity(0.25)),
+              border: Border.all(
+                color: isDark ? _danger.withOpacity(0.3) : const Color(0xFFFCA5A5),
+              ),
             ),
             child: Text(
               'Seluruh catatan transaksi (${provider.transactions.length} item) akan dihapus permanen dan saldo rekening dinolkan. Tindakan ini tidak dapat dibatalkan.',
               style: GoogleFonts.manrope(
-                  color: const Color(0xFFECA3AB), fontSize: 12.5, height: 1.4),
+                color: isDark ? const Color(0xFFFECACA) : const Color(0xFF991B1B),
+                fontSize: 12.5,
+                height: 1.4,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           const SizedBox(height: 20),
@@ -2021,14 +2027,22 @@ class SettingsScreen extends StatelessWidget {
                 child: OutlinedButton(
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    side: BorderSide(color: Colors.white.withOpacity(0.12)),
+                    foregroundColor: isDark ? Colors.white : const Color(0xFF0F172A),
+                    side: BorderSide(
+                      color: isDark ? Colors.white.withOpacity(0.15) : const Color(0xFFCBD5E1),
+                    ),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   onPressed: () => Navigator.pop(context),
-                  child: Text('Batalkan',
-                      style: GoogleFonts.manrope(
-                          color: Colors.white, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    'Batalkan',
+                    style: GoogleFonts.manrope(
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -2037,27 +2051,29 @@ class SettingsScreen extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     backgroundColor: _danger,
+                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   onPressed: () async {
                     await provider.clearAllTransactions();
                     if (context.mounted) {
                       Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          backgroundColor: const Color(0xFF131A26),
-                          content: Text(
-                              'Seluruh transaksi berhasil dikosongkan.',
-                              style: GoogleFonts.manrope(
-                                  color: Colors.white, fontSize: 12)),
-                        ),
+                      AppSnackBar.show(
+                        context,
+                        'Seluruh transaksi berhasil dikosongkan.',
+                        type: SnackBarType.danger,
                       );
                     }
                   },
-                  child: Text('Hapus Semua',
-                      style: GoogleFonts.manrope(
-                          color: Colors.white, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    'Hapus Semua',
+                    style: GoogleFonts.manrope(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -2069,6 +2085,7 @@ class SettingsScreen extends StatelessWidget {
 
   void _showResetDefaultSheet(
       BuildContext context, TransactionProvider provider) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     _showModalCardSheet(
       context: context,
       title: 'Reset ke Data Bawaan?',
@@ -2080,14 +2097,20 @@ class SettingsScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: _warning.withOpacity(0.08),
+              color: isDark ? _warning.withOpacity(0.12) : const Color(0xFFFEF3C7),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _warning.withOpacity(0.25)),
+              border: Border.all(
+                color: isDark ? _warning.withOpacity(0.3) : const Color(0xFFFCD34D),
+              ),
             ),
             child: Text(
-              'Database akan dikembalikan ke data simulasi bawaan awal (6 transaksi demo, 3 dompet, dan saldo contoh).',
+              'Database akan dikembalikan ke data simulasi bawaan awal (17 transaksi demo John Doe, 4 dompet, dan target budget).',
               style: GoogleFonts.manrope(
-                  color: const Color(0xFFE9C59B), fontSize: 12.5, height: 1.4),
+                color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E),
+                fontSize: 12.5,
+                height: 1.4,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           const SizedBox(height: 20),
@@ -2097,14 +2120,22 @@ class SettingsScreen extends StatelessWidget {
                 child: OutlinedButton(
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    side: BorderSide(color: Colors.white.withOpacity(0.12)),
+                    foregroundColor: isDark ? Colors.white : const Color(0xFF0F172A),
+                    side: BorderSide(
+                      color: isDark ? Colors.white.withOpacity(0.15) : const Color(0xFFCBD5E1),
+                    ),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   onPressed: () => Navigator.pop(context),
-                  child: Text('Batalkan',
-                      style: GoogleFonts.manrope(
-                          color: Colors.white, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    'Batalkan',
+                    style: GoogleFonts.manrope(
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -2113,27 +2144,29 @@ class SettingsScreen extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     backgroundColor: const Color(0xFF02539A),
+                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   onPressed: () async {
                     await provider.resetToDefaults();
                     if (context.mounted) {
                       Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          backgroundColor: const Color(0xFF131A26),
-                          content: Text(
-                              'Aplikasi berhasil direset ke data bawaan.',
-                              style: GoogleFonts.manrope(
-                                  color: Colors.white, fontSize: 12)),
-                        ),
+                      AppSnackBar.show(
+                        context,
+                        'Aplikasi berhasil direset ke data bawaan.',
+                        type: SnackBarType.success,
                       );
                     }
                   },
-                  child: Text('Reset Bawaan',
-                      style: GoogleFonts.manrope(
-                          color: Colors.white, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    'Reset Bawaan',
+                    style: GoogleFonts.manrope(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ],

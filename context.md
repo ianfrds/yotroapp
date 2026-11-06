@@ -102,6 +102,10 @@ money-tracker/
 │       ├── transaction_tile.dart   # Baris transaksi dengan badge warna kategori
 │       ├── balance_card.dart       # Kartu metrik finansial
 │       └── category_chip.dart      # Chip pemilihan kategori
+├── test/                           # Unit & Widget test suite (85 tests passed)
+│   ├── month_filter_and_budget_empty_test.dart # Test filter bulanan beranda & empty state budget
+│   ├── transactions_filter_unified_test.dart   # Test filter waktu lengkap riwayat transaksi
+│   └── financial_analysis_ux_test.dart         # Test UX bahasa awam analisis keuangan & panduan bantuan
 ├── design.md                       # Spesifikasi sistem desain & token visual
 ├── AGENTS.md                       # Aturan wajib agent & auto-sync context.md
 ├── GEMINI.md                       # Aturan hierarki workspace Gemini / Antigravity
@@ -336,6 +340,23 @@ money-tracker/
   - Tombol aksi utama diseragamkan dengan seluruh aplikasi: `ElevatedButton.icon` sapphire `#0066FF`, tinggi `48px`, border radius `14px`, teks putih `w600` (zero cyan-black slop).
   - Tombol sekunder `OutlinedButton.icon` ("Salin Teks") dengan tinggi `48px`, radius `14px`, dan border halus `0.12`.
   - Tombol modal simpan item & edit nama menggunakan tombol elevated standar `44px` beradius `12px`.
+
+### 3.14 Filter Bulanan Interaktif di Beranda & Empty State Anggaran
+- **Filter Bulanan di Beranda (`_buildMonthFilterPill` & `_showMonthFilterSheet` — `lib/screens/dashboard_screen.dart`):**
+  - Menggantikan dropdown periode statis dengan filter pill bulan interaktif (`Nov 2026 ∨`) di kartu hero Beranda.
+  - Membuka modal bottom sheet "Filter Bulanan" dengan kartu grid 12 bulan (4 kolom x 3 baris) dalam singkatan bahasa Indonesia (`Jan`–`Des`).
+  - Bulan terpilih disorot dengan kapsul biru sapphire solid (`#2563EB`) dan teks putih.
+  - Pemilih tahun di bagian atas kartu dilengkapi tombol navigasi chevron `<` dan `>`.
+  - Tombol aksi kanan bawah berbentuk kapsul rounded (*stadium*): `Batal` (outlined) dan `Kirim` (elevated `#02539A`), yang menerapkan bulan terpilih ke `provider.setSelectedDashboardMonth`.
+  - Kartu hero Beranda dan sub-kartu pengeluaran/pemasukan menampilkan arus kas khusus pada bulan yang difilter (`dashboardMonthExpense` & `dashboardMonthIncome`).
+- **Empty State Anggaran (`lib/screens/budget_screen.dart`):**
+  - Jika batas anggaran keseluruhan belum disetup (`overallMonthlyLimit <= 0`), kartu "Batas Budget Keseluruhan" tidak ditampilkan.
+  - Jika belum ada budget keseluruhan maupun kategori, layar menampilkan kartu *Empty State* yang ramah pengguna dengan tombol aksi langsung: *"Atur Anggaran Bulanan"* dan *"Tambah Budget Kategori"*.
+
+### 3.15 Desain Sistem & Audit Kontras Mode Terang (Light Mode WCAG)
+- **Penghapusan Tulisan Offline di Profil:** Tulisan `'100% Offline & Privat'` di bawah nama akun telah dihilangkan agar profil terlihat lebih bersih.
+- **Kepatuhan Kontras Light Mode:** Seluruh kotak peringatan bahaya/peringatan diatur kontrasnya (amber tua `#92400E` pada latar `#FEF3C7` dan merah tua `#991B1B` pada latar `#FEE2E2`).
+- **Visibilitas Tombol:** Tombol *Batalkan* pada seluruh modal konfirmasi (`SettingsScreen`, `ManageCategoriesScreen`, `WalletsScreen`, `BudgetDetailScreen`) menggunakan `foregroundColor` dan `borderSide` adaptif tema sehingga terlihat jelas pada light mode.
 
 ### 3.9 Fixed Bottom Navigation Bar dengan Scooped Cradle Cutout (`lib/widgets/bottom_nav_bar.dart`)
 - **Struktur Bar & Kanvas Ergonomis:**
@@ -843,11 +864,69 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
 - [x] Pencegahan Overflow Layar Finansial & Grafik Anggaran ([`lib/screens/financial_analysis_screen.dart`](lib/screens/financial_analysis_screen.dart), [`lib/screens/budget_detail_screen.dart`](lib/screens/budget_detail_screen.dart)):
   - Membungkus label status meter skor (`Kritis`, `Waspada`, `Sehat`) dalam `Flexible` ber-`TextOverflow.ellipsis` agar aman di viewport sempit.
   - Membatasi rentang grafik batang pengeluaran di `BudgetDetailScreen` ke maksimal 7 hari aktif terbaru dan menyelaraskan batang serta label tanggal X-axis dengan `Expanded` dan `FittedBox` sehingga bebas dari RenderFlex overflow.
+- [x] Empty State Anggaran & Penyembunyian Kartu Keseluruhan saat Kosong ([`lib/screens/budget_screen.dart`](lib/screens/budget_screen.dart)):
+  - Menyembunyikan kartu "Batas Budget Keseluruhan" jika batas budget keseluruhan belum disetup (`overallLimit <= 0`).
+  - Menampilkan Empty State bersih dan anti-slop saat tidak ada budget keseluruhan maupun budget kategori yang disetup, lengkap dengan tombol "Atur Anggaran Bulanan" dan "Tambah Budget Kategori".
+- [x] Filter Bulanan Bottom Sheet (Month & Year Picker) di Beranda ([`lib/screens/dashboard_screen.dart`](lib/screens/dashboard_screen.dart), [`lib/providers/transaction_provider.dart`](lib/providers/transaction_provider.dart)):
+  - Mengganti dropdown statis di kartu hero Beranda dengan filter pill bulan interaktif (`Nov 2026 ∨`) yang membuka bottom sheet "Filter Bulanan" sesuai referensi visual.
+  - Tampilan grid 12 bulan (4 kolom x 3 baris), pill seleksi biru sapphire (`#2563EB`), navigasi tahun dengan chevron `<` dan `>`, serta tombol aksi `Batal` (outlined pill) dan `Kirim` (elevated pill).
+  - Terintegrasi dengan `provider.selectedDashboardMonth`, `provider.dashboardMonthExpense`, dan `provider.dashboardMonthIncome` untuk kalkulasi dinamis.
+- [x] Pembersihan Teks Profil & Perbaikan Kontras Light Mode Menyeluruh:
+  - Menghapus tulisan "100% Offline & Privat" dari kartu Profil Pengguna di [`lib/screens/settings_screen.dart`](lib/screens/settings_screen.dart).
+  - Memperbaiki kontras teks peringatan (amber/crimson) dan tombol "Batalkan" pada seluruh modal sheet di light mode (`settings_screen.dart`, `manage_categories_screen.dart`, `wallets_screen.dart`, `budget_screen.dart`, `budget_detail_screen.dart`) agar 100% memenuhi standar aksesibilitas WCAG.
+- [x] Unit & Widget Test Komprehensif:
+  - Membuat [`test/month_filter_and_budget_empty_test.dart`](test/month_filter_and_budget_empty_test.dart) untuk memverifikasi interaksi filter bulanan dan empty state budget.
+  - Seluruh 80 unit dan widget test lulus 100% (`flutter test`).
 - [x] Kompilasi Ulang Web Release & Signed Release APK:
-  - Seluruh 78 unit dan widget test lolos 100% (`flutter test`).
   - Web release diperbarui di `build/web/` dan live preview port `8080`.
   - Android release APK diperbarui di [`yotro-app.apk`](yotro-app.apk) dan `build/web/yotro-app.apk`.
-- [x] Dokumentasi desain komprehensif di `design.md`.
+- [x] Perapihan Bottom Sheet Filter Bulanan Beranda & Penyelarasan Tombol ([`lib/screens/dashboard_screen.dart`](lib/screens/dashboard_screen.dart)):
+  - Pemilih tahun ditempatkan di tengah (*center aligned*) diapit sepasang tombol chevron: `< 2026 >`. Tahun kini interaktif (*clickable*) dengan dropdown indicator dan membuka dialog `YearPicker` untuk memilih tahun instan.
+  - Penyeimbangan tombol "Bulan Ini": Tombol dipindahkan dari header ke posisi **tengah (*center-aligned*) di bawah grid 12 bulan** di dalam kartu pemilih (`Center(child: OutlinedButton.icon(...))`), menciptakan simetri visual sempurna dan menghilangkan ketidakseimbangan visual pada modal.
+  - Menggunakan gaya stadium border, ikon `Icons.restore_rounded`, stroke halus bertema sapphire/dark slate, dan tipografi `Manrope` semibold.
+  - Tombol aksi di bagian bawah dibuat melebar penuh kiri-ke-kanan (*full width* 50/50): tombol `Batal` di sebelah kiri (`OutlinedButton`) dan tombol `Simpan` di sebelah kanan (`ElevatedButton` sapphire blue).
+- [x] Penghapusan Teks Jam pada Kartu Pengingat Harian Beranda ([`lib/screens/dashboard_screen.dart`](lib/screens/dashboard_screen.dart)):
+  - Menghapus teks jam / pukul (seperti "Pukul 20:00" atau "20.00") dari kartu "Pengingat Transaksi Harian" saat belum ada transaksi hari ini, sehingga kartu tampil bersih dan minimalis.
+- [x] Penyeragaman Filter Riwayat Transaksi Lengkap & Pengelompokan Per Tanggal ([`lib/screens/transactions_screen.dart`](lib/screens/transactions_screen.dart)):
+  - Memperpendek teks placeholder pemicu filter tanggal menjadi ringkas: **"Semua Periode"** (menggantikan teks panjang sebelumnya).
+  - Mengganti input pencarian statis dengan tombol ikon search di pojok kanan atas App Bar. Kolom input pencarian otomatis muncul dengan autofocus hanya saat ikon search diketuk (*expandable on demand*).
+  - Menghilangkan teks jumlah transaksi (seperti "10 transaksi") pada header kartu "Daftar Transaksi".
+  - Mengelompokkan seluruh riwayat transaksi **per tanggal** (Hari Ini, Kemarin, Nama Hari + Tanggal) dengan header tanggal bersih, pembatas halus, dan rekap total pengeluaran harian di sebelah kanan.
+  - Tiga tab segmen interaktif yang responsif dan bebas overflow (*fitted*):
+    - **Bulan & Tahun:** Navigasi tahun tengah `< YYYY >` (dapat diklik untuk pilih tahun via dialog `YearPicker`), grid 12 bulan (Jan–Des) dengan capsule selection sapphire `#2563EB`, serta opsi tombol cepat "Pilih 1 Tahun Penuh (YYYY)".
+    - **Tanggal Spesifik:** Kalender pemilih tanggal harian presisi dengan badge ringkasan "Dipilih: DD MMMM YYYY".
+    - **Rentang Tanggal:** Preset cepat (7 Hari, 30 Hari, Bulan Ini, Bulan Lalu), kartu tanggal "Mulai" dan "Selesai", tombol buka kalender rentang (`showDateRangePicker`), serta badge durasi hari.
+  - Tombol aksi bawah seragam full width: `Batal` (reset ke Semua Periode) dan `Simpan` (terapkan filter).
+  - Baris pemicu filter pada halaman utama riwayat menampilkan label dinamis sesuai filter aktif (`Tahun: ...`, `Bulan: ...`, `Tanggal: ...`, `Rentang: ...`) dilengkapi tombol cepat hapus (X).
+- [x] Pengujian Unit & Widget Komprehensif (85 Tests Passed):
+  - Memperbarui [`test/month_filter_and_budget_empty_test.dart`](test/month_filter_and_budget_empty_test.dart) untuk verifikasi tombol `Simpan`.
+  - Membuat [`test/transactions_filter_unified_test.dart`](test/transactions_filter_unified_test.dart) menguji filter riwayat lengkap.
+  - Membuat [`test/financial_analysis_ux_test.dart`](test/financial_analysis_ux_test.dart) menguji tombol panduan analisis, bahasa awam kesehatan keuangan, kuota anggaran, dan bridge banner dari tab Laporan Keuangan.
+  - Seluruh 85 tests lolos 100% (`flutter test`).
+- [x] Perombakan UX & Bahasa Awam Analisis Keuangan ([`lib/screens/financial_analysis_screen.dart`](lib/screens/financial_analysis_screen.dart) & [`lib/screens/analytics_screen.dart`](lib/screens/analytics_screen.dart)):
+  - **Bahasa Manusiawi & Ramah Awam**: Menghilangkan jargon akademis/perbankan kaku:
+    - *Tabungan*: "Target >20%" (ringkas, padat).
+    - *Rasio Beban*: "Aman <70%".
+    - *Arus Kas*: "Surplus" / "Defisit".
+    - *Rata-rata Harian*: "Pengeluaran per hari".
+    - *Proyeksi Akhir Bulan*: "Perkiraan akhir bulan".
+    - *Diagnosa*: "Catatan & Saran Keuangan" bertutur santun dan solutif.
+  - **Solusi Anti-Truncation & Text Overflow (Bebas Teks Terpotong)**:
+    - *Kompensasi Ruang Sempit*: Menghilangkan `maxLines: 1` kaku pada pod metrik, mengizinkan pembungkusan teks alami hingga 2 baris (`maxLines: 2, height: 1.15`).
+    - *Tile Arus Kas Masuk vs Keluar*: Mengganti baris horizontal tunggal yang sempit menjadi 2 kartu mini berdampingan (`Uang Masuk` dan `Uang Keluar`) dengan pembungkus `FittedBox` sehingga nominal besar tidak pernah terpotong tanda elipsis (`...`).
+    - *FittedBox pada Nilai Anggaran & Kategori Terbanyak*: Nominal rupiah menyesuaikan skala otomatis pada layar sempit.
+  - **Tombol Panduan Analisis (?)**: Tombol bantuan di header yang membuka lembar penjelasan interaktif mengenai arti setiap skor dan metrik.
+  - **Progress Meter 4 Zona**: Penanda visual intuitif (Kurang <50, Waspada 50-65, Aman 65-80, Sangat Baik >80).
+  - **Kartu Pantauan Anggaran**: Menampilkan realisasi budget bulanan, status persentase, dan rekomendasi kuota belanja harian yang aman per hari hingga akhir bulan. Jika budget belum disetel, menyediakan tombol cepat "Pasang".
+  - **Bridge UX Tab Laporan**: Banner mini interaktif "Cek Analisis Finansial & Saran" pada tab Laporan Keuangan untuk navigasi mulus langsung ke lembar analisis.
+- [x] Standardisasi Warna Primary Button Seluruh Aplikasi & Penataan Vertikal Layar Transaksi Berhasil:
+  - **Layar Transaksi Berhasil ([`lib/screens/transaction_success_screen.dart`](lib/screens/transaction_success_screen.dart))**: Konten di-center vertikal secara elegan menggunakan `LayoutBuilder` + `ConstrainedBox(constraints: BoxConstraints(minHeight: constraints.maxHeight))` dengan offset `SizedBox(height: 20)` agar tidak menempel di batas atas layar.
+  - **Penyelarasan Warna Tombol Utama (CTA)**: Seluruh primary button di semua layar ([`lib/screens/transaction_success_screen.dart`](lib/screens/transaction_success_screen.dart), [`lib/screens/dashboard_screen.dart`](lib/screens/dashboard_screen.dart), [`lib/screens/wallets_screen.dart`](lib/screens/wallets_screen.dart), [`lib/screens/budget_screen.dart`](lib/screens/budget_screen.dart), [`lib/screens/budget_detail_screen.dart`](lib/screens/budget_detail_screen.dart), [`lib/screens/split_bill_screen.dart`](lib/screens/split_bill_screen.dart), [`lib/screens/onboarding_profile_screen.dart`](lib/screens/onboarding_profile_screen.dart), [`lib/screens/settings_screen.dart`](lib/screens/settings_screen.dart)) diseragamkan ke sapphire blue token `Color(0xFF02539A)` (`AppColors.primaryButton`) dengan teks putih seragam. Pengecualian khusus: tombol "Simpan Transaksi" pada [`lib/screens/add_transaction_screen.dart`](lib/screens/add_transaction_screen.dart) menggunakan latar putih dengan teks hitam pada dark mode, dan sapphire blue dengan teks putih pada light mode.
+- [x] Pengurangan Shadow Tombol (+) dan Bilah Navbar ([`lib/widgets/bottom_nav_bar.dart`](lib/widgets/bottom_nav_bar.dart)):
+  - **Tombol Tambah (+)**: Mengurangi intensitas double shadow dari 0.50 blue blur 14 + 0.40 black blur 8 menjadi shadow halus minimalis (0.20 blue blur 6 + 0.10 black blur 4) agar tidak pekat/muddy.
+  - **Canvas Navbar Bar**: Mengurangi drop shadow canvas `drawShadow` dari opacity 0.55 / elevasi 14.0 menjadi opacity 0.20 / elevasi 6.0 untuk tampilan bersih dan anti-slop.
+- [x] Kompilasi Ulang Web Release:
+  - Berhasil membangun `build/web/` terbaru untuk daemon live server port `8080`.
 - [x] File handover AI context di `context.md`.
 - [x] Aturan otomatisasi workspace agent di `AGENTS.md` dan `GEMINI.md` (auto-sync `context.md`).
 

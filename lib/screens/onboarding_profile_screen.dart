@@ -132,11 +132,11 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                               width: 54,
                               height: 54,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF0066FF),
+                                color: const Color(0xFF02539A),
                                 borderRadius: BorderRadius.circular(16),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF0066FF).withOpacity(0.3),
+                                    color: const Color(0xFF02539A).withOpacity(0.3),
                                     blurRadius: 16,
                                     offset: const Offset(0, 4),
                                   ),
@@ -248,7 +248,7 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                                           ),
                                           focusedBorder: const OutlineInputBorder(
                                             borderRadius: BorderRadius.all(Radius.circular(12)),
-                                            borderSide: BorderSide(color: Color(0xFF0066FF), width: 1.5),
+                                            borderSide: BorderSide(color: Color(0xFF02539A), width: 1.5),
                                           ),
                                         ),
                                       ),
@@ -301,7 +301,7 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                                           ),
                                           focusedBorder: const OutlineInputBorder(
                                             borderRadius: BorderRadius.all(Radius.circular(12)),
-                                            borderSide: BorderSide(color: Color(0xFF0066FF), width: 1.5),
+                                            borderSide: BorderSide(color: Color(0xFF02539A), width: 1.5),
                                           ),
                                         ),
                                       ),
@@ -314,7 +314,7 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                                       child: ElevatedButton(
                                         onPressed: _isSubmitting ? null : _handleSubmit,
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF0066FF),
+                                          backgroundColor: const Color(0xFF02539A),
                                           foregroundColor: Colors.white,
                                           elevation: 0,
                                           shape: RoundedRectangleBorder(

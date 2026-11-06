@@ -9,6 +9,7 @@ import '../providers/transaction_provider.dart';
 import '../widgets/nested_card.dart';
 import '../widgets/modal_card_sheet.dart';
 import '../widgets/weekly_activity_chart.dart';
+import 'financial_analysis_screen.dart';
 
 enum ChartViewMode { donut, bar }
 
@@ -366,6 +367,68 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Bridge banner to Financial Analysis Screen (UX Discovery)
+            InkWell(
+              onTap: () => FinancialAnalysisScreen.showAsModalSheet(context),
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF131A26) : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFCBD5E1),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2563EB).withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.insights_rounded,
+                        color: Color(0xFF55C7FF),
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Cek Analisis Finansial & Saran',
+                            style: GoogleFonts.manrope(
+                              color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            'Skor kesehatan, proyeksi akhir bulan, dan saran hemat',
+                            style: GoogleFonts.manrope(
+                              color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                              fontSize: 10.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                      size: 20,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 12),

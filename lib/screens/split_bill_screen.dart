@@ -105,7 +105,7 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
   static const Color _bg = Color(0xFF1C2229);
   static const Color _cyan = Color(0xFF55C7FF);
   static const Color _green = Color(0xFF39D98A);
-  static const Color _bluePrimary = Color(0xFF0066FF);
+  static const Color _bluePrimary = Color(0xFF02539A);
 
   @override
   void initState() {

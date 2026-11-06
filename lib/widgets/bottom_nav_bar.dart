@@ -142,14 +142,14 @@ class BottomNavBar extends StatelessWidget {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF014786).withOpacity(0.50),
-                      blurRadius: 14,
-                      offset: const Offset(0, 4),
+                      color: const Color(0xFF014786).withOpacity(0.20),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
                     ),
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.40),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+                      color: Colors.black.withOpacity(0.10),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
                     ),
                   ],
                 ),
@@ -274,7 +274,7 @@ class _NotchedNavBarPainter extends CustomPainter {
     path.close();
 
     // Drop shadow
-    canvas.drawShadow(path, Colors.black.withOpacity(0.55), 14.0, false);
+    canvas.drawShadow(path, Colors.black.withOpacity(0.20), 6.0, false);
 
     // Fill background
     final fillPaint = Paint()

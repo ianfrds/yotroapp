@@ -29,7 +29,7 @@ class TransactionSuccessScreen extends StatefulWidget {
 
 class _TransactionSuccessScreenState extends State<TransactionSuccessScreen>
     with SingleTickerProviderStateMixin {
-  static const Color _bluePrimary = Color(0xFF0066FF);
+  static const Color _bluePrimary = Color(0xFF02539A);
 
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
@@ -159,152 +159,161 @@ class _TransactionSuccessScreenState extends State<TransactionSuccessScreen>
               return Column(
                 children: [
                   Expanded(
-                    child: SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const SizedBox(height: 12),
-                          // Animated Scalloped Rosette Checkmark (from user reference image)
-                          _buildAnimatedIllustration(isDark),
-                          const SizedBox(height: 18),
-
-                          // Title & Subtitle (max semibold, no bold)
-                          FadeTransition(
-                            opacity: _contentFadeAnimation,
-                            child: Column(
-                              children: [
-                                Text(
-                                  'Transaksi Berhasil Dicatat',
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.interTight(
-                                    color: textPrimary,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: -0.3,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Data telah tersimpan dan saldo dompet telah diperbarui.',
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.manrope(
-                                    color: textMuted,
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Transaction Details Card using NestedCard (Design System Parity)
-                          FadeTransition(
-                            opacity: _contentFadeAnimation,
-                            child: NestedCard(
-                              title: 'Rincian Transaksi',
-                              titleWidget: Row(
-                                children: [
-                                  Icon(
-                                    Icons.receipt_long_rounded,
-                                    size: 17,
-                                    color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF0F172A),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Rincian Transaksi',
-                                    style: GoogleFonts.interTight(
-                                      color: textPrimary,
-                                      fontSize: 14.5,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              innerPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                               child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  // Amount Display (max semibold w600)
-                                  Center(
-                                    child: Text(
-                                      '$prefix${currencyFmt.format(tx.amount)}',
-                                      style: GoogleFonts.interTight(
-                                        color: amountColor,
-                                        fontSize: 25,
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: -0.4,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Center(
-                                    child: Text(
-                                      tx.title,
-                                      textAlign: TextAlign.center,
-                                      style: GoogleFonts.manrope(
-                                        color: textPrimary,
-                                        fontSize: 13.5,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Divider(
-                                    color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFE2E8F0),
-                                    height: 1,
-                                  ),
-                                  const SizedBox(height: 10),
+                                  const SizedBox(height: 20),
+                                  // Animated Scalloped Rosette Checkmark (from user reference image)
+                                  _buildAnimatedIllustration(isDark),
+                                  const SizedBox(height: 18),
 
-                                  // Key-value Rows (tightened spacing & aligned columns)
-                                  _buildDetailRow(
-                                    isDark: isDark,
-                                    label: 'Dompet',
-                                    value: walletName,
-                                    icon: Icons.account_balance_wallet_outlined,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  _buildDetailRow(
-                                    isDark: isDark,
-                                    label: 'Kategori',
-                                    value: tx.categoryName,
-                                    icon: Icons.category_outlined,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  _buildDetailRow(
-                                    isDark: isDark,
-                                    label: 'Tipe',
-                                    value: tx.type == TransactionType.expense
-                                        ? 'Pengeluaran'
-                                        : tx.type == TransactionType.income
-                                            ? 'Pemasukan'
-                                            : 'Transfer',
-                                    icon: Icons.swap_horiz_rounded,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  _buildDetailRow(
-                                    isDark: isDark,
-                                    label: 'Waktu',
-                                    value: DateFormat('dd MMM yyyy, HH:mm').format(tx.timestamp),
-                                    icon: Icons.access_time_rounded,
-                                  ),
-                                  if (tx.note.isNotEmpty) ...[
-                                    const SizedBox(height: 8),
-                                    _buildDetailRow(
-                                      isDark: isDark,
-                                      label: 'Catatan',
-                                      value: tx.note,
-                                      icon: Icons.notes_rounded,
+                                  // Title & Subtitle (max semibold, no bold)
+                                  FadeTransition(
+                                    opacity: _contentFadeAnimation,
+                                    child: Column(
+                                      children: [
+                                        Text(
+                                          'Transaksi Berhasil Dicatat',
+                                          textAlign: TextAlign.center,
+                                          style: GoogleFonts.interTight(
+                                            color: textPrimary,
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: -0.3,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Data telah tersimpan dan saldo dompet telah diperbarui.',
+                                          textAlign: TextAlign.center,
+                                          style: GoogleFonts.manrope(
+                                            color: textMuted,
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
+                                  const SizedBox(height: 20),
+
+                                  // Transaction Details Card using NestedCard (Design System Parity)
+                                  FadeTransition(
+                                    opacity: _contentFadeAnimation,
+                                    child: NestedCard(
+                                      title: 'Rincian Transaksi',
+                                      titleWidget: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.receipt_long_rounded,
+                                            size: 17,
+                                            color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF0F172A),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Rincian Transaksi',
+                                            style: GoogleFonts.interTight(
+                                              color: textPrimary,
+                                              fontSize: 14.5,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      innerPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                      child: Column(
+                                        children: [
+                                          // Amount Display (max semibold w600)
+                                          Center(
+                                            child: Text(
+                                              '$prefix${currencyFmt.format(tx.amount)}',
+                                              style: GoogleFonts.interTight(
+                                                color: amountColor,
+                                                fontSize: 25,
+                                                fontWeight: FontWeight.w600,
+                                                letterSpacing: -0.4,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Center(
+                                            child: Text(
+                                              tx.title,
+                                              textAlign: TextAlign.center,
+                                              style: GoogleFonts.manrope(
+                                                color: textPrimary,
+                                                fontSize: 13.5,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Divider(
+                                            color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFE2E8F0),
+                                            height: 1,
+                                          ),
+                                          const SizedBox(height: 10),
+
+                                          // Key-value Rows (tightened spacing & aligned columns)
+                                          _buildDetailRow(
+                                            isDark: isDark,
+                                            label: 'Dompet',
+                                            value: walletName,
+                                            icon: Icons.account_balance_wallet_outlined,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          _buildDetailRow(
+                                            isDark: isDark,
+                                            label: 'Kategori',
+                                            value: tx.categoryName,
+                                            icon: Icons.category_outlined,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          _buildDetailRow(
+                                            isDark: isDark,
+                                            label: 'Tipe',
+                                            value: tx.type == TransactionType.expense
+                                                ? 'Pengeluaran'
+                                                : tx.type == TransactionType.income
+                                                    ? 'Pemasukan'
+                                                    : 'Transfer',
+                                            icon: Icons.swap_horiz_rounded,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          _buildDetailRow(
+                                            isDark: isDark,
+                                            label: 'Waktu',
+                                            value: DateFormat('dd MMM yyyy, HH:mm').format(tx.timestamp),
+                                            icon: Icons.access_time_rounded,
+                                          ),
+                                          if (tx.note.isNotEmpty) ...[
+                                            const SizedBox(height: 8),
+                                            _buildDetailRow(
+                                              isDark: isDark,
+                                              label: 'Catatan',
+                                              value: tx.note,
+                                              icon: Icons.notes_rounded,
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
                                 ],
                               ),
                             ),
                           ),
-                          const SizedBox(height: 16),
-                        ],
-                      ),
+                        );
+                      },
                     ),
                   ),
 
