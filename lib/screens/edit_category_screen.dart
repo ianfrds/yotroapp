@@ -33,12 +33,12 @@ class EditCategoryScreen extends StatefulWidget {
     );
   }
 
-  static Future<void> showAsModalSheet(
+  static Future<CategoryModel?> showAsModalSheet(
     BuildContext context, {
     TransactionType initialType = TransactionType.expense,
     CategoryModel? categoryToEdit,
   }) {
-    return showModalBottomSheet(
+    return showModalBottomSheet<CategoryModel>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -738,8 +738,9 @@ class _EditCategoryScreenState extends State<EditCategoryScreen> {
     final edit = widget.categoryToEdit;
     final emoji = _selectedEmoji ?? CategoryModel.fallbackEmojiFor(name);
 
+    CategoryModel? savedCat;
     if (edit == null) {
-      await provider.addCategory(
+      savedCat = await provider.addCategory(
         name: name,
         type: _type,
         emoji: emoji,
@@ -753,9 +754,13 @@ class _EditCategoryScreenState extends State<EditCategoryScreen> {
         emoji: emoji,
         colorValue: _selectedColor,
       );
+      savedCat = provider.categories.cast<CategoryModel?>().firstWhere(
+            (c) => c?.id == edit.id,
+            orElse: () => edit,
+          );
     }
 
-    if (mounted) Navigator.pop(context);
+    if (mounted) Navigator.pop(context, savedCat);
   }
 
   Widget _buildSegmentButton({

@@ -341,6 +341,58 @@ Aplikasi mengadopsi standar pustaka komponen **Forui** (`forui: ^0.27.7`), yang 
 
 ---
 
+### 5.10 Perekam Transaksi Suara (`VoiceRecordingScreen`)
+- **Kanvas & Hierarki Bersih:** Layar penuh memakai kanvas navy solid `#09101C` tanpa gradien halaman, kartu transkrip, atau bayangan dekoratif. Header sangat bersih berisi tombol tutup rounded-square di kiri dan judul **"Input Suara"** (`Inter Tight 16px, w600`) di pojok kanan atas. Status dot dan teks status dihilangkan total agar tampilan terlihat clean dan elegan.
+- **Panggung Spektrum & Kontrol Pusat:**
+  - Spektrum berpusat tepat di tengah layar vertikal dan horizontal (`size: 290px`).
+  - Tombol kontrol mikrofon / pause sirkular 58x58px tactile diletakkan di rongga tengah spektrum dengan permukaan solid matte (`#131A26` / `#0D131C`), border hairline 1px, bayangan jatuh terarah tipis, dan bebas pendaran glow/cyan blur (zero-slop R-01, R-12, R-13). Ikon 24px kontras tinggi berubah antara `Icons.pause_rounded` (putih solid) dan `Icons.mic_rounded` (slate).
+  - Tombol pause terpisah di bilah bawah dihapus, menyisakan bilah bawah hanya untuk satu tombol utama `Selesai & Tinjau` full-width.
+- **Atmospheric Sapphire Ambient Bottom Glow (Khusus Dark Mode):**
+  - Scaffold body dibungkus `Stack` yang memuat pendaran safir radial layar penuh (`Positioned.fill` dengan `RadialGradient(center: Alignment(0.0, 1.25), radius: 1.25)` dan 5 stops warna safir yang meluruh halus ke `#0009101C`), selaras dengan identitas atmosfer Beranda tanpa garis batas cutoff di bagian atas.
+  - Latar belakang kontainer dan garis border di belakang tombol `Selesai & Tinjau` dihilangkan total (`Padding(fromLTRB(16, 8, 16, 16))`), membiarkan pendaran biru safir memancar alami di balik tombol tanpa kotak kaku. Light mode tetap bersih monokrom.
+- **Petunjuk Pengucapan Halus:**
+  - Teks "Ucapkan transaksimu", kalimat instruksi panjang, dan judul "Transkrip langsung" dihilangkan.
+  - Teks petunjuk halus ditampilkan di bawah spektrum: `Contoh: "Kopi 25 ribu" atau "Siomay 13rb, tahu tek 100rb"` (`12.5px`, muted slate `0.7 opacity`).
+  - Saat suara terdeteksi, transkrip tampil bersih (`16px`) beserta feedback status parsing satu baris terpusat.
+- **Smooth Circular Spectrum:** Visualizer berupa outline lingkaran presisi dengan kurva waveform tertutup 144 sampel. Titik waveform disambungkan memakai quadratic midpoint interpolation agar tepi tetap halus dan bebas sudut kasar.
+- **Recording Standby:** Sejak perekaman aktif, outline putih tipis (`1.05px`) selalu terlihat. Bentuk tetap lingkaran ketika hening, sementara highlight putih–cyan sempit bergerak perlahan mengitari outline sebagai indikator standby tanpa pulse/breathing.
+- **Voice-Reactive Waveform:** Energi di atas adaptive noise gate mengembangkan outline menjadi gelombang radial. Empat harmonic bands mengontrol profil gelombang; amplitudo, filament length, glow, dan stroke mengikuti energi suara real-time. Attack `80ms`, release `240ms`.
+- **Fine Radial Filaments:** 72 filamen radial tipis menghubungkan inner dan outer curve saat suara aktif, memberi tekstur spectrum tanpa visual bar equalizer yang bergerigi. Tidak ada lagi mesh 3D, perspective, partikel, atau depth passes.
+- **Status Parsing:** Hasil deteksi ditampilkan sebagai satu baris ikon vektor + teks (`item terdeteksi · total`), bukan badge/pill. Hijau hanya untuk hasil valid; amber untuk data yang belum lengkap.
+- **Kontrol Bawah:** Tombol tunggal CTA `Selesai & Tinjau` solid sapphire `#02539A`, radius 15px melebar penuh (*full width*). CTA nonaktif sampai nominal valid terdeteksi.
+- **Responsif & Aksesibel:** Spektrum 290px berada di tengah layar; seluruh area terbungkus ScrollView untuk kompatibilitas layar kecil.
+- **Web Parity:** Flutter Web menggunakan widget dan animasi yang sama. Contoh simulasi web memakai ActionChip matte dengan ikon Material terpusat.
+
+### 5.11 Komponen Terpusat Filter Bulan (`AppMonthFilterPill`), Tema 3 Opsi, & Form Kategori
+- **Standardisasi Filter Bulanan (`AppMonthFilterPill` & `showAppMonthFilterSheet`):**
+  - Kapsul pill konsisten (`height: 32px`, `borderRadius: 16px`, padding horizontal `12px/8px`).
+  - Format label: 3 huruf bulan + tahun (`Nov 2026`) dipadukan dengan chevron panah bawah `Icons.keyboard_arrow_down_rounded` ukuran 18px.
+  - Varian kartu saldo hero (`isHeroCard: true`): Latar semi-transparan `Colors.white.withOpacity(0.18)` dengan teks/ikon putih solid.
+  - Varian kanvas halaman (`isHeroCard: false`): Dark mode `#131A26` dengan border tipis `rgba(255, 255, 255, 0.08)`, Light mode putih solid dengan border `#CBD5E1`.
+  - Penempatan di Layar:
+    - **Beranda (`DashboardScreen`):** Di dalam panel hero saldo utama di baris atas saldo.
+    - **Analisis Keuangan (`FinancialAnalysisScreen`):** Diposisikan tepat di bawah judul utama "Analisis Keuangan" (menjaga header tetap lapang untuk tombol panduan bantuan dan tombol tutup).
+    - **Laporan Keuangan (`AnalyticsScreen`):** Berada di baris header atas bersanding sejajar dengan judul layar.
+  - Modal Lembar Pemilih Bulan (`showAppMonthFilterSheet`): Mengusung interaksi stepper tahun (`< 2026 >`), dialog kalender pemilih tahun, grid 12 bulan (3 baris x 4 kolom) ber-radius 20px, tombol cepat "Bulan Ini" berbentuk stadium border, serta tombol aksi "Batal" dan "Simpan".
+- **Pemilih Mode Tampilan 3 Opsi (`SettingsScreen`):**
+  - Menggantikan toggle 2-arah menjadi baris pengaturan interaktif dengan subtitle mode aktif.
+  - Membuka modal sheet bersih dengan 3 pilihan kartu anti-slop:
+    1. **Sistem** (`ThemeMode.system`): Menyesuaikan tema otomatis dengan sistem perangkat Anda.
+    2. **Mode Terang** (`ThemeMode.light`): Tampilan bersih, cerah, dan kontras tinggi.
+    3. **Mode Gelap** (`ThemeMode.dark`): Tampilan gelap matte elegan dan hemat baterai.
+  - Kartu aktif ditandai dengan border safir/cyan, latar tint lembut, dan lingkaran centang (*checkmark*).
+  - Mode tersimpan persisten ke penyimpanan lokal (`SharedPreferences`).
+- **Aksi Cepat Tambah Kategori di Form Transaksi (`AddTransactionScreen`):**
+  - Tombol pill `+ Kategori` tersedia langsung di baris pemilih kategori formulir transaksi.
+  - Tombol full-width `+ Tambah Kategori Baru` tersemat di bagian teratas bottom sheet kategori lengkap.
+  - Membuka lembar pembuatan kategori (`EditCategoryScreen.showAsModalSheet`), dan saat kategori berhasil disimpan, formulir transaksi secara instan memilih kategori baru tersebut (*instant auto-select*).
+- **Pusat Notifikasi Bersih & Fokus:**
+  - Menghilangkan kartu persetujuan transaksi dan counter badge yang sudah usang.
+  - Halaman terfokus murni pada:
+    1. Status & Pengaturan Pengingat Harian.
+    2. Riwayat Aktivitas Transaksi (masuk, keluar, transfer).
+    3. Uji coba pengingat lokal.
+
 ## 6. Aturan Penegakan Anti-Slop (/antislop-ui)
 
 - **R-01 & R-10 (No Slop Gradients):** Dilarang membungkus keseluruhan halaman atau kartu biasa dengan gradien ungu/biru. Gradien hanya milik kartu virtual debit.

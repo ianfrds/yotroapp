@@ -8,6 +8,7 @@ import '../models/category_model.dart';
 import '../providers/transaction_provider.dart';
 import '../widgets/nested_card.dart';
 import '../widgets/modal_card_sheet.dart';
+import '../widgets/month_filter_sheet.dart';
 import '../widgets/weekly_activity_chart.dart';
 import '../widgets/donut_chart_painter.dart';
 import '../widgets/ambient_top_glow.dart';
@@ -59,62 +60,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     'November',
     'Desember',
   ];
-
-  void _showMonthPicker(BuildContext context) {
-    final now = DateTime.now();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    showModalCardSheet(
-      context: context,
-      title: 'Pilih Periode Bulan',
-      titleIcon: Icons.calendar_month_outlined,
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: List.generate(12, (index) {
-          final monthNum = index + 1;
-          final isSelected = _selectedMonth.month == monthNum;
-          return InkWell(
-            onTap: () {
-              setState(() {
-                _selectedMonth = DateTime(now.year, monthNum, 1);
-              });
-              Navigator.pop(context);
-            },
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 8,
-              ),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF0F172A))
-                    : (isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF1F5F9)),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isSelected
-                      ? Colors.transparent
-                      : (isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFE2E8F0)),
-                ),
-              ),
-              child: Text(
-                _monthNames[index],
-                style: GoogleFonts.manrope(
-                  color: isSelected
-                      ? (isDark ? Colors.black : Colors.white)
-                      : (isDark ? Colors.white : const Color(0xFF0F172A)),
-                  fontSize: 12.5,
-                  fontWeight: isSelected
-                      ? FontWeight.w600
-                      : FontWeight.w500,
-                ),
-              ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
 
   Widget _buildChartSwitch(bool isDark) {
     final isDonut = _chartMode == ChartViewMode.donut;
@@ -261,37 +206,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                InkWell(
-                  onTap: () => _showMonthPicker(context),
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF131A26) : Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFCBD5E1),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          monthLabel,
-                          style: GoogleFonts.manrope(
-                            color: isDark ? Colors.white : const Color(0xFF0F172A),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
-                          size: 16,
-                        ),
-                      ],
-                    ),
+                AppMonthFilterPill(
+                  selectedDate: _selectedMonth,
+                  onTap: () => showAppMonthFilterSheet(
+                    context: context,
+                    initialDate: _selectedMonth,
+                    onSelected: (date) {
+                      setState(() {
+                        _selectedMonth = date;
+                      });
+                    },
                   ),
                 ),
               ],

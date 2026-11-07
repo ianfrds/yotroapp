@@ -133,7 +133,13 @@ class TransactionProvider with ChangeNotifier {
   bool get showBalanceSection =>
       _dashboardViewMode == DashboardViewMode.complete;
   ThemeMode get themeMode => _themeMode;
-  bool get isDarkMode => _themeMode == ThemeMode.dark;
+  bool get isDarkMode {
+    if (_themeMode == ThemeMode.system) {
+      return WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+          Brightness.dark;
+    }
+    return _themeMode == ThemeMode.dark;
+  }
   bool get hasNotificationPermission => _hasNotificationPermission;
   bool get isDailyReminderEnabled => _isDailyReminderEnabled;
   String get dailyReminderTime => _dailyReminderTime;
@@ -291,8 +297,14 @@ class TransactionProvider with ChangeNotifier {
             (data['userName'] != null &&
                 (data['userName'] as String).trim().isNotEmpty);
         if (data['themeMode'] != null) {
-          _themeMode =
-              data['themeMode'] == 'light' ? ThemeMode.light : ThemeMode.dark;
+          final m = data['themeMode'].toString();
+          if (m == 'system') {
+            _themeMode = ThemeMode.system;
+          } else if (m == 'light') {
+            _themeMode = ThemeMode.light;
+          } else {
+            _themeMode = ThemeMode.dark;
+          }
         }
         _hasNotificationPermission =
             data['hasNotificationPermission'] as bool? ?? false;
@@ -930,9 +942,14 @@ class TransactionProvider with ChangeNotifier {
               : DashboardViewMode.incomeExpense;
         }
         if (decoded.containsKey('themeMode')) {
-          _themeMode = decoded['themeMode'] == 'light'
-              ? ThemeMode.light
-              : ThemeMode.dark;
+          final m = decoded['themeMode'].toString();
+          if (m == 'system') {
+            _themeMode = ThemeMode.system;
+          } else if (m == 'light') {
+            _themeMode = ThemeMode.light;
+          } else {
+            _themeMode = ThemeMode.dark;
+          }
         }
         if (decoded.containsKey('dailyReminderTimes')) {
           _dailyReminderTimes = (decoded['dailyReminderTimes'] as List<dynamic>)
@@ -1569,7 +1586,7 @@ class TransactionProvider with ChangeNotifier {
   }
 
   // Category Management CRUD
-  Future<void> addCategory({
+  Future<CategoryModel> addCategory({
     required String name,
     required TransactionType type,
     IconData? icon,
@@ -1594,6 +1611,7 @@ class TransactionProvider with ChangeNotifier {
     _categories.add(cat);
     notifyListeners();
     await saveData();
+    return cat;
   }
 
   Future<void> updateCategory({

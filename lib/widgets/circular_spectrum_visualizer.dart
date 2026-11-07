@@ -1,59 +1,96 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
-/// Fluid Wave Orb Visualizer.
-/// Renders an ethereal, glowing multi-lobed resonant audio orb matching the user's design.
-/// Two intertwined harmonic ribbons (5 lobes) glow in electric sapphire/cyan,
-/// undulating and rotating fluidly with speech sound level.
+/// Smooth circular audio spectrum used by the voice recorder.
+///
+/// While the microphone is recording but the input is silent, the visualizer
+/// remains a thin circular outline with a slow travelling highlight. Voice
+/// energy expands that outline into a continuous radial waveform.
 class CircularSpectrumVisualizer extends StatefulWidget {
   final bool isListening;
-  final double soundLevel; // normalized 0.0 to 1.0 (or dB)
+  final double soundLevel;
   final VoidCallback? onCenterTap;
   final double size;
 
   const CircularSpectrumVisualizer({
     super.key,
     required this.isListening,
-    this.soundLevel = 0.0,
+    this.soundLevel = 0,
     this.onCenterTap,
-    this.size = 220.0,
+    this.size = 220,
   });
 
   @override
-  State<CircularSpectrumVisualizer> createState() => _CircularSpectrumVisualizerState();
+  State<CircularSpectrumVisualizer> createState() =>
+      _CircularSpectrumVisualizerState();
 }
 
 class _CircularSpectrumVisualizerState extends State<CircularSpectrumVisualizer>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
+    with TickerProviderStateMixin {
+  late final AnimationController _motionController;
+  late final AnimationController _energyController;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _motionController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3200),
+      duration: const Duration(milliseconds: 5600),
     );
-    if (widget.isListening) {
-      _controller.repeat();
-    }
+    _energyController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _syncWithInput(immediate: true);
   }
 
   @override
   void didUpdateWidget(covariant CircularSpectrumVisualizer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.isListening != oldWidget.isListening) {
-      if (widget.isListening) {
-        _controller.repeat();
-      } else {
-        _controller.stop();
-      }
+    if (oldWidget.isListening != widget.isListening ||
+        oldWidget.soundLevel != widget.soundLevel) {
+      _syncWithInput();
     }
+  }
+
+  double get _gatedEnergy {
+    if (!widget.isListening) return 0;
+    final input = widget.soundLevel.clamp(0.0, 1.0);
+    const noiseGate = .065;
+    if (input <= noiseGate) return 0;
+    final normalized = ((input - noiseGate) / (1 - noiseGate)).clamp(0.0, 1.0);
+    return math.pow(normalized, .76).toDouble();
+  }
+
+  void _syncWithInput({bool immediate = false}) {
+    final target = _gatedEnergy;
+
+    if (widget.isListening) {
+      if (!_motionController.isAnimating) _motionController.repeat();
+    } else {
+      _motionController.stop();
+    }
+
+    if (immediate) {
+      _energyController.value = target;
+      return;
+    }
+
+    final isAttack = target > _energyController.value;
+    _energyController.duration = Duration(
+      milliseconds: isAttack ? 80 : 240,
+    );
+    _energyController.animateTo(
+      target,
+      curve: isAttack ? Curves.easeOutCubic : Curves.easeOutQuart,
+    );
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _motionController.dispose();
+    _energyController.dispose();
     super.dispose();
   }
 
@@ -61,216 +98,194 @@ class _CircularSpectrumVisualizerState extends State<CircularSpectrumVisualizer>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return SizedBox(
-          width: widget.size,
-          height: widget.size,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Ambient soft volumetric bloom
-              if (widget.isListening)
-                Container(
-                  width: widget.size * 0.9,
-                  height: widget.size * 0.9,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        const Color(0xFF0066FF).withOpacity(isDark ? 0.25 : 0.12),
-                        const Color(0xFF38BDF8).withOpacity(isDark ? 0.10 : 0.05),
-                        Colors.transparent,
-                      ],
-                      stops: const [0.0, 0.6, 1.0],
-                    ),
-                  ),
-                ),
-
-              // Fluid Harmonic Wave Painter
-              CustomPaint(
-                size: Size(widget.size, widget.size),
-                painter: _FluidWaveOrbPainter(
-                  progress: _controller.value,
+    return Semantics(
+      button: widget.onCenterTap != null,
+      label: widget.isListening
+          ? 'Perekaman aktif. Ketuk spektrum untuk menjeda.'
+          : 'Perekaman dijeda. Ketuk spektrum untuk melanjutkan.',
+      child: GestureDetector(
+        key: const Key('voice_spectrum_surface'),
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onCenterTap,
+        child: AnimatedBuilder(
+          animation: Listenable.merge([
+            _motionController,
+            _energyController,
+          ]),
+          builder: (context, _) {
+            return RepaintBoundary(
+              child: CustomPaint(
+                size: Size.square(widget.size),
+                painter: _CircularSpectrumPainter(
+                  progress: _motionController.value,
                   isListening: widget.isListening,
-                  soundLevel: widget.soundLevel,
+                  voiceEnergy: _energyController.value,
                   isDark: isDark,
                 ),
               ),
-
-              // Center core button with mic icon
-              GestureDetector(
-                onTap: widget.onCenterTap,
-                child: Container(
-                  width: widget.size * 0.32,
-                  height: widget.size * 0.32,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: (isDark ? const Color(0xFF091322) : Colors.white).withOpacity(0.85),
-                    border: Border.all(
-                      color: widget.isListening
-                          ? const Color(0xFF38BDF8).withOpacity(0.55)
-                          : (isDark ? Colors.white.withOpacity(0.12) : const Color(0xFFCBD5E1)),
-                      width: 1.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: (isDark ? const Color(0xFF0066FF) : const Color(0xFF38BDF8))
-                            .withOpacity(widget.isListening ? 0.35 : 0.08),
-                        blurRadius: 18,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Icon(
-                      widget.isListening ? Icons.mic_rounded : Icons.mic_off_rounded,
-                      color: widget.isListening
-                          ? const Color(0xFF38BDF8)
-                          : (isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B)),
-                      size: widget.size * 0.13,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+            );
+          },
+        ),
+      ),
     );
   }
 }
 
-class _FluidWaveOrbPainter extends CustomPainter {
+class _CircularSpectrumPainter extends CustomPainter {
   final double progress;
   final bool isListening;
-  final double soundLevel;
+  final double voiceEnergy;
   final bool isDark;
 
-  _FluidWaveOrbPainter({
+  const _CircularSpectrumPainter({
     required this.progress,
     required this.isListening,
-    required this.soundLevel,
+    required this.voiceEnergy,
     required this.isDark,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final baseRadius = size.width * 0.28;
+    final side = math.min(size.width, size.height);
+    final center = size.center(Offset.zero);
+    final radius = side * .305;
+    final energy = voiceEnergy.clamp(0.0, 1.0);
+    final phase = progress * math.pi * 2;
+    final spectrumBounds = Rect.fromCircle(center: center, radius: radius);
 
-    final normalizedLevel = soundLevel.clamp(0.0, 1.0);
-    // Dynamic amplitude: increases with sound level when speaking
-    final double amplitude = isListening
-        ? (baseRadius * 0.22 + normalizedLevel * baseRadius * 0.35)
-        : (baseRadius * 0.12);
+    final outlineColor = isDark
+        ? Colors.white.withValues(alpha: isListening ? .42 : .16)
+        : const Color(0xFF0F172A).withValues(alpha: isListening ? .34 : .14);
+    final outlinePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.05
+      ..isAntiAlias = true
+      ..color = outlineColor;
+    canvas.drawCircle(center, radius, outlinePaint);
 
-    final angleStep = (2 * math.pi) / 120;
-
-    // Build Loop 1 and Loop 2 (intertwined 5-lobed resonant harmonic loops)
-    final path1 = Path();
-    final path2 = Path();
-    final path3 = Path(); // third subtle harmonic ring
-
-    final rotationPhase = progress * 2 * math.pi;
-
-    for (int i = 0; i <= 120; i++) {
-      final theta = i * angleStep;
-
-      // 5-lobed standing wave + second harmonic
-      final waveA1 = math.sin(5 * theta + rotationPhase);
-      final waveB1 = math.cos(3 * theta - rotationPhase * 0.8) * 0.35;
-      final r1 = baseRadius + amplitude * (waveA1 + waveB1);
-
-      // Loop 2 is phase-shifted by PI (creating the crossing mobius knots)
-      final waveA2 = math.sin(5 * theta + rotationPhase + math.pi);
-      final waveB2 = math.cos(3 * theta + rotationPhase * 0.8) * 0.35;
-      final r2 = baseRadius + amplitude * (waveA2 + waveB2);
-
-      // Loop 3: faint inner guide orbital
-      final waveA3 = math.sin(4 * theta - rotationPhase * 1.2) * 0.5;
-      final r3 = baseRadius * 0.85 + amplitude * 0.35 * waveA3;
-
-      final p1 = Offset(center.dx + r1 * math.cos(theta), center.dy + r1 * math.sin(theta));
-      final p2 = Offset(center.dx + r2 * math.cos(theta), center.dy + r2 * math.sin(theta));
-      final p3 = Offset(center.dx + r3 * math.cos(theta), center.dy + r3 * math.sin(theta));
-
-      if (i == 0) {
-        path1.moveTo(p1.dx, p1.dy);
-        path2.moveTo(p2.dx, p2.dy);
-        path3.moveTo(p3.dx, p3.dy);
-      } else {
-        path1.lineTo(p1.dx, p1.dy);
-        path2.lineTo(p2.dx, p2.dy);
-        path3.lineTo(p3.dx, p3.dy);
-      }
-    }
-    path1.close();
-    path2.close();
-    path3.close();
-
-    // 1. Draw Outer Ethereal Bloom (Layer 1)
+    // Standby movement: the geometry stays perfectly circular while a narrow
+    // highlight travels over the outline. This runs whenever recording is on.
     if (isListening) {
-      final outerGlowPaint = Paint()
+      final standbyPaint = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 14.0
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16.0)
-        ..color = const Color(0xFF0066FF).withOpacity(isDark ? 0.40 : 0.22);
-      canvas.drawPath(path1, outerGlowPaint);
-      canvas.drawPath(path2, outerGlowPaint);
-
-      // 2. Mid Glow Paint (Layer 2)
-      final midGlowPaint = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 6.0
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7.0)
-        ..color = const Color(0xFF38BDF8).withOpacity(isDark ? 0.70 : 0.45);
-      canvas.drawPath(path1, midGlowPaint);
-      canvas.drawPath(path2, midGlowPaint);
-
-      // Subtle third guide path
-      final guidePaint = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.4
-        ..color = const Color(0xFF38BDF8).withOpacity(isDark ? 0.25 : 0.15);
-      canvas.drawPath(path3, guidePaint);
-    } else {
-      // Resting subtle glow
-      final idleGlowPaint = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 4.0
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5.0)
-        ..color = (isDark ? const Color(0xFF0066FF) : const Color(0xFF38BDF8)).withOpacity(0.20);
-      canvas.drawPath(path1, idleGlowPaint);
-      canvas.drawPath(path2, idleGlowPaint);
+        ..strokeWidth = 1.45
+        ..strokeCap = StrokeCap.round
+        ..isAntiAlias = true
+        ..shader = SweepGradient(
+          colors: [
+            Colors.transparent,
+            const Color(0x0055C7FF),
+            const Color(0xFF55C7FF).withValues(alpha: .72),
+            Colors.white.withValues(alpha: .92),
+            const Color(0x0055C7FF),
+            Colors.transparent,
+          ],
+          stops: const [0, .58, .78, .84, .9, 1],
+          transform: GradientRotation(phase),
+        ).createShader(spectrumBounds);
+      canvas.drawCircle(center, radius, standbyPaint);
     }
 
-    // 3. Crisp High-Brightness Core Ribbons (Layer 3)
-    final corePaint1 = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.4
-      ..strokeCap = StrokeCap.round
-      ..color = isListening
-          ? (isDark ? const Color(0xFFE0F2FE) : const Color(0xFF0284C7))
-          : (isDark ? const Color(0xFF8EA4BE).withOpacity(0.4) : const Color(0xFF94A3B8).withOpacity(0.4));
-    canvas.drawPath(path1, corePaint1);
+    if (energy <= .002) return;
 
-    final corePaint2 = Paint()
+    const sampleCount = 144;
+    final innerPoints = <Offset>[];
+    final outerPoints = <Offset>[];
+    final amplitude = side * (.014 + .082 * energy) * energy;
+
+    for (var index = 0; index < sampleCount; index++) {
+      final angle = (index / sampleCount) * math.pi * 2;
+      final harmonic = math.sin(angle * 3 - phase * 1.4) * .42 +
+          math.sin(angle * 7 + phase * 2.05) * .28 +
+          math.cos(angle * 11 - phase * 2.6) * .18 +
+          math.sin(angle * 17 + phase * 1.2) * .12;
+      final response = (.28 + harmonic.abs() * .72).clamp(0.0, 1.0);
+      final outerRadius = radius + amplitude * response;
+      final innerRadius = radius - amplitude * (.12 + response * .2);
+
+      outerPoints.add(Offset(
+        center.dx + math.cos(angle) * outerRadius,
+        center.dy + math.sin(angle) * outerRadius,
+      ));
+      innerPoints.add(Offset(
+        center.dx + math.cos(angle) * innerRadius,
+        center.dy + math.sin(angle) * innerRadius,
+      ));
+    }
+
+    final outerPath = _smoothClosedPath(outerPoints);
+    final innerPath = _smoothClosedPath(innerPoints);
+
+    // Fine radial filaments give the ring a spectrum texture without the
+    // jagged visual produced by large equalizer bars.
+    final filamentPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.2
+      ..strokeWidth = .55
       ..strokeCap = StrokeCap.round
-      ..color = isListening
-          ? (isDark ? const Color(0xFF38BDF8) : const Color(0xFF0EA5E9))
-          : (isDark ? const Color(0xFF8EA4BE).withOpacity(0.3) : const Color(0xFF94A3B8).withOpacity(0.3));
-    canvas.drawPath(path2, corePaint2);
+      ..isAntiAlias = true
+      ..color = (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A))
+          .withValues(alpha: .1 + energy * .18);
+    for (var index = 0; index < sampleCount; index += 2) {
+      canvas.drawLine(innerPoints[index], outerPoints[index], filamentPaint);
+    }
+
+    final glowPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3 + energy * 2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..isAntiAlias = true
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5)
+      ..color = const Color(0xFF147DFF).withValues(alpha: .12 * energy);
+    canvas.drawPath(outerPath, glowPaint);
+
+    final outerPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = .9 + energy * .75
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..isAntiAlias = true
+      ..color = (isDark ? const Color(0xFF7DDCFF) : const Color(0xFF02539A))
+          .withValues(alpha: .56 + energy * .32);
+    canvas.drawPath(outerPath, outerPaint);
+
+    final innerPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = .65
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..isAntiAlias = true
+      ..color = (isDark ? Colors.white : const Color(0xFF147DFF))
+          .withValues(alpha: .18 + energy * .18);
+    canvas.drawPath(innerPath, innerPaint);
+  }
+
+  Path _smoothClosedPath(List<Offset> points) {
+    final path = Path();
+    if (points.isEmpty) return path;
+
+    final firstMidpoint = Offset.lerp(points.last, points.first, .5)!;
+    path.moveTo(firstMidpoint.dx, firstMidpoint.dy);
+    for (var index = 0; index < points.length; index++) {
+      final current = points[index];
+      final next = points[(index + 1) % points.length];
+      final midpoint = Offset.lerp(current, next, .5)!;
+      path.quadraticBezierTo(
+        current.dx,
+        current.dy,
+        midpoint.dx,
+        midpoint.dy,
+      );
+    }
+    path.close();
+    return path;
   }
 
   @override
-  bool shouldRepaint(covariant _FluidWaveOrbPainter oldDelegate) {
+  bool shouldRepaint(covariant _CircularSpectrumPainter oldDelegate) {
     return oldDelegate.progress != progress ||
         oldDelegate.isListening != isListening ||
-        oldDelegate.soundLevel != soundLevel ||
+        oldDelegate.voiceEnergy != voiceEnergy ||
         oldDelegate.isDark != isDark;
   }
 }

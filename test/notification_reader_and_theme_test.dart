@@ -56,7 +56,7 @@ void main() {
       expect(provider.isDarkMode, isFalse);
     });
 
-    testWidgets('Settings screen contains Mode Tampilan toggle with Sun & Moon icons without description', (tester) async {
+    testWidgets('Settings screen contains Mode Tampilan option with 3 choices: Sistem, Terang, Gelap', (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -66,17 +66,19 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Mode Tampilan'), findsOneWidget);
-      // No description subtitle
-      expect(find.text('Mode Gelap (Monochrome Slate)'), findsNothing);
-      expect(find.text('Mode Terang (Monochrome Neutral)'), findsNothing);
+      expect(find.text('Mode Gelap'), findsWidgets);
 
-      // Verify sun and moon icons are present in toggle
-      expect(find.byIcon(Icons.wb_sunny_rounded), findsWidgets);
-      expect(find.byIcon(Icons.nightlight_round), findsWidgets);
+      // Tap Mode Tampilan to open sheet
+      await tester.tap(find.text('Mode Tampilan'));
+      await tester.pumpAndSettle();
 
-      // Tap the sun/moon toggle
-      final sunFinder = find.byIcon(Icons.wb_sunny_rounded).first;
-      await tester.tap(sunFinder);
+      // Verify the 3 theme mode options are shown
+      expect(find.text('Sistem'), findsOneWidget);
+      expect(find.text('Mode Terang'), findsOneWidget);
+      expect(find.text('Mode Gelap'), findsWidgets);
+
+      // Tap 'Mode Terang'
+      await tester.tap(find.text('Mode Terang'));
       await tester.pumpAndSettle();
 
       expect(provider.themeMode, equals(ThemeMode.light));
@@ -287,7 +289,7 @@ void main() {
       SharedPreferences.setMockInitialValues({});
     });
 
-    testWidgets('Dashboard displays pending notification approval card and allows approval', (tester) async {
+    testWidgets('Dashboard does not display pending notification approval card', (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -303,19 +305,8 @@ void main() {
       await tester.pumpWidget(buildApp(const DashboardScreen(), provider));
       await tester.pumpAndSettle();
 
-      // Card header should appear
-      expect(find.text('Persetujuan Notifikasi'), findsOneWidget);
-      expect(find.text('1 Menunggu'), findsOneWidget);
-      expect(find.text('Setujui & Catat'), findsOneWidget);
-      expect(find.text('Abaikan'), findsOneWidget);
-
-      // Tap 'Setujui & Catat'
-      await tester.tap(find.text('Setujui & Catat'));
-      await tester.pumpAndSettle();
-
-      // Notification card should disappear
+      // Approval card is removed per requirements
       expect(find.text('Persetujuan Notifikasi'), findsNothing);
-      expect(provider.pendingNotifications, isEmpty);
     });
 
     test('Pending notification approval is handled cleanly in provider', () async {

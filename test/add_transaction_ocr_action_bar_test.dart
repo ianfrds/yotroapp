@@ -70,7 +70,7 @@ void main() {
       await tester.tap(find.byKey(const Key('btn_voice_input')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Perekam Transaksi Suara'), findsOneWidget);
+      expect(find.text('Input Suara'), findsOneWidget);
       expect(find.byKey(const Key('chip_sim_multi_item')), findsOneWidget);
       expect(find.byKey(const Key('chip_sim_single_item')), findsOneWidget);
     });

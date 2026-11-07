@@ -1,15 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:money_tracker/models/category_model.dart';
 import 'package:money_tracker/models/voice_transaction_item.dart';
 import 'package:money_tracker/providers/transaction_provider.dart';
 import 'package:money_tracker/screens/add_transaction_screen.dart';
 import 'package:money_tracker/widgets/circular_spectrum_visualizer.dart';
 import 'package:money_tracker/widgets/voice_multi_item_summary_sheet.dart';
-import 'package:money_tracker/widgets/voice_recording_sheet.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -18,7 +17,8 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  Widget buildTestWidget({required Widget child, TransactionProvider? provider}) {
+  Widget buildTestWidget(
+      {required Widget child, TransactionProvider? provider}) {
     final prov = provider ?? TransactionProvider();
     return ChangeNotifierProvider<TransactionProvider>.value(
       value: prov,
@@ -29,7 +29,8 @@ void main() {
   }
 
   group('CircularSpectrumVisualizer Tests', () {
-    testWidgets('renders animated radial visualizer and mic icon', (tester) async {
+    testWidgets('renders animated smooth circular spectrum surface',
+        (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -46,10 +47,12 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.byType(CircularSpectrumVisualizer), findsOneWidget);
-      expect(find.byIcon(Icons.mic_rounded), findsOneWidget);
+      expect(find.byKey(const Key('voice_spectrum_surface')), findsOneWidget);
+      expect(find.byType(CustomPaint), findsWidgets);
     });
 
-    testWidgets('shows mic_off_rounded when isListening is false', (tester) async {
+    testWidgets('keeps the hollow spectrum surface available while paused',
+        (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -65,24 +68,75 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.byIcon(Icons.mic_off_rounded), findsOneWidget);
+      expect(find.byKey(const Key('voice_spectrum_surface')), findsOneWidget);
+      expect(find.byIcon(Icons.mic_off_rounded), findsNothing);
+    });
+
+    testWidgets('keeps standby motion in silence and stops when paused',
+        (tester) async {
+      var soundLevel = 0.0;
+      var isListening = true;
+      late StateSetter update;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return Scaffold(
+                body: Center(
+                  child: CircularSpectrumVisualizer(
+                    isListening: isListening,
+                    soundLevel: soundLevel,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 120));
+      expect(tester.binding.hasScheduledFrame, isTrue);
+
+      update(() => soundLevel = .8);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 120));
+      expect(tester.binding.hasScheduledFrame, isTrue);
+
+      update(() => soundLevel = 0);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(tester.binding.hasScheduledFrame, isTrue);
+
+      update(() => isListening = false);
+      await tester.pump();
+      await tester.pumpAndSettle();
+      expect(tester.binding.hasScheduledFrame, isFalse);
     });
   });
 
   group('VoiceMultiItemSummarySheet Tests', () {
-    testWidgets('renders vertical list of 4 items with total, and allows edit', (tester) async {
+    testWidgets('renders vertical list of 4 items with total, and allows edit',
+        (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
       final items = [
-        const VoiceTransactionItem(title: 'Siomay', amount: 13000, suggestedCategory: 'Makanan & Minuman'),
-        const VoiceTransactionItem(title: 'Tahu Tek', amount: 100000, suggestedCategory: 'Makanan & Minuman'),
-        const VoiceTransactionItem(title: 'Keyboard', amount: 500000, suggestedCategory: 'Belanja'),
-        const VoiceTransactionItem(title: 'HP', amount: 1000000, suggestedCategory: 'Belanja'),
+        const VoiceTransactionItem(
+            title: 'Siomay',
+            amount: 13000,
+            suggestedCategory: 'Makanan & Minuman'),
+        const VoiceTransactionItem(
+            title: 'Tahu Tek',
+            amount: 100000,
+            suggestedCategory: 'Makanan & Minuman'),
+        const VoiceTransactionItem(
+            title: 'Keyboard', amount: 500000, suggestedCategory: 'Belanja'),
+        const VoiceTransactionItem(
+            title: 'HP', amount: 1000000, suggestedCategory: 'Belanja'),
       ];
 
-      bool retryCalled = false;
       List<VoiceTransactionItem>? savedBatch;
 
       await tester.pumpWidget(
@@ -94,7 +148,7 @@ void main() {
                   VoiceMultiItemSummarySheet.show(
                     context: ctx,
                     items: items,
-                    onRetryRecording: () => retryCalled = true,
+                    onRetryRecording: () {},
                     onSaveAll: (confirmed) => savedBatch = confirmed,
                   );
                 },
@@ -109,7 +163,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Ringkasan Transaksi Suara'), findsOneWidget);
-      expect(find.text('4 item terdeteksi • Total: Rp 1.613.000'), findsOneWidget);
+      expect(
+          find.text('4 item terdeteksi • Total: Rp 1.613.000'), findsOneWidget);
       expect(find.text('Siomay'), findsOneWidget);
       expect(find.text('Tahu Tek'), findsOneWidget);
       expect(find.text('Keyboard'), findsOneWidget);
@@ -130,7 +185,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Total now should be 13k + 10k + 500k + 1M = 1.523.000
-      expect(find.text('4 item terdeteksi • Total: Rp 1.523.000'), findsOneWidget);
+      expect(
+          find.text('4 item terdeteksi • Total: Rp 1.523.000'), findsOneWidget);
 
       // Tap Catat Semua
       await tester.tap(find.byKey(const Key('btn_save_all_speech')));
@@ -141,14 +197,21 @@ void main() {
       expect(savedBatch![1].amount, 10000.0);
     });
 
-    testWidgets('Bicara Ulang triggers onRetryRecording callback', (tester) async {
+    testWidgets('Bicara Ulang triggers onRetryRecording callback',
+        (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
       final items = [
-        const VoiceTransactionItem(title: 'Siomay', amount: 13000, suggestedCategory: 'Makanan & Minuman'),
-        const VoiceTransactionItem(title: 'Tahu Tek', amount: 100000, suggestedCategory: 'Makanan & Minuman'),
+        const VoiceTransactionItem(
+            title: 'Siomay',
+            amount: 13000,
+            suggestedCategory: 'Makanan & Minuman'),
+        const VoiceTransactionItem(
+            title: 'Tahu Tek',
+            amount: 100000,
+            suggestedCategory: 'Makanan & Minuman'),
       ];
 
       bool retryCalled = false;
@@ -184,7 +247,37 @@ void main() {
   });
 
   group('VoiceRecordingSheet Integration with AddTransactionScreen Tests', () {
-    testWidgets('tapping 1-item simulator chip fills AddTransactionScreen directly', (tester) async {
+    testWidgets('web-only spectrum preview button toggles without routing',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final provider = TransactionProvider();
+      await provider.loadData();
+      await tester.pumpWidget(buildTestWidget(
+        child: const AddTransactionScreen(),
+        provider: provider,
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('btn_voice_input')));
+      await tester.pumpAndSettle();
+      expect(
+          find.byKey(const Key('btn_test_spectrum_preview')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('btn_test_spectrum_preview')));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('Hentikan tes spektrum'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('btn_test_spectrum_preview')));
+      await tester.pumpAndSettle();
+      expect(find.text('Tes gerak spektrum'), findsOneWidget);
+    }, skip: !kIsWeb);
+
+    testWidgets(
+        'tapping 1-item simulator chip fills AddTransactionScreen directly',
+        (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -202,9 +295,10 @@ void main() {
       await tester.tap(find.byKey(const Key('btn_voice_input')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Perekam Transaksi Suara'), findsOneWidget);
+      expect(find.text('Input Suara'), findsOneWidget);
 
       // Tap 1-item chip
+      await tester.ensureVisible(find.byKey(const Key('chip_sim_single_item')));
       await tester.tap(find.byKey(const Key('chip_sim_single_item')));
       await tester.pump(const Duration(milliseconds: 1000));
       await tester.pumpAndSettle();
@@ -214,7 +308,9 @@ void main() {
       expect(find.textContaining('25'), findsWidgets);
     });
 
-    testWidgets('tapping 4-item simulator chip opens VoiceMultiItemSummarySheet', (tester) async {
+    testWidgets(
+        'tapping 4-item simulator chip opens VoiceMultiItemSummarySheet',
+        (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -233,6 +329,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Tap 4-item chip
+      await tester.ensureVisible(find.byKey(const Key('chip_sim_multi_item')));
       await tester.tap(find.byKey(const Key('chip_sim_multi_item')));
       await tester.pump(const Duration(milliseconds: 1000));
       await tester.pumpAndSettle();
@@ -247,4 +344,3 @@ void main() {
     });
   });
 }
-

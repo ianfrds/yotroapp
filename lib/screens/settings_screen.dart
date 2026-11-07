@@ -268,94 +268,171 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSunMoonToggle(TransactionProvider provider, bool isDark) {
-    final isDarkMode = provider.isDarkMode;
-    final trackBg = isDark ? const Color(0xFF131A26) : const Color(0xFFE2E8F0);
-    final trackBorder =
-        isDark ? Colors.white.withOpacity(0.12) : const Color(0xFFCBD5E1);
-    final thumbBg = isDarkMode ? const Color(0xFF1E293B) : Colors.white;
+  String _getThemeLabel(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.system:
+        return 'Sistem';
+      case ThemeMode.light:
+        return 'Mode Terang';
+      case ThemeMode.dark:
+        return 'Mode Gelap';
+    }
+  }
 
-    return GestureDetector(
-      onTap: () => provider.toggleThemeMode(),
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: 58,
-        height: 30,
-        padding: const EdgeInsets.all(2.5),
-        decoration: BoxDecoration(
-          color: trackBg,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: trackBorder),
-        ),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4),
-                    child: Icon(
-                      Icons.wb_sunny_rounded,
-                      size: 13,
-                      color: isDarkMode
-                          ? const Color(0xFF64748B)
-                          : const Color(0xFFF59E0B),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: Icon(
-                      Icons.nightlight_round,
-                      size: 13,
-                      color: isDarkMode
-                          ? const Color(0xFF55C7FF)
-                          : const Color(0xFF94A3B8),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            AnimatedAlign(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
-              alignment:
-                  isDarkMode ? Alignment.centerRight : Alignment.centerLeft,
-              child: Container(
-                width: 25,
-                height: 25,
+  IconData _getThemeIcon(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.system:
+        return Icons.brightness_auto_rounded;
+      case ThemeMode.light:
+        return Icons.light_mode_rounded;
+      case ThemeMode.dark:
+        return Icons.dark_mode_rounded;
+    }
+  }
+
+  void _showThemeModeSheet(BuildContext context, TransactionProvider provider) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accentColor =
+        isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A);
+
+    _showModalCardSheet(
+      context: context,
+      title: 'Mode Tampilan',
+      titleIcon: Icons.palette_outlined,
+      child: StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          Widget buildOption({
+            required ThemeMode mode,
+            required String title,
+            required IconData icon,
+            required String description,
+          }) {
+            final isSelected = provider.themeMode == mode;
+
+            return InkWell(
+              onTap: () {
+                provider.setThemeMode(mode);
+                Navigator.pop(ctx);
+              },
+              borderRadius: BorderRadius.circular(14),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: thumbBg,
-                  shape: BoxShape.circle,
+                  color: isSelected
+                      ? (isDark
+                          ? const Color(0xFF55C7FF).withOpacity(0.08)
+                          : const Color(0xFF02539A).withOpacity(0.06))
+                      : (isDark
+                          ? Colors.white.withOpacity(0.03)
+                          : const Color(0xFFF8FAFC)),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: isDarkMode
-                        ? Colors.white.withOpacity(0.18)
-                        : const Color(0xFFCBD5E1),
-                    width: 0.8,
+                    color: isSelected
+                        ? accentColor
+                        : (isDark
+                            ? Colors.white.withOpacity(0.06)
+                            : const Color(0xFFE2E8F0)),
+                    width: isSelected ? 1.5 : 1.0,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(isDarkMode ? 0.3 : 0.08),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      margin: const EdgeInsets.only(right: 12),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? accentColor.withOpacity(0.18)
+                            : (isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFF1F5F9)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        icon,
+                        size: 18,
+                        color: isSelected
+                            ? accentColor
+                            : (isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B)),
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: GoogleFonts.interTight(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white : const Color(0xFF0F172A),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            description,
+                            style: GoogleFonts.manrope(
+                              fontSize: 11.5,
+                              color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isSelected ? accentColor : Colors.transparent,
+                        border: Border.all(
+                          color: isSelected
+                              ? accentColor
+                              : (isDark ? const Color(0xFF677B92) : const Color(0xFF94A3B8)),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: isSelected
+                          ? const Icon(
+                              Icons.check_rounded,
+                              size: 14,
+                              color: Colors.white,
+                            )
+                          : null,
                     ),
                   ],
                 ),
-                child: Center(
-                  child: Icon(
-                    isDarkMode
-                        ? Icons.nightlight_round
-                        : Icons.wb_sunny_rounded,
-                    size: 13,
-                    color: isDarkMode
-                        ? const Color(0xFF55C7FF)
-                        : const Color(0xFFF59E0B),
-                  ),
-                ),
               ),
-            ),
-          ],
-        ),
+            );
+          }
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              buildOption(
+                mode: ThemeMode.system,
+                title: 'Sistem',
+                icon: Icons.brightness_auto_rounded,
+                description: 'Menyesuaikan tema otomatis dengan sistem perangkat',
+              ),
+              buildOption(
+                mode: ThemeMode.light,
+                title: 'Mode Terang',
+                icon: Icons.light_mode_rounded,
+                description: 'Tampilan bersih, cerah, dan kontras tinggi',
+              ),
+              buildOption(
+                mode: ThemeMode.dark,
+                title: 'Mode Gelap',
+                icon: Icons.dark_mode_rounded,
+                description: 'Tampilan gelap matte elegan dan hemat baterai',
+              ),
+              const SizedBox(height: 6),
+            ],
+          );
+        },
       ),
     );
   }
@@ -374,12 +451,29 @@ class SettingsScreen extends StatelessWidget {
       children: [
         _buildSettingRow(
           context: context,
-          icon: provider.isDarkMode
-              ? Icons.dark_mode_outlined
-              : Icons.light_mode_outlined,
+          icon: _getThemeIcon(provider.themeMode),
           title: 'Mode Tampilan',
-          subtitle: null,
-          trailing: _buildSunMoonToggle(provider, isDark),
+          subtitle: _getThemeLabel(provider.themeMode),
+          onTap: () => _showThemeModeSheet(context, provider),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _getThemeLabel(provider.themeMode),
+                style: GoogleFonts.manrope(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: mutedColor,
+              ),
+            ],
+          ),
         ),
         _buildDivider(context),
         _buildSettingRow(

@@ -16,6 +16,7 @@ import '../widgets/voice_recording_sheet.dart';
 import '../screens/voice_recording_screen.dart';
 import '../models/voice_transaction_item.dart';
 import '../services/receipt_scanner/receipt_scanner_service.dart';
+import 'edit_category_screen.dart';
 import 'transaction_success_screen.dart';
 
 class AddTransactionScreen extends StatefulWidget {
@@ -732,6 +733,42 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           ),
         );
 
+        Widget buildAddPill() {
+          return InkWell(
+            onTap: () => _openAddCategoryModal(context),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? Colors.white.withOpacity(0.12) : const Color(0xFFCBD5E1),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.add_rounded,
+                    size: 14,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Kategori',
+                    style: GoogleFonts.manrope(
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -765,14 +802,35 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       if (row2.isNotEmpty) const SizedBox(width: spacing),
                       lainyaButton,
                     ],
+                    const SizedBox(width: spacing),
+                    buildAddPill(),
                   ],
                 ),
               ),
+            ] else ...[
+              const SizedBox(height: spacing),
+              buildAddPill(),
             ],
           ],
         );
       },
     );
+  }
+
+  Future<void> _openAddCategoryModal(BuildContext context) async {
+    _amountFocusNode.unfocus();
+    _amountFocusNode.canRequestFocus = false;
+    FocusScope.of(context).unfocus();
+
+    final created = await EditCategoryScreen.showAsModalSheet(
+      context,
+      initialType: _type,
+    );
+    if (created != null && mounted) {
+      setState(() {
+        _selectedCategory = created.name;
+      });
+    }
   }
 
   void _showCategoryPickerSheet(
@@ -800,10 +858,51 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               const double spacing = 10;
               final itemWidth = (constraints.maxWidth - spacing) / 2;
 
-              return Wrap(
-                spacing: spacing,
-                runSpacing: 10,
-                children: categories.map((cat) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  InkWell(
+                    onTap: () {
+                      Navigator.pop(context);
+                      _openAddCategoryModal(context);
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF131A26) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: (isDark ? const Color(0xFF55C7FF) : const Color(0xFF0284C7)).withOpacity(0.35),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.add_circle_outline_rounded,
+                            size: 16,
+                            color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF0284C7),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Tambah Kategori Baru',
+                            style: GoogleFonts.manrope(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF0284C7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Wrap(
+                    spacing: spacing,
+                    runSpacing: 10,
+                    children: categories.map((cat) {
                   final isSel = cat.name == _selectedCategory;
                   final color = Color(cat.colorValue ?? 0xFF2B8DE0);
                   return SizedBox(
@@ -862,8 +961,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     ),
                   );
                 }).toList(),
-              );
-            },
+              ),
+            ],
+          );
+        },
           ),
         ),
       ),

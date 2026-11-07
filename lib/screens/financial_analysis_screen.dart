@@ -8,6 +8,7 @@ import '../models/category_model.dart';
 import '../providers/transaction_provider.dart';
 import '../widgets/nested_card.dart';
 import '../widgets/modal_card_sheet.dart';
+import '../widgets/month_filter_sheet.dart';
 import '../widgets/standard_screen_header.dart';
 import '../widgets/donut_chart_painter.dart';
 import 'budget_screen.dart';
@@ -93,62 +94,6 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
     'November',
     'Desember',
   ];
-
-  void _showMonthPicker(BuildContext context) {
-    final now = DateTime.now();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    showModalCardSheet(
-      context: context,
-      title: 'Pilih Periode Bulan',
-      titleIcon: Icons.calendar_month_outlined,
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: List.generate(12, (index) {
-          final monthNum = index + 1;
-          final isSelected = _selectedMonth.month == monthNum;
-          return InkWell(
-            onTap: () {
-              setState(() {
-                _selectedMonth = DateTime(now.year, monthNum, 1);
-                _selectedCurvePoint = null;
-                _selectedDonutIndex = null;
-              });
-              Navigator.pop(context);
-            },
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 8,
-              ),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF0F172A))
-                    : (isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF1F5F9)),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isSelected
-                      ? Colors.transparent
-                      : (isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFE2E8F0)),
-                ),
-              ),
-              child: Text(
-                _monthNames[index],
-                style: GoogleFonts.manrope(
-                  color: isSelected
-                      ? (isDark ? Colors.black : Colors.white)
-                      : (isDark ? Colors.white : const Color(0xFF0F172A)),
-                  fontSize: 12.5,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                ),
-              ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
 
   void _showHelpGuideSheet(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1669,40 +1614,19 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final provider = context.watch<TransactionProvider>();
     final healthMetrics = _computeHealthMetrics(provider, _selectedMonth);
-    final monthLabel =
-        '${_monthNames[_selectedMonth.month - 1]} ${_selectedMonth.year}';
 
-    final periodPickerWidget = InkWell(
-      onTap: () => _showMonthPicker(context),
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF131A26) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFCBD5E1),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              monthLabel,
-              style: GoogleFonts.manrope(
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: isDark ? Colors.white : const Color(0xFF0F172A),
-              size: 16,
-            ),
-          ],
-        ),
+    final monthFilterPill = AppMonthFilterPill(
+      selectedDate: _selectedMonth,
+      onTap: () => showAppMonthFilterSheet(
+        context: context,
+        initialDate: _selectedMonth,
+        onSelected: (date) {
+          setState(() {
+            _selectedMonth = date;
+            _selectedCurvePoint = null;
+            _selectedDonutIndex = null;
+          });
+        },
       ),
     );
 
@@ -1756,36 +1680,41 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 6, 8, 10),
-              child: Row(
+              padding: const EdgeInsets.fromLTRB(16, 6, 8, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      'Analisis Keuangan',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.interTight(
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Analisis Keuangan',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.interTight(
+                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      helpButtonWidget,
+                      const SizedBox(width: 4),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+                        padding: EdgeInsets.zero,
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: isDark ? const Color(0xFF8CA7C5) : const Color(0xFF64748B),
+                          size: 22,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  helpButtonWidget,
-                  const SizedBox(width: 4),
-                  periodPickerWidget,
-                  const SizedBox(width: 4),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-                    padding: EdgeInsets.zero,
-                    icon: Icon(
-                      Icons.close_rounded,
-                      color: isDark ? const Color(0xFF8CA7C5) : const Color(0xFF64748B),
-                      size: 22,
-                    ),
-                  ),
+                  const SizedBox(height: 8),
+                  monthFilterPill,
                 ],
               ),
             ),
@@ -1812,14 +1741,12 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
           children: [
             StandardScreenHeader(
               title: 'Analisis Keuangan',
-              actionWidget: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  helpButtonWidget,
-                  const SizedBox(width: 4),
-                  periodPickerWidget,
-                ],
-              ),
+              actionWidget: helpButtonWidget,
+            ),
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: monthFilterPill,
             ),
             const SizedBox(height: 12),
             ...contentCards,

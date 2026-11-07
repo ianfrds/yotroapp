@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,7 +8,6 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../models/voice_transaction_item.dart';
 import '../services/voice_transaction_parser_service.dart';
-import '../widgets/ambient_top_glow.dart';
 import '../widgets/circular_spectrum_visualizer.dart';
 import '../widgets/voice_multi_item_summary_sheet.dart';
 
@@ -49,9 +49,14 @@ class _VoiceRecordingScreenState extends State<VoiceRecordingScreen> {
   bool _isListening = false;
   bool _speechAvailable = false;
   double _soundLevel = 0.0;
+  double? _ambientSoundFloor;
+  double? _peakSoundLevel;
   String _recognizedWords = '';
   VoiceParseResult? _parseResult;
   Timer? _speechTimeoutTimer;
+  Timer? _spectrumPreviewTimer;
+  bool _isSpectrumPreviewing = false;
+  int _spectrumPreviewTick = 0;
 
   @override
   void initState() {
@@ -63,6 +68,7 @@ class _VoiceRecordingScreenState extends State<VoiceRecordingScreen> {
   @override
   void dispose() {
     _speechTimeoutTimer?.cancel();
+    _spectrumPreviewTimer?.cancel();
     if (_isListening) {
       _speech.stop();
     }
@@ -77,13 +83,19 @@ class _VoiceRecordingScreenState extends State<VoiceRecordingScreen> {
           if (status == 'listening') {
             setState(() => _isListening = true);
           } else if (status == 'notListening' || status == 'done') {
-            setState(() => _isListening = false);
+            setState(() {
+              _isListening = false;
+              _soundLevel = 0;
+            });
             _onSpeechCompleted();
           }
         },
         onError: (val) {
           if (!mounted) return;
-          setState(() => _isListening = false);
+          setState(() {
+            _isListening = false;
+            _soundLevel = 0;
+          });
         },
       );
 
@@ -105,6 +117,8 @@ class _VoiceRecordingScreenState extends State<VoiceRecordingScreen> {
     setState(() {
       _isListening = true;
       _soundLevel = 0.0;
+      _ambientSoundFloor = null;
+      _peakSoundLevel = null;
     });
 
     try {
@@ -113,7 +127,8 @@ class _VoiceRecordingScreenState extends State<VoiceRecordingScreen> {
           if (!mounted) return;
           setState(() {
             _recognizedWords = result.recognizedWords;
-            _parseResult = VoiceTransactionParserService.parse(_recognizedWords);
+            _parseResult =
+                VoiceTransactionParserService.parse(_recognizedWords);
           });
           _speechTimeoutTimer?.cancel();
           if (result.finalResult) {
@@ -126,19 +141,68 @@ class _VoiceRecordingScreenState extends State<VoiceRecordingScreen> {
             });
           }
         },
-        onSoundLevelChange: (level) {
-          if (!mounted) return;
-          final normalized = (level + 20) / 30.0;
-          setState(() {
-            _soundLevel = normalized.clamp(0.0, 1.0);
-          });
-        },
-        localeId: 'id_ID',
-        listenFor: const Duration(seconds: 30),
-        pauseFor: const Duration(seconds: 3),
+        onSoundLevelChange: _handleSoundLevel,
+        listenOptions: stt.SpeechListenOptions(
+          localeId: 'id_ID',
+          listenFor: const Duration(seconds: 30),
+          pauseFor: const Duration(seconds: 3),
+        ),
       );
     } catch (_) {
-      if (mounted) setState(() => _isListening = false);
+      if (mounted) {
+        setState(() {
+          _isListening = false;
+          _soundLevel = 0;
+        });
+      }
+    }
+  }
+
+  void _handleSoundLevel(double rawLevel) {
+    if (!mounted || !rawLevel.isFinite || _isSpectrumPreviewing) return;
+
+    if (_ambientSoundFloor == null || _peakSoundLevel == null) {
+      _ambientSoundFloor = rawLevel;
+      _peakSoundLevel = rawLevel + 6;
+      if (_soundLevel != 0) setState(() => _soundLevel = 0);
+      return;
+    }
+
+    var floor = _ambientSoundFloor!;
+    var peak = _peakSoundLevel!;
+
+    // The floor follows quieter samples quickly but rises very slowly, so
+    // continuous speech is not mistaken for ambient noise.
+    if (rawLevel < floor) {
+      floor += (rawLevel - floor) * .24;
+    } else if (rawLevel < floor + 2.5) {
+      floor += (rawLevel - floor) * .025;
+    } else {
+      floor += (rawLevel - floor) * .004;
+    }
+
+    if (rawLevel > peak) {
+      peak += (rawLevel - peak) * .58;
+    } else {
+      final minimumPeak = floor + 6;
+      peak += (minimumPeak - peak) * .018;
+      peak = math.max(peak, minimumPeak);
+    }
+
+    _ambientSoundFloor = floor;
+    _peakSoundLevel = peak;
+
+    final dynamicRange = math.max(6.0, peak - floor);
+    final noiseMargin = math.max(.75, dynamicRange * .1);
+    final rawSignal = rawLevel - floor - noiseMargin;
+    final normalized =
+        (rawSignal / math.max(1, dynamicRange - noiseMargin)).clamp(0.0, 1.0);
+    final compressed = math.pow(normalized, .72).toDouble();
+    final smoothing = compressed > _soundLevel ? .6 : .18;
+    final nextLevel = _soundLevel + (compressed - _soundLevel) * smoothing;
+
+    if ((nextLevel - _soundLevel).abs() > .004) {
+      setState(() => _soundLevel = nextLevel < .025 ? 0 : nextLevel);
     }
   }
 
@@ -146,12 +210,21 @@ class _VoiceRecordingScreenState extends State<VoiceRecordingScreen> {
     _speechTimeoutTimer?.cancel();
     if (_isListening) {
       await _speech.stop();
-      if (mounted) setState(() => _isListening = false);
+      if (mounted) {
+        setState(() {
+          _isListening = false;
+          _soundLevel = 0;
+        });
+      }
     }
     _onSpeechCompleted();
   }
 
   void _toggleListening() {
+    if (_isSpectrumPreviewing) {
+      _stopSpectrumPreview();
+      return;
+    }
     if (_isListening) {
       _stopListeningAndProcess();
     } else {
@@ -195,6 +268,9 @@ class _VoiceRecordingScreenState extends State<VoiceRecordingScreen> {
   }
 
   void _simulateSpeech(String text) {
+    if (_isSpectrumPreviewing) {
+      _stopSpectrumPreview();
+    }
     setState(() {
       _recognizedWords = text;
       _parseResult = VoiceTransactionParserService.parse(text);
@@ -204,6 +280,63 @@ class _VoiceRecordingScreenState extends State<VoiceRecordingScreen> {
       if (mounted && _parseResult != null && _parseResult!.isValid) {
         _routeParsedResult(_parseResult!);
       }
+    });
+  }
+
+  void _toggleSpectrumPreview() {
+    if (!kIsWeb) return;
+    if (_isSpectrumPreviewing) {
+      _stopSpectrumPreview();
+    } else {
+      _startSpectrumPreview();
+    }
+  }
+
+  void _startSpectrumPreview() {
+    _spectrumPreviewTimer?.cancel();
+    _spectrumPreviewTick = 0;
+    setState(() {
+      _isSpectrumPreviewing = true;
+      _soundLevel = 0;
+    });
+
+    _spectrumPreviewTimer = Timer.periodic(
+      const Duration(milliseconds: 70),
+      (_) {
+        if (!mounted || !_isSpectrumPreviewing) return;
+        _spectrumPreviewTick++;
+        final cycleMs = (_spectrumPreviewTick * 70) % 4000;
+        final phase = cycleMs / 4000;
+        var previewEnergy = 0.0;
+
+        // Each cycle deliberately demonstrates both states: a silent ring,
+        // then a voice-like attack with layered amplitude fluctuations.
+        if (phase >= .2 && phase <= .86) {
+          final activePhase = (phase - .2) / .66;
+          final envelope = math.min(
+            1.0,
+            math.min(activePhase * 7, (1 - activePhase) * 7),
+          );
+          final carrier = .58 +
+              math.sin(_spectrumPreviewTick * .46) * .23 +
+              math.sin(_spectrumPreviewTick * .17) * .12;
+          previewEnergy = (carrier * envelope).clamp(0.0, 1.0);
+        }
+
+        setState(() => _soundLevel = previewEnergy);
+      },
+    );
+  }
+
+  void _stopSpectrumPreview() {
+    _spectrumPreviewTimer?.cancel();
+    _spectrumPreviewTimer = null;
+    if (!mounted) return;
+    setState(() {
+      _isSpectrumPreviewing = false;
+      _soundLevel = 0;
+      _ambientSoundFloor = null;
+      _peakSoundLevel = null;
     });
   }
 
@@ -218,318 +351,383 @@ class _VoiceRecordingScreenState extends State<VoiceRecordingScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final pageColor =
+        isDark ? const Color(0xFF09101C) : const Color(0xFFF4F5F7);
+    final primaryText = isDark ? Colors.white : const Color(0xFF0F172A);
+    final secondaryText =
+        isDark ? const Color(0xFF91A3B8) : const Color(0xFF64748B);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0C131D) : const Color(0xFFF4F5F7),
+      backgroundColor: pageColor,
       body: Stack(
         children: [
-          // Atmospheric top glow
-          if (isDark) const AmbientTopGlow(height: 520),
-
-          SafeArea(
-            child: Column(
-              children: [
-                // Top App Bar
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                  child: Row(
-                    children: [
-                      // Back / Close Button
-                      IconButton(
-                        key: const Key('btn_close_voice_screen'),
-                        icon: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFE2E8F0),
-                          ),
-                          child: Icon(
-                            Icons.close_rounded,
-                            color: isDark ? Colors.white : const Color(0xFF0F172A),
-                            size: 20,
-                          ),
-                        ),
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                      const SizedBox(width: 8),
-
-                      // Title
-                      Expanded(
-                        child: Text(
-                          'Perekam Transaksi Suara',
-                          style: GoogleFonts.interTight(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? Colors.white : const Color(0xFF0F172A),
-                          ),
-                        ),
-                      ),
-
-                      // Status Pulse Indicator
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: _isListening
-                              ? const Color(0xFF0066FF).withOpacity(0.18)
-                              : Colors.white.withOpacity(0.06),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: _isListening
-                                ? const Color(0xFF38BDF8).withOpacity(0.4)
-                                : Colors.white.withOpacity(0.08),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: _isListening ? const Color(0xFF38BDF8) : const Color(0xFF8EA4BE),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              _isListening ? 'Mendengarkan' : 'Dijeda',
-                              style: GoogleFonts.manrope(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: _isListening ? const Color(0xFF38BDF8) : const Color(0xFF8EA4BE),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Main Content (Scrollable for smaller screens)
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 16),
-
-                        // Fluid Wave Orb Visualizer (Center Stage)
-                        Center(
-                          child: CircularSpectrumVisualizer(
-                            isListening: _isListening,
-                            soundLevel: _soundLevel,
-                            onCenterTap: _toggleListening,
-                            size: 260,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Subtitle / Transcription Box (Generous Full-Page Style)
-                        Container(
-                          width: double.infinity,
-                          constraints: const BoxConstraints(minHeight: 80, maxHeight: 120),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF131A26) : Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFE2E8F0),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(isDark ? 0.3 : 0.04),
-                                blurRadius: 16,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: SingleChildScrollView(
-                            child: Text(
-                              _recognizedWords.isNotEmpty
-                                  ? _recognizedWords
-                                  : 'Silakan sebutkan transaksi, contoh:\n"Siomay 13 ribu, tahu tek 100 ribu, keyboard 500 ribu, hp 1 juta"',
-                              style: GoogleFonts.manrope(
-                                fontSize: 14,
-                                fontStyle: _recognizedWords.isEmpty ? FontStyle.italic : FontStyle.normal,
-                                color: _recognizedWords.isNotEmpty
-                                    ? (isDark ? Colors.white : const Color(0xFF0F172A))
-                                    : (isDark ? const Color(0xFF627D98) : const Color(0xFF94A3B8)),
-                                height: 1.4,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-
-                        // Detection Status Pill
-                        if (_parseResult != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: _parseResult!.isValid
-                                  ? const Color(0xFF39D98A).withOpacity(0.12)
-                                  : const Color(0xFFF59E0B).withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: _parseResult!.isValid
-                                    ? const Color(0xFF39D98A).withOpacity(0.3)
-                                    : const Color(0xFFF59E0B).withOpacity(0.3),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  _parseResult!.isValid ? Icons.check_circle_rounded : Icons.info_outline_rounded,
-                                  size: 16,
-                                  color: _parseResult!.isValid ? const Color(0xFF39D98A) : const Color(0xFFF59E0B),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    _parseResult!.isValid
-                                        ? 'Terdeteksi ${_parseResult!.items.length} item • Total: ${_formatCurrency(_parseResult!.totalAmount)}'
-                                        : (_parseResult!.validationError ?? 'Menunggu nominal...'),
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: _parseResult!.isValid ? const Color(0xFF39D98A) : const Color(0xFFF59E0B),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                        // Web-only Simulator Chips
-                        if (kIsWeb || !_speechAvailable) ...[
-                          const SizedBox(height: 16),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'Simulasi Suara Cepat (Web Preview):',
-                              style: GoogleFonts.manrope(
-                                fontSize: 11,
-                                color: isDark ? const Color(0xFF627D98) : const Color(0xFF94A3B8),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              ActionChip(
-                                key: const Key('chip_sim_multi_item'),
-                                label: Text(
-                                  '4 Item (Siomay, Tahu Tek, Keyboard, HP)',
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                    color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF334155),
-                                  ),
-                                ),
-                                backgroundColor: isDark ? const Color(0xFF131A26) : Colors.white,
-                                side: BorderSide(
-                                  color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFCBD5E1),
-                                ),
-                                onPressed: () {
-                                  _simulateSpeech('Siomay 13 ribu, tahu tek 100 ribu, keyboard 500 ribu, hp 1 juta');
-                                },
-                              ),
-                              ActionChip(
-                                key: const Key('chip_sim_single_item'),
-                                label: Text(
-                                  '1 Item (Kopi Kenangan 25rb)',
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                    color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF334155),
-                                  ),
-                                ),
-                                backgroundColor: isDark ? const Color(0xFF131A26) : Colors.white,
-                                side: BorderSide(
-                                  color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFCBD5E1),
-                                ),
-                                onPressed: () {
-                                  _simulateSpeech('Kopi kenangan 25 ribu');
-                                },
-                              ),
-                            ],
-                          ),
-                        ],
-                        const SizedBox(height: 24),
+          if (isDark)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Container(
+                  decoration: const BoxDecoration(
+                    gradient: RadialGradient(
+                      center: Alignment(0.0, 1.25),
+                      radius: 1.25,
+                      colors: [
+                        Color(0xFF034A8C),
+                        Color(0xFF02386B),
+                        Color(0xFF04213F),
+                        Color(0x6606172C),
+                        Color(0x0009101C),
                       ],
+                      stops: [0.0, 0.28, 0.52, 0.78, 1.0],
                     ),
                   ),
                 ),
-
-                // Bottom Action Bar
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-                  child: Row(
+              ),
+            ),
+          SafeArea(
+            child: Column(
+              children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  SizedBox.square(
+                    dimension: 42,
+                    child: IconButton(
+                      key: const Key('btn_close_voice_screen'),
+                      tooltip: 'Tutup perekam suara',
+                      style: IconButton.styleFrom(
+                        backgroundColor: isDark
+                            ? const Color(0xFF121620)
+                            : const Color(0xFFE8EDF3),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(13),
+                          side: BorderSide(
+                            color: isDark
+                                ? const Color(0x14FFFFFF)
+                                : const Color(0xFFD7E0EA),
+                          ),
+                        ),
+                      ),
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: primaryText,
+                        size: 20,
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                  Text(
+                    'Input Suara',
+                    style: GoogleFonts.interTight(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: primaryText,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Toggle mic button
-                      SizedBox(
-                        width: 52,
-                        height: 52,
-                        child: OutlinedButton(
-                          key: const Key('btn_toggle_recording'),
-                          style: OutlinedButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            shape: const CircleBorder(),
-                            side: BorderSide(
-                              color: isDark ? Colors.white.withOpacity(0.18) : const Color(0xFFCBD5E1),
-                              width: 1.2,
-                            ),
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          CircularSpectrumVisualizer(
+                            isListening: _isListening || _isSpectrumPreviewing,
+                            soundLevel: _soundLevel,
+                            onCenterTap: _isSpectrumPreviewing
+                                ? _toggleSpectrumPreview
+                                : _toggleListening,
+                            size: 290,
                           ),
-                          onPressed: _toggleListening,
-                          child: Icon(
-                            _isListening ? Icons.pause_rounded : Icons.mic_rounded,
-                            size: 24,
-                            color: isDark ? Colors.white : const Color(0xFF0F172A),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-
-                      // Selesai & Tinjau Button
-                      Expanded(
-                        child: SizedBox(
-                          height: 52,
-                          child: ElevatedButton(
-                            key: const Key('btn_finish_voice_input'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isDark ? Colors.white : const Color(0xFF0F172A),
-                              foregroundColor: isDark ? const Color(0xFF0C131D) : Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                          Semantics(
+                            button: true,
+                            label: (_isListening || _isSpectrumPreviewing)
+                                ? 'Jeda perekaman'
+                                : 'Mulai merekam',
+                            child: Material(
+                              color: Colors.transparent,
+                              shape: const CircleBorder(),
+                              child: InkWell(
+                                key: const Key('btn_toggle_recording'),
+                                onTap: _isSpectrumPreviewing
+                                    ? _toggleSpectrumPreview
+                                    : _toggleListening,
+                                customBorder: const CircleBorder(),
+                                child: Container(
+                                  width: 58,
+                                  height: 58,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: isDark
+                                        ? ((_isListening ||
+                                                _isSpectrumPreviewing)
+                                            ? const Color(0xFF131A26)
+                                            : const Color(0xFF0D131C))
+                                        : ((_isListening ||
+                                                _isSpectrumPreviewing)
+                                            ? Colors.white
+                                            : const Color(0xFFF1F5F9)),
+                                    border: Border.all(
+                                      color: isDark
+                                          ? ((_isListening ||
+                                                  _isSpectrumPreviewing)
+                                              ? const Color(0x33FFFFFF)
+                                              : const Color(0x1FFFFFFF))
+                                          : ((_isListening ||
+                                                  _isSpectrumPreviewing)
+                                              ? const Color(0xFF94A3B8)
+                                              : const Color(0xFFCBD5E1)),
+                                      width: 1.0,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: isDark
+                                            ? const Color(0x40000000)
+                                            : const Color(0x0F000000),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Center(
+                                    child: Icon(
+                                      (_isListening || _isSpectrumPreviewing)
+                                          ? Icons.pause_rounded
+                                          : Icons.mic_rounded,
+                                      size: 24,
+                                      color: isDark
+                                          ? ((_isListening ||
+                                                  _isSpectrumPreviewing)
+                                              ? Colors.white
+                                              : const Color(0xFF91A3B8))
+                                          : ((_isListening ||
+                                                  _isSpectrumPreviewing)
+                                              ? const Color(0xFF0F172A)
+                                              : const Color(0xFF475569)),
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
-                            onPressed: (_parseResult != null && _parseResult!.isValid)
-                                ? () => _routeParsedResult(_parseResult!)
-                                : null,
-                            child: Text(
-                              'Selesai & Tinjau',
-                              style: GoogleFonts.manrope(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      if (_recognizedWords.isEmpty)
+                        Text(
+                          'Contoh: "Kopi 25 ribu" atau "Siomay 13rb, tahu tek 100rb"',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.manrope(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
+                            color: secondaryText.withOpacity(0.7),
+                            height: 1.4,
+                          ),
+                        )
+                      else ...[
+                        Text(
+                          '“$_recognizedWords”',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.interTight(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: primaryText,
+                            height: 1.3,
                           ),
                         ),
-                      ),
+                        if (_parseResult != null) ...[
+                          const SizedBox(height: 10),
+                          _buildParseFeedback(
+                            isDark: isDark,
+                            secondaryText: secondaryText,
+                          ),
+                        ],
+                      ],
+                      if (kIsWeb || !_speechAvailable) ...[
+                        const SizedBox(height: 28),
+                        _buildSimulator(
+                          isDark: isDark,
+                          secondaryText: secondaryText,
+                        ),
+                      ],
                     ],
                   ),
                 ),
-              ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  key: const Key('btn_finish_voice_input'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF02539A),
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: isDark
+                        ? const Color(0xFF121620)
+                        : const Color(0xFFE2E8F0),
+                    disabledForegroundColor: isDark
+                        ? const Color(0xFF65788F)
+                        : const Color(0xFF94A3B8),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                  ),
+                  onPressed: _parseResult?.isValid == true
+                      ? () => _routeParsedResult(_parseResult!)
+                      : null,
+                  child: Text(
+                    'Selesai & Tinjau',
+                    style: GoogleFonts.manrope(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  ),
+);
+  }
+
+  Widget _buildParseFeedback({
+    required bool isDark,
+    required Color secondaryText,
+  }) {
+    final isValid = _parseResult!.isValid;
+    final accent = isValid ? const Color(0xFF39D98A) : const Color(0xFFF59E0B);
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          isValid
+              ? Icons.check_circle_outline_rounded
+              : Icons.info_outline_rounded,
+          size: 15,
+          color: accent,
+        ),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            isValid
+                ? '${_parseResult!.items.length} item terdeteksi · ${_formatCurrency(_parseResult!.totalAmount)}'
+                : (_parseResult!.validationError ?? 'Nominal belum terdeteksi'),
+            textAlign: TextAlign.center,
+            style: GoogleFonts.manrope(
+              fontSize: 12,
+              height: 1.4,
+              fontWeight: FontWeight.w600,
+              color: isValid ? accent : secondaryText,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSimulator({
+    required bool isDark,
+    required Color secondaryText,
+  }) {
+    final chipColor =
+        isDark ? const Color(0xFF121620) : const Color(0xFFFFFFFF);
+    final borderColor =
+        isDark ? const Color(0x14FFFFFF) : const Color(0xFFD7E0EA);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          'Contoh untuk pratinjau web',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.manrope(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: secondaryText.withOpacity(0.7),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (kIsWeb)
+              ActionChip(
+                key: const Key('btn_test_spectrum_preview'),
+                avatar: Icon(
+                  _isSpectrumPreviewing
+                      ? Icons.stop_circle_outlined
+                      : Icons.graphic_eq_rounded,
+                  size: 16,
+                ),
+                label: Text(
+                  _isSpectrumPreviewing
+                      ? 'Hentikan tes spektrum'
+                      : 'Tes gerak spektrum',
+                ),
+                labelStyle: GoogleFonts.manrope(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+                backgroundColor:
+                    _isSpectrumPreviewing ? const Color(0xFF0B2244) : chipColor,
+                side: BorderSide(
+                  color: _isSpectrumPreviewing
+                      ? const Color(0x8055C7FF)
+                      : borderColor,
+                ),
+                onPressed: _toggleSpectrumPreview,
+              ),
+            ActionChip(
+              key: const Key('chip_sim_single_item'),
+              avatar: const Icon(Icons.looks_one_outlined, size: 16),
+              label: const Text('Kopi 25 ribu'),
+              labelStyle: GoogleFonts.manrope(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+              backgroundColor: chipColor,
+              side: BorderSide(color: borderColor),
+              onPressed: () => _simulateSpeech('Kopi kenangan 25 ribu'),
+            ),
+            ActionChip(
+              key: const Key('chip_sim_multi_item'),
+              avatar: const Icon(Icons.format_list_numbered_rounded, size: 16),
+              label: const Text('Empat transaksi'),
+              labelStyle: GoogleFonts.manrope(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+              backgroundColor: chipColor,
+              side: BorderSide(color: borderColor),
+              onPressed: () => _simulateSpeech(
+                'Siomay 13 ribu, tahu tek 100 ribu, keyboard 500 ribu, hp 1 juta',
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
-

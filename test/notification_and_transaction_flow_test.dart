@@ -250,11 +250,11 @@ void main() {
 
       // NotificationsCenterScreen is now open
       expect(find.text('Notifikasi'), findsOneWidget);
-      expect(find.text('Persetujuan Transaksi'), findsOneWidget);
+      expect(find.text('Persetujuan Transaksi'), findsNothing);
       expect(find.text('Aktivitas Transaksi'), findsOneWidget);
     });
 
-    testWidgets('NotificationsCenterScreen approves and rejects pending transactions', (tester) async {
+    testWidgets('NotificationsCenterScreen displays activity history cleanly without pending approval card', (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -276,21 +276,16 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('SeaBank'), findsWidgets);
-      expect(find.text('Solaria'), findsOneWidget);
-      expect(find.textContaining('75.000'), findsOneWidget);
-      expect(find.text('Setujui & Catat'), findsOneWidget);
-      expect(find.text('Tolak'), findsOneWidget);
+      // Approval section is removed
+      expect(find.text('Persetujuan Transaksi'), findsNothing);
+      expect(find.text('Aktivitas Transaksi'), findsOneWidget);
 
-      // Tap Setujui
-      await tester.tap(find.text('Setujui & Catat'));
-      await tester.pumpAndSettle();
-
-      // Pending is cleared and transaction is logged
+      // Provider approval works directly
+      final pendingItem = provider.pendingNotifications.first;
+      await provider.approveNotification(pendingItem.id);
       expect(provider.pendingNotifications, isEmpty);
       expect(provider.transactions.length, equals(1));
       expect(provider.transactions.first.amount, equals(75000.0));
-      expect(find.text('Tidak Ada Transaksi Tertunda'), findsOneWidget);
     });
   });
 

@@ -228,6 +228,19 @@ class IconCatalog {
     EmojiItem(char: '🍓', label: 'Stroberi', category: 'Makanan'),
     EmojiItem(char: '🥑', label: 'Alpukat', category: 'Makanan'),
     EmojiItem(char: '🥗', label: 'Salad / Sayur Segar', category: 'Makanan'),
+    EmojiItem(char: '🥟', label: 'Siomay / Dimsum', category: 'Makanan'),
+    EmojiItem(char: '🧆', label: 'Gorengan / Bakwan', category: 'Makanan'),
+    EmojiItem(char: '🍚', label: 'Nasi Putih / Warteg', category: 'Makanan'),
+    EmojiItem(char: '🍛', label: 'Nasi Padang / Kari', category: 'Makanan'),
+    EmojiItem(char: '🍢', label: 'Sate / Angkringan', category: 'Makanan'),
+    EmojiItem(char: '🍤', label: 'Seafood / Udang Goreng', category: 'Makanan'),
+    EmojiItem(char: '🦀', label: 'Kepiting / Seafood', category: 'Makanan'),
+    EmojiItem(char: '🍉', label: 'Semangka Segar', category: 'Makanan'),
+    EmojiItem(char: '🍊', label: 'Jeruk Buah', category: 'Makanan'),
+    EmojiItem(char: '🥭', label: 'Mangga Manis', category: 'Makanan'),
+    EmojiItem(char: '🥥', label: 'Kelapa Muda / Es Kelapa', category: 'Makanan'),
+    EmojiItem(char: '🍯', label: 'Madu Herbal', category: 'Makanan'),
+    EmojiItem(char: '🥚', label: 'Telur Ayam / Sembako', category: 'Makanan'),
 
     // Transportasi & Perjalanan
     EmojiItem(char: '🚗', label: 'Mobil Pribadi', category: 'Transportasi'),
@@ -252,6 +265,13 @@ class IconCatalog {
     EmojiItem(char: '🅿️', label: 'Tarif Parkir', category: 'Transportasi'),
     EmojiItem(char: '🎫', label: 'Tiket Perjalanan / Tol', category: 'Transportasi'),
     EmojiItem(char: '🧳', label: 'Koper Liburan', category: 'Transportasi'),
+    EmojiItem(char: '🛥️', label: 'Speedboat / Kapal Cepat', category: 'Transportasi'),
+    EmojiItem(char: '🛞', label: 'Servis Ban / Tambal Ban', category: 'Transportasi'),
+    EmojiItem(char: '🛢️', label: 'Ganti Oli Mesin', category: 'Transportasi'),
+    EmojiItem(char: '🚁', label: 'Helikopter', category: 'Transportasi'),
+    EmojiItem(char: '🚊', label: 'Trem / Monorel Kota', category: 'Transportasi'),
+    EmojiItem(char: '🚨', label: 'Mobil Derek / Bantuan Jalan', category: 'Transportasi'),
+    EmojiItem(char: '🚧', label: 'Gerbang Tol / Tarif Jalan', category: 'Transportasi'),
 
     // Belanja & Kebutuhan
     EmojiItem(char: '🛒', label: 'Supermarket', category: 'Belanja'),
@@ -278,6 +298,15 @@ class IconCatalog {
     EmojiItem(char: '🕶️', label: 'Kacamata Hitam', category: 'Belanja'),
     EmojiItem(char: '📦', label: 'Paket Belanja Online', category: 'Belanja'),
     EmojiItem(char: '🏷️', label: 'Label Promo / Diskon', category: 'Belanja'),
+    EmojiItem(char: '💻', label: 'Laptop / Komputer', category: 'Belanja'),
+    EmojiItem(char: '⌨️', label: 'Keyboard PC', category: 'Belanja'),
+    EmojiItem(char: '🖱️', label: 'Mouse Komputer', category: 'Belanja'),
+    EmojiItem(char: '🖥️', label: 'Monitor Layar PC', category: 'Belanja'),
+    EmojiItem(char: '⌚', label: 'Jam Tangan Pintar', category: 'Belanja'),
+    EmojiItem(char: '📷', label: 'Kamera Digital', category: 'Belanja'),
+    EmojiItem(char: '🪒', label: 'Alat Cukur / Grooming', category: 'Belanja'),
+    EmojiItem(char: '🧻', label: 'Tissue / Perlengkapan Harian', category: 'Belanja'),
+    EmojiItem(char: '🧺', label: 'Laundry / Cuci Kering', category: 'Belanja'),
 
     // Tagihan & Tempat Tinggal
     EmojiItem(char: '🏠', label: 'Rumah Tinggal', category: 'Tagihan'),
@@ -298,6 +327,10 @@ class IconCatalog {
     EmojiItem(char: '🛋️', label: 'Mebel / Sofa', category: 'Tagihan'),
     EmojiItem(char: '🛏️', label: 'Kasur / Kamar Tidur', category: 'Tagihan'),
     EmojiItem(char: '🧹', label: 'Kebersihan & Asisten RT', category: 'Tagihan'),
+    EmojiItem(char: '🏛️', label: 'Pajak PBB / Daerah', category: 'Tagihan'),
+    EmojiItem(char: '🛡️', label: 'Asuransi Jiwa & Kendaraan', category: 'Tagihan'),
+    EmojiItem(char: '💳', label: 'Cicilan Paylater & Kredit', category: 'Tagihan'),
+    EmojiItem(char: '🧾', label: 'Iuran RT / IPL / Keamanan', category: 'Tagihan'),
 
     // Kesehatan & Kebugaran
     EmojiItem(char: '💊', label: 'Obat & Apotek', category: 'Kesehatan'),
@@ -318,6 +351,9 @@ class IconCatalog {
     EmojiItem(char: '🎾', label: 'Tenis', category: 'Kesehatan'),
     EmojiItem(char: '🥊', label: 'Boxing / Bela Diri', category: 'Kesehatan'),
     EmojiItem(char: '🧼', label: 'Sabun / Higienis', category: 'Kesehatan'),
+    EmojiItem(char: '🏓', label: 'Tenis Meja / Pingpong', category: 'Kesehatan'),
+    EmojiItem(char: '🛹', label: 'Skateboard', category: 'Kesehatan'),
+    EmojiItem(char: '🧗', label: 'Panjat Tebing / Wall Climbing', category: 'Kesehatan'),
 
     // Hiburan & Hobi
     EmojiItem(char: '🎬', label: 'Nonton Bioskop', category: 'Hiburan'),
@@ -338,6 +374,9 @@ class IconCatalog {
     EmojiItem(char: '📸', label: 'Fotografi / Kamera', category: 'Hiburan'),
     EmojiItem(char: '🎯', label: 'Olahraga Panah / Darts', category: 'Hiburan'),
     EmojiItem(char: '🎲', label: 'Board Game / Dadu', category: 'Hiburan'),
+    EmojiItem(char: '🎳', label: 'Bowling', category: 'Hiburan'),
+    EmojiItem(char: '🎣', label: 'Memancing Ikan', category: 'Hiburan'),
+    EmojiItem(char: '🎪', label: 'Sirkus / Festival', category: 'Hiburan'),
 
     // Pekerjaan & Finansial
     EmojiItem(char: '💼', label: 'Gaji Pokok / Pekerjaan', category: 'Keuangan'),
@@ -356,6 +395,9 @@ class IconCatalog {
     EmojiItem(char: '🧮', label: 'Kalkulator Pembukuan', category: 'Keuangan'),
     EmojiItem(char: '🔒', label: 'Brankas Simpanan', category: 'Keuangan'),
     EmojiItem(char: '⚖️', label: 'Keseimbangan Neraca', category: 'Keuangan'),
+    EmojiItem(char: '💸', label: 'Transfer Saldo / Kirim Uang', category: 'Keuangan'),
+    EmojiItem(char: '💱', label: 'Valuta Asing / Money Changer', category: 'Keuangan'),
+    EmojiItem(char: '📜', label: 'Surat Berharga / Obligasi', category: 'Keuangan'),
 
     // Edukasi & Karier
     EmojiItem(char: '📚', label: 'Buku Pelajaran / Modul', category: 'Edukasi'),
@@ -365,6 +407,8 @@ class IconCatalog {
     EmojiItem(char: '📝', label: 'Ujian / Sertifikasi', category: 'Edukasi'),
     EmojiItem(char: '📁', label: 'Berkas Dokumen', category: 'Edukasi'),
     EmojiItem(char: '🏫', label: 'Sekolah / Kampus', category: 'Edukasi'),
+    EmojiItem(char: '📐', label: 'Desain & Gambar Teknik', category: 'Edukasi'),
+    EmojiItem(char: '🔬', label: 'Laboratorium & Riset', category: 'Edukasi'),
 
     // Keluarga & Hewan Peliharaan
     EmojiItem(char: '👶', label: 'Kebutuhan Bayi', category: 'Keluarga'),
@@ -385,6 +429,9 @@ class IconCatalog {
     EmojiItem(char: '🕊️', label: 'Kedamaian / Ibadah', category: 'Lainnya'),
     EmojiItem(char: '🚩', label: 'Target / Milestone', category: 'Lainnya'),
     EmojiItem(char: '🔥', label: 'Pengeluaran Mendesak', category: 'Lainnya'),
+    EmojiItem(char: '🕌', label: 'Ziarah / Masjid', category: 'Lainnya'),
+    EmojiItem(char: '⛪', label: 'Gereja / Ibadah', category: 'Lainnya'),
+    EmojiItem(char: '🛕', label: 'Pura / Vihara', category: 'Lainnya'),
   ];
 
   static IconData? findTablerIcon(String key) {
