@@ -15,6 +15,7 @@ import '../widgets/app_snackbar.dart';
 import '../widgets/nested_card.dart';
 import '../widgets/modal_card_sheet.dart';
 import '../widgets/notification_permission_sheet.dart';
+import '../widgets/ambient_top_glow.dart';
 import 'manage_categories_screen.dart';
 import 'display_preferences_screen.dart';
 import 'onboarding_profile_screen.dart';
@@ -37,56 +38,61 @@ class SettingsScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: backgroundColor,
-      body: SafeArea(
-        bottom: false,
-        child: ListView(
-          controller: scrollController,
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 124),
-          children: [
-            _buildHeader(isDark),
-            const SizedBox(height: 14),
-            NestedCard(
-              title: 'Profil Pengguna',
-              action: 'Ubah Profil',
-              onActionTap: () => _showEditProfileSheet(context, provider),
-              innerPadding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              child: _buildProfileCard(context, provider, isDark),
+      body: Stack(
+        children: [
+          if (isDark) const AmbientTopGlow(),
+          SafeArea(
+            bottom: false,
+            child: ListView(
+              controller: scrollController,
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 124),
+              children: [
+                _buildHeader(isDark),
+                const SizedBox(height: 14),
+                NestedCard(
+                  title: 'Profil Pengguna',
+                  action: 'Ubah Profil',
+                  onActionTap: () => _showEditProfileSheet(context, provider),
+                  innerPadding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  child: _buildProfileCard(context, provider, isDark),
+                ),
+                const SizedBox(height: 12),
+                NestedCard(
+                  title: 'Preferensi Finansial & Tampilan',
+                  innerPadding: const EdgeInsets.symmetric(vertical: 2),
+                  child: _buildFinancialPreferences(context, provider, isDark),
+                ),
+                const SizedBox(height: 12),
+                NestedCard(
+                  title: 'Notifikasi & Pengingat',
+                  innerPadding: const EdgeInsets.symmetric(vertical: 2),
+                  child: _buildNotificationsAndReminders(context, provider, isDark),
+                ),
+                const SizedBox(height: 12),
+                NestedCard(
+                  title: 'Cadangan & Pemulihan Data',
+                  action: 'JSON Backup',
+                  innerPadding: const EdgeInsets.symmetric(vertical: 2),
+                  child: _buildBackupRestore(context, provider, isDark),
+                ),
+                const SizedBox(height: 12),
+                NestedCard(
+                  title: 'Zona Bahaya',
+                  innerPadding: const EdgeInsets.symmetric(vertical: 2),
+                  child: _buildDangerZone(context, provider, isDark),
+                ),
+                const SizedBox(height: 12),
+                NestedCard(
+                  title: 'Tentang Aplikasi & Privasi',
+                  innerPadding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  child: _buildAboutSystem(context, isDark),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            NestedCard(
-              title: 'Preferensi Finansial & Tampilan',
-              innerPadding: const EdgeInsets.symmetric(vertical: 2),
-              child: _buildFinancialPreferences(context, provider, isDark),
-            ),
-            const SizedBox(height: 12),
-            NestedCard(
-              title: 'Notifikasi & Pengingat',
-              innerPadding: const EdgeInsets.symmetric(vertical: 2),
-              child: _buildNotificationsAndReminders(context, provider, isDark),
-            ),
-            const SizedBox(height: 12),
-            NestedCard(
-              title: 'Cadangan & Pemulihan Data',
-              action: 'JSON Backup',
-              innerPadding: const EdgeInsets.symmetric(vertical: 2),
-              child: _buildBackupRestore(context, provider, isDark),
-            ),
-            const SizedBox(height: 12),
-            NestedCard(
-              title: 'Zona Bahaya',
-              innerPadding: const EdgeInsets.symmetric(vertical: 2),
-              child: _buildDangerZone(context, provider, isDark),
-            ),
-            const SizedBox(height: 12),
-            NestedCard(
-              title: 'Tentang Aplikasi & Privasi',
-              innerPadding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              child: _buildAboutSystem(context, isDark),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

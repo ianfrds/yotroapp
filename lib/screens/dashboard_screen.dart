@@ -14,6 +14,7 @@ import '../widgets/weekly_activity_chart.dart';
 import '../widgets/spending_calendar_card.dart';
 import '../widgets/transaction_tile.dart';
 import '../widgets/app_snackbar.dart';
+import '../widgets/ambient_top_glow.dart';
 import 'add_transaction_screen.dart';
 import 'budget_screen.dart';
 import 'wallets_screen.dart';
@@ -43,58 +44,64 @@ class DashboardScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: backgroundColor,
-      body: SafeArea(
-        bottom: false,
-        child: ListView(
-          controller: scrollController,
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 124),
-          children: [
-            _buildHeader(context, provider),
-            const SizedBox(height: 14),
-            _buildBalancePanel(context, provider),
-            if (provider.shouldShowDailyReminder) ...[
-              const SizedBox(height: 12),
-              _buildDailyReminderCard(context, provider),
-            ],
-            if (provider.pendingNotifications.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              _buildPendingNotificationsCard(context, provider),
-            ],
-            const SizedBox(height: 12),
-            NestedCard(
-              title: 'Transaksi Terbaru',
-              action: 'Lihat semua',
-              onActionTap: () => onNavigateTab?.call(1),
-              child: _buildTransactions(context, provider, transactions),
+      body: Stack(
+        children: [
+          // Ambient Sapphire Radial Glow behind Header & Balance Card
+          if (isDark) const AmbientTopGlow(),
+          SafeArea(
+            bottom: false,
+            child: ListView(
+              controller: scrollController,
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 124),
+              children: [
+                _buildHeader(context, provider),
+                const SizedBox(height: 14),
+                _buildBalancePanel(context, provider),
+                if (provider.shouldShowDailyReminder) ...[
+                  const SizedBox(height: 12),
+                  _buildDailyReminderCard(context, provider),
+                ],
+                if (provider.pendingNotifications.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _buildPendingNotificationsCard(context, provider),
+                ],
+                const SizedBox(height: 12),
+                NestedCard(
+                  title: 'Transaksi Terbaru',
+                  action: 'Lihat semua',
+                  onActionTap: () => onNavigateTab?.call(1),
+                  child: _buildTransactions(context, provider, transactions),
+                ),
+                Builder(
+                  builder: (ctx) {
+                    final now = DateTime.now();
+                    final startOfWeek = DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1));
+                    final endOfWeek = startOfWeek.add(const Duration(days: 7));
+                    final hasTxThisWeek = provider.transactions.any(
+                      (t) => (t.type == TransactionType.income || t.type == TransactionType.expense) &&
+                             !t.timestamp.isBefore(startOfWeek) &&
+                             t.timestamp.isBefore(endOfWeek),
+                    );
+                    if (!hasTxThisWeek) return const SizedBox.shrink();
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(height: 12),
+                        WeeklyActivityChart(
+                          isDualBar: true,
+                          title: 'Aktivitas Transaksi',
+                          onDetailTap: () => FinancialAnalysisScreen.showAsModalSheet(context),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                const SpendingCalendarCard(),
+              ],
             ),
-            Builder(
-              builder: (ctx) {
-                final now = DateTime.now();
-                final startOfWeek = DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1));
-                final endOfWeek = startOfWeek.add(const Duration(days: 7));
-                final hasTxThisWeek = provider.transactions.any(
-                  (t) => (t.type == TransactionType.income || t.type == TransactionType.expense) &&
-                         !t.timestamp.isBefore(startOfWeek) &&
-                         t.timestamp.isBefore(endOfWeek),
-                );
-                if (!hasTxThisWeek) return const SizedBox.shrink();
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox(height: 12),
-                    WeeklyActivityChart(
-                      isDualBar: true,
-                      title: 'Aktivitas Transaksi',
-                      onDetailTap: () => FinancialAnalysisScreen.showAsModalSheet(context),
-                    ),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            const SpendingCalendarCard(),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -196,11 +203,27 @@ class DashboardScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(5, 5, 5, 10),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0C131D) : Colors.white,
+        color: isDark ? const Color(0xFF0C131D).withOpacity(0.92) : Colors.white,
         borderRadius: BorderRadius.circular(26),
         border: Border.all(
           color: isDark ? Colors.white.withOpacity(.08) : const Color(0xFFE2E8F0),
         ),
+        boxShadow: isDark
+            ? [
+                BoxShadow(
+                  color: const Color(0xFF034A8C).withOpacity(0.18),
+                  blurRadius: 32,
+                  offset: const Offset(0, 8),
+                  spreadRadius: 1,
+                ),
+              ]
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Column(
         children: [

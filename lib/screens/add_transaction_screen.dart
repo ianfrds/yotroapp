@@ -12,6 +12,9 @@ import '../widgets/modal_card_sheet.dart';
 import '../widgets/nested_card.dart';
 import '../widgets/slide_up_route.dart';
 import '../widgets/receipt_adjustment_sheet.dart';
+import '../widgets/voice_recording_sheet.dart';
+import '../screens/voice_recording_screen.dart';
+import '../models/voice_transaction_item.dart';
 import '../services/receipt_scanner/receipt_scanner_service.dart';
 import 'transaction_success_screen.dart';
 
@@ -1277,10 +1280,64 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   }
 
   void _onMicTapped() {
-    AppSnackBar.show(
-      context,
-      'Fitur input suara akan hadir di pembaruan berikutnya',
-      type: SnackBarType.info,
+    VoiceRecordingScreen.open(
+      context: context,
+      onSingleItem: (singleItem) {
+        setState(() {
+          _type = singleItem.type;
+          _amountController.text = singleItem.amount.toInt().toString();
+          _titleController.text = singleItem.title;
+          _noteController.text = singleItem.title;
+
+          final provider = context.read<TransactionProvider>();
+          final exists = provider.categories.any(
+            (c) => c.name.toLowerCase() == singleItem.suggestedCategory.toLowerCase(),
+          );
+          if (exists) {
+            _selectedCategory = singleItem.suggestedCategory;
+          }
+        });
+        AppSnackBar.show(
+          context,
+          'Data transaksi "${singleItem.title}" berhasil diterapkan',
+          type: SnackBarType.success,
+        );
+      },
+      onBatchSave: (multiItems) async {
+        final provider = context.read<TransactionProvider>();
+        TransactionModel? lastTx;
+
+        for (final it in multiItems) {
+          final categoryId = it.suggestedCategory.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+          lastTx = await provider.addTransaction(
+            title: it.title,
+            amount: it.amount,
+            type: it.type,
+            categoryName: it.suggestedCategory,
+            categoryId: categoryId,
+            walletId: _selectedWalletId,
+            note: 'Dicatat via suara',
+            date: DateTime.now(),
+          );
+        }
+
+        if (!mounted) return;
+        if (lastTx != null) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => TransactionSuccessScreen(
+                transaction: lastTx!,
+              ),
+            ),
+          );
+          AppSnackBar.show(
+            context,
+            '${multiItems.length} transaksi berhasil dicatat sekaligus',
+            type: SnackBarType.success,
+          );
+        }
+      },
     );
   }
 

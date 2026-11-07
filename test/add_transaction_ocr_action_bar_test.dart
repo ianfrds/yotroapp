@@ -53,7 +53,7 @@ void main() {
       expect(find.byIcon(Icons.mic_none_rounded), findsOneWidget);
     });
 
-    testWidgets('tapping Mic button displays voice note info snackbar', (tester) async {
+    testWidgets('tapping Mic button opens VoiceRecordingSheet with circular spectrum', (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -70,7 +70,9 @@ void main() {
       await tester.tap(find.byKey(const Key('btn_voice_input')));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Fitur input suara akan hadir di pembaruan berikutnya'), findsOneWidget);
+      expect(find.text('Perekam Transaksi Suara'), findsOneWidget);
+      expect(find.byKey(const Key('chip_sim_multi_item')), findsOneWidget);
+      expect(find.byKey(const Key('chip_sim_single_item')), findsOneWidget);
     });
 
     testWidgets('tapping Camera button opens OCR source bottom sheet with Kamera & Galeri', (tester) async {

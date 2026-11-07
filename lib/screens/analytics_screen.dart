@@ -10,6 +10,7 @@ import '../widgets/nested_card.dart';
 import '../widgets/modal_card_sheet.dart';
 import '../widgets/weekly_activity_chart.dart';
 import '../widgets/donut_chart_painter.dart';
+import '../widgets/ambient_top_glow.dart';
 import 'financial_analysis_screen.dart';
 
 enum ChartViewMode { donut, bar }
@@ -233,8 +234,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF1C2229) : const Color(0xFFF4F5F7),
-      body: SafeArea(
-        child: ListView(
+      body: Stack(
+        children: [
+          if (isDark) const AmbientTopGlow(),
+          SafeArea(
+            bottom: false,
+            child: ListView(
           controller: widget.scrollController,
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
           children: [
@@ -647,7 +652,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           ],
         ),
       ),
-    );
+    ],
+  ),
+);
   }
 
   Widget _buildEmptyChartSection(bool isDark, bool isExpense) {

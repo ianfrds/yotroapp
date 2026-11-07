@@ -9,6 +9,7 @@ import '../providers/transaction_provider.dart';
 import '../widgets/modal_card_sheet.dart';
 import '../widgets/nested_card.dart';
 import '../widgets/transaction_tile.dart';
+import '../widgets/ambient_top_glow.dart';
 import 'add_transaction_screen.dart';
 
 class TransactionsScreen extends StatefulWidget {
@@ -983,9 +984,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF1C2229) : const Color(0xFFF4F5F7),
-      body: SafeArea(
-        bottom: false,
-        child: ListView(
+      body: Stack(
+        children: [
+          if (isDark) const AmbientTopGlow(),
+          SafeArea(
+            bottom: false,
+            child: ListView(
           controller: widget.scrollController,
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
           children: [
@@ -1394,7 +1398,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           ],
         ),
       ),
-    );
+    ],
+  ),
+);
   }
 
   Widget _buildGroupedTransactionList({

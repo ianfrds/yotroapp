@@ -46,6 +46,7 @@ money-tracker/
 │   ├── config/
 │   │   └── app_capabilities.dart   # Build-time capability gate untuk Notification Reader sensitif
 │   ├── widgets/
+│   │   ├── ambient_top_glow.dart   # Reusable atmospheric sapphire radial glow widget untuk background 4 layar utama
 │   │   ├── app_snackbar.dart       # High-contrast floating snackbar helper (anti-slop, rounded, with status icons)
 │   │   ├── standard_screen_header.dart # Header terstandarisasi untuk semua sub-halaman (tombol back + judul)
 │   │   ├── donut_chart_painter.dart # Reusable Annular Wedge Donut Chart CustomPainter berfillet lingkaran halus
@@ -55,6 +56,9 @@ money-tracker/
 │   │   ├── spending_calendar_card.dart # Kalender pengeluaran harian
 │   │   ├── nested_card.dart        # Reusable card-inside-card container
 │   │   ├── modal_card_sheet.dart   # Reusable floating modal bottom sheet
+│   │   ├── circular_spectrum_visualizer.dart # Visualizer audio equalizer melingkar 360° dengan bilah radial dinamis
+│   │   ├── voice_recording_sheet.dart # Modal sheet perekam suara, live subtitle, dan perutean hasil ucapan
+│   │   ├── voice_multi_item_summary_sheet.dart # Lembar ringkasan multi-item vertikal, inline edit, dan simpan batch
 │   │   └── bottom_nav_bar.dart     # Fixed bottom nav bar dengan scooped cradle cutout dan 4 ikon vektor murni
 │   │   ├── app_colors.dart         # Token warna, gradien, dan palet gelap matte
 │   │   └── app_theme.dart          # Integrasi Forui & Google Fonts ThemeData
@@ -64,10 +68,12 @@ money-tracker/
 │   │   ├── wallet_model.dart       # Model dompet/rekening (Bank, Cash, E-Wallet, dsb)
 │   │   ├── budget_model.dart       # Model anggaran bulanan & anggaran per kategori
 │   │   ├── notification_rule_model.dart # Aturan pemicu/abaikan deteksi notifikasi & antrean pending approval
-│   │   └── receipt_data_model.dart # Model ekstraksi data struk OCR (total, merchant, tanggal, kategori, alternatif)
+│   │   ├── receipt_data_model.dart # Model ekstraksi data struk OCR (total, merchant, tanggal, kategori, alternatif)
+│   │   └── voice_transaction_item.dart # Model ekstraksi item transaksi suara & hasil agregat validasi
 │   ├── providers/
 │   │   └── transaction_provider.dart # State manager, mutasi saldo, kalkulasi budget, tema, pembaca notifikasi, I/O
 │   ├── services/
+│   │   ├── voice_transaction_parser_service.dart # Mesin parsing suara NLP on-device multi-item bahasa Indonesia
 │   │   ├── storage_service.dart    # Helper abstraksi penyimpanan lokal
 │   │   ├── backup_storage_service.dart # Export/Download berkas cadangan JSON lintas platform (Web & Android)
 │   │   ├── backup_storage_stub.dart    # Implementasi ekspor cadangan via temporary file & system share sheet (Android/iOS)
@@ -98,7 +104,8 @@ money-tracker/
 │   │   ├── settings_screen.dart    # Layar Profil & Pengaturan (Akun, preferensi tema, mata uang, navigasi halaman mandiri, backup/restore JSON, zona bahaya)
 │   │   ├── display_preferences_screen.dart # Layar Baru Pemilihan Preferensi Tampilan (Complete View, Income/Expense, Expense Only dengan wireframe live preview)
 │   │   ├── manage_categories_screen.dart # Layar Kelola Kategori (Daftar kategori Pengeluaran & Pemasukan, navigasi ke form layar baru, modal hapus kartu)
-│   │   └── edit_category_screen.dart # Layar Baru Tambah & Ubah Kategori (NestedCard, palet warna, tab Icon & Emoji murni)
+│   │   ├── edit_category_screen.dart # Layar Baru Tambah & Ubah Kategori (NestedCard, palet warna, tab Icon & Emoji murni)
+│   │   └── voice_recording_screen.dart # Layar Penuh Perekam Transaksi Suara dengan Ethereal Fluid Wave Orb Visualizer
 │   ├── utils/
 │   │   ├── icon_catalog.dart       # Katalog terverifikasi Tabler Icons & Emoji populer finansial
 │   │   └── thousands_separator_formatter.dart # Formatter pemisah ribuan titik (.) real-time & pencegah leading zero
@@ -547,6 +554,44 @@ money-tracker/
   - Pod "Rata-rata Harian" (*Daily Burn Rate*) dan "Proyeksi Akhir Bulan" (*Projected Month-End Spend*) dihapus sepenuhnya dari layar analisis dan modal sheet panduan bantuan.
 - **Urutan Switch Tab Laporan Keuangan (`AnalyticsScreen`):**
   - Urutan switcher ikon chart pada menu Laporan Keuangan dibalik: ikon Donut Chart (`Icons.pie_chart_rounded`) ditaruh di sebelah kiri, sedangkan ikon Bar Chart (`Icons.bar_chart_rounded`) di sebelah kanan. Default view mode adalah `ChartViewMode.donut`.
+
+### 3.19 Atmospheric Sapphire Radial Glow di 4 Layar Utama (`lib/widgets/ambient_top_glow.dart`)
+- **Widget Terpusat (`AmbientTopGlow`):**
+  - Widget modular tunggal (`height: 480.0`, `IgnorePointer`, `Positioned(top: 0, left: 0, right: 0)`) dengan `RadialGradient` di `Alignment(0.0, -1.0)` dan radius `1.25`.
+  - Palet pendaran gradien safir atas: `#034A8C` (stop 0.0) -> `#023668` (stop 0.35) -> `#062343` (stop 0.68) -> `#001C2229` (stop 1.0 transparan menyatu ke kanvas `#1C2229`).
+- **Penerapan Multi-Screen (Khusus Dark Mode):**
+  1. **Beranda (`DashboardScreen`):** Pendaran biru di balik greeting header ("Selamat pagi...") dan kartu saldo hero, dengan ambient soft shadow (`#034A8C` blur 32) pada panel saldo.
+  2. **Riwayat (`TransactionsScreen`):** Pendaran di balik top bar "Riwayat Transaksi", search bar, dan chip filter periode.
+  3. **Laporan (`AnalyticsScreen`):** Pendaran di balik top bar "Laporan Keuangan", pill pemilih bulan, dan kartu aktivitas pengeluaran donut chart.
+  4. **Profil & Pengaturan (`SettingsScreen`):** Pendaran di balik header profil pengguna ("Ian Firdaus", email, badge Pro).
+- **Invarian Safe Area:** Membungkus body Scaffold dengan `Stack([if (isDark) const AmbientTopGlow(), SafeArea(...)])` sehingga gradien menyala penuh dari tepi fisik atas perangkat (status bar & notch / dynamic island). Light mode tetap bersih monokrom.
+
+### 3.20 Layar Penuh Perekam Transaksi Suara & Fluid Wave Orb Spectrum (`VoiceRecordingScreen` & `CircularSpectrumVisualizer`)
+- **Tampilan Penuh (Full-Page Screen Route):**
+  - Mengubah perekam transaksi suara dari modal bottom sheet menjadi **layar penuh mandiri (`VoiceRecordingScreen`)**.
+  - Menggunakan kanvas gelap pekat (`#0C131D` & `#1C2229`) berhiaskan `AmbientTopGlow(height: 520)` di bagian atas.
+  - Top bar bersih memuat tombol tutup (X), judul "Perekam Transaksi Suara", dan badge status denyut rekaman.
+- **Visualizer Fluid Wave Orb (Harmonic Resonant Standing Wave):**
+  - Menggantikan spektrum lingkaran biasa dengan **Ethereal Fluid Wave Orb** persis sesuai referensi visual pengguna (`assets/images/voice_orb_spectrum.jpg`).
+  - Menggambar dua pita gelombang harmonik tertutup 5-lobed (*intertwined 5-lobed parametric loops*) yang saling bersilangan.
+  - Tiga lapisan visual presisi: (1) Pendaran volumetrik luar safir `#0066FF` (blur 16px), (2) Pendaran tengah elektrik cyan `#38BDF8` (blur 7px), dan (3) Garis pita inti tajam berkilau (`#E0F2FE` di dark mode, `#0284C7` di light mode).
+  - Berdenyut dan memanjang secara dinamis mengikuti level desibel suara pengguna (`soundLevel`), serta berputar perlahan saat mendengarkan.
+- **Takarir / Subtitle Teks Real-Time:**
+  - Kotak takarir leluasa di layar penuh menampilkan teks transkripsi ucapan secara langsung seiring kata-kata diucapkan.
+  - Indikator badge validasi status mendeteksi nominal transaksi yang sah.
+- **Mesin Parsing Cerdas Bahasa Indonesia (`VoiceTransactionParserService`):**
+  - Mendeteksi ucapan multi-item: *"Siomay 13 ribu, tahu tek 100 ribu, keyboard 500 ribu, hp 1 juta"*.
+  - Menangani satuan kata: *ribu*, *rb*, *k*, *ratus*, *juta*, *jt*, *seratus ribu*, *sejuta*, *setengah juta* (500rb), *dua koma lima juta* (2.5jt).
+  - Auto-kategorisasi (Makanan & Minuman, Belanja, Transportasi, Tagihan, Hiburan, Gaji).
+- **Alur Perutean Adaptif (Adaptive Routing):**
+  - **1 Item:** Langsung menutup layar penuh dan mengisi form `AddTransactionScreen` secara otomatis (Nominal, Catatan, Kategori) tanpa langkah tambahan (*zero friction*).
+  - **Lebih dari 1 Item:** Membuka lembar ringkasan khusus `VoiceMultiItemSummarySheet` dengan daftar item 1 kolom ke bawah.
+- **Interaksi Koreksi Item & Aksi Multi-Item:**
+  - Mengetuk baris item membuka dialog edit cepat bergaya anti-slop matte slate (`#0C131D` & `#131A26`, zero outline putih kasar) untuk mengoreksi nominal, nama, atau kategori.
+  - Ikon silang/hapus pada setiap baris untuk membuang item yang tidak diinginkan.
+  - **Tombol "Ulangi"** (Outlined, ikon refresh): Mengulang perekaman suara dari awal (teks 1 baris).
+  - **Tombol "Catat Semua"** (Primary): Menyimpan seluruh transaksi sekaligus secara batch ke `TransactionProvider`.
+- **Simulator Chips:** Disediakan tombol simulasi cepat 1 item dan 4 item khusus di Web Runner (`kIsWeb`) atau fallback; disembunyikan total saat aplikasi berjalan sebagai APK di ponsel.
 
 ---
 
@@ -1069,6 +1114,25 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
   - **Donut Chart Pemasukan vs Pengeluaran**: Annular wedge donut chart (`DonutChartPainter`) identik dengan style Laporan Keuangan, memuat nilai Arus Kas Bersih di tengah (Surplus/Defisit) dan breakdown kartu mini.
   - **Hapus Metrik Lawas**: Menghapus pod "Rata-rata Harian" dan "Proyeksi Akhir Bulan" sepenuhnya dari layar analisis dan lembar panduan bantuan.
   - **Pengujian & Build Web**: Seluruh 98 unit dan widget tests lulus 100%, Flutter Web release dikompilasi ulang ke `build/web/`, APK disinkronkan, dan live server aktif pada `http://localhost:8080/`.
+- [x] Atmospheric Sapphire Radial Glow di 4 Layar Utama ([`lib/widgets/ambient_top_glow.dart`](lib/widgets/ambient_top_glow.dart), [`lib/screens/dashboard_screen.dart`](lib/screens/dashboard_screen.dart), [`lib/screens/transactions_screen.dart`](lib/screens/transactions_screen.dart), [`lib/screens/analytics_screen.dart`](lib/screens/analytics_screen.dart), [`lib/screens/settings_screen.dart`](lib/screens/settings_screen.dart)):
+  - **Widget Modular `AmbientTopGlow`**: Dibuat komponen terpusat yang merender pendaran atmosferik safir radial dari puncak layar (`Alignment(0.0, -1.0)`, radius 1.25, tinggi 480px, `#034A8C` -> `#023668` -> `#062343` -> `#001C2229`).
+  - **Konsistensi 4 Layar Utama (Khusus Dark Mode)**:
+    1. **Beranda**: Memancar di balik greeting header ("Selamat pagi, Ian Firdaus 👋") dan di belakang kartu saldo hero dengan ambient soft shadow (`#034A8C` blur 32).
+    2. **Riwayat**: Memancar di balik header "Riwayat Transaksi", bilah pencarian, dan pill chip filter tanggal/periode.
+    3. **Laporan**: Memancar di balik header "Laporan Keuangan", pemilih bulan, dan kartu donut chart aktivitas pengeluaran.
+    4. **Profil & Pengaturan**: Memancar di balik header profil akun pengguna ("Ian Firdaus", email, status Pro).
+  - **Invarian Safe Area**: Seluruh Scaffold body dibungkus `Stack` dengan `AmbientTopGlow` di balik `SafeArea`, sehingga pendaran warna biru safir menyala penuh dari tepi atas fisik perangkat (termasuk status bar & Dynamic Island / notch) tanpa terpotong padding.
+  - **Test Suite & Build Web**: Seluruh 98 unit dan widget tests lulus 100% (`flutter test`). Flutter Web release dikompilasi ulang ke `build/web/`, APK disinkronkan ke `build/web/yotro-app.apk`, dan web server berjalan di `http://localhost:8080/`.
+- [x] Fitur Layar Penuh Perekam Transaksi Suara dengan Fluid Wave Orb Visualizer ([`lib/screens/voice_recording_screen.dart`](lib/screens/voice_recording_screen.dart), [`lib/widgets/circular_spectrum_visualizer.dart`](lib/widgets/circular_spectrum_visualizer.dart), [`lib/widgets/voice_multi_item_summary_sheet.dart`](lib/widgets/voice_multi_item_summary_sheet.dart), [`lib/services/voice_transaction_parser_service.dart`](lib/services/voice_transaction_parser_service.dart), [`lib/screens/add_transaction_screen.dart`](lib/screens/add_transaction_screen.dart)):
+  - **Layar Penuh Mandiri (`VoiceRecordingScreen`)**: Mengubah modal bottom sheet menjadi layar penuh dengan `AmbientTopGlow` 520px, top bar ber-close button, dan panggung leluasa untuk visualizer dan subtitle.
+  - **Fluid Wave Orb Spectrum**: Resonant standing wave orb dengan dua pita gelombang harmonik 5-lobed yang bersilangan persis sesuai referensi visual pengguna (`assets/images/voice_orb_spectrum.jpg`), dengan volumetrik bloom safir `#0066FF`, cyan elektrik `#38BDF8`, dan garis inti berkilau tajam.
+  - **Mesin Parsing Cerdas Bahasa Indonesia**: Mengekstrak transaksi multi-item (*"Siomay 13 ribu, tahu tek 100 ribu, keyboard 500 ribu, hp 1 juta"*), konversi kata angka (*seratus ribu*, *sejuta*, *setengah juta*), stopwords cleaner, dan auto-kategorisasi cerdas.
+  - **Alur Perutean Adaptif**:
+    - **1 Item**: Langsung menutup layar penuh dan mengisi form `AddTransactionScreen` secara otomatis (Nominal, Catatan, Kategori) tanpa langkah tambahan.
+    - **Lebih dari 1 Item**: Membuka lembar ringkasan vertikal `VoiceMultiItemSummarySheet` dengan rincian total dan kartu per item.
+  - **Koreksi & Kontrol Pengguna**: Mengetuk item membuka dialog koreksi nominal/kategori bertema matte slate gelap anti-slop, tombol **"Ulangi"** (Outlined 1 baris), dan tombol **"Catat Semua"** (Batch Save).
+  - **Simulator Chips**: Tombol sampel ucapan hanya muncul di web preview (`localhost:8080`) atau fallback; disembunyikan di perangkat HP asli.
+  - **Pengujian Lengkap**: 110 unit dan widget tests lulus 100% (`flutter test`). Flutter Web release dikompilasi ulang dan disajikan di port 8080.
 - [x] File handover AI context di `context.md`.
 - [x] Aturan otomatisasi workspace agent di `AGENTS.md` dan `GEMINI.md` (auto-sync `context.md`).
 
