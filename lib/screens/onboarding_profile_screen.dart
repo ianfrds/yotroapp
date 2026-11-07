@@ -1,9 +1,9 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/transaction_provider.dart';
+import '../theme/app_colors.dart';
 import '../widgets/app_snackbar.dart';
 import 'main_shell.dart';
 
@@ -74,251 +74,286 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final scaffoldBg = isDark ? const Color(0xFF070B12) : const Color(0xFFEDEFF3);
-    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
-    final textSecondary = isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B);
-    final inputBg = isDark ? const Color(0xFF141C28) : const Color(0xFFF8FAFC);
-    final inputBorder = isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFE2E8F0);
+
+    // Design System Tokens (Dark Matte Slate & Sapphire)
+    const bgNavy = Color(0xFF081C41);
+    final cardBg = isDark ? const Color(0xFF0C131D) : Colors.white;
+    final cardBorder = isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFE2E8F0);
+    final innerCardBg = isDark ? const Color(0xFF131A26) : const Color(0xFFF8FAFC);
+    final innerCardBorder = isDark ? Colors.white.withOpacity(0.07) : const Color(0xFFE2E8F0);
+
+    final labelColor = isDark ? const Color(0xFF8EA4BE) : const Color(0xFF475569);
+    final inputBg = isDark ? Colors.white.withOpacity(0.04) : Colors.white;
+    final inputBorder = isDark ? Colors.white.withOpacity(0.09) : const Color(0xFFCBD5E1);
+    final textInputColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final hintColor = isDark ? const Color(0xFF65788F) : const Color(0xFF94A3B8);
+    final iconColor = isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B);
 
     return Scaffold(
-      backgroundColor: scaffoldBg,
+      backgroundColor: bgNavy,
+      resizeToAvoidBottomInset: true,
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isWide = constraints.maxWidth >= 600;
-          final contentWidth = isWide ? 400.0 : constraints.maxWidth;
+          final contentWidth = isWide ? 440.0 : constraints.maxWidth;
 
-          return Stack(
-            children: [
-              // 1. Full-screen Atmospheric Fluted Glass Background
-              Positioned.fill(
-                child: Image.asset(
-                  'assets/images/onboarding_bg.jpg',
-                  fit: BoxFit.cover,
-                  alignment: Alignment.center,
-                ),
-              ),
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withOpacity(0.18),
-                        Colors.black.withOpacity(0.38),
-                        const Color(0xFF09101C).withOpacity(0.70),
-                      ],
-                      stops: const [0.0, 0.45, 1.0],
-                    ),
+          return Center(
+            child: SizedBox(
+              width: contentWidth,
+              height: constraints.maxHeight,
+              child: SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight,
                   ),
-                ),
-              ),
-
-              // 2. Centered Non-Scrolling Onboarding Card
-              SafeArea(
-                child: Center(
-                  child: SingleChildScrollView(
-                    physics: const ClampingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: contentWidth),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // App Emblem
-                          Center(
-                            child: Container(
-                              width: 54,
-                              height: 54,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF02539A),
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF02539A).withOpacity(0.3),
-                                    blurRadius: 16,
-                                    offset: const Offset(0, 4),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      children: [
+                        // --- TOP BRAND HERO AREA (NAVY + PATTERN + Y EMBLEM) ---
+                        Expanded(
+                          child: Stack(
+                            children: [
+                              // Tiled pattern asset from user reference (Image 3)
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                child: Image.asset(
+                                  'assets/images/onboarding_bg.png',
+                                  fit: BoxFit.fitWidth,
+                                  alignment: Alignment.topCenter,
+                                ),
+                              ),
+                              // Seamless gradient fade into solid navy at top
+                              Positioned.fill(
+                                child: Container(
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        bgNavy,
+                                        Color(0x88081C41),
+                                        Colors.transparent,
+                                      ],
+                                      stops: [0.0, 0.40, 1.0],
+                                    ),
                                   ),
-                                ],
+                                ),
                               ),
-                              clipBehavior: Clip.antiAlias,
-                              child: Image.asset(
-                                'assets/images/logo.png',
-                                width: 54,
-                                height: 54,
-                                fit: BoxFit.cover,
+                              // Top Logo & Welcome Text
+                              SafeArea(
+                                bottom: false,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 24),
+                                  child: Align(
+                                    alignment: Alignment.topCenter,
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        // White Y Emblem
+                                        Image.asset(
+                                          'assets/images/logo_splash.png',
+                                          width: 48,
+                                          height: 48,
+                                          fit: BoxFit.contain,
+                                          color: Colors.white,
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          'Welcome to Yotro',
+                                          style: GoogleFonts.manrope(
+                                            color: Colors.white,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: -0.2,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
                           ),
-                          const SizedBox(height: 14),
+                        ),
 
-                          // Heading
-                          Text(
-                            'Selamat Datang',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.interTight(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: -0.4,
+                        // --- BOTTOM SHEET & FORM CARD (APP DESIGN SYSTEM STYLE) ---
+                        Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: cardBg,
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(32),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-
-                          // Clean single-line subtitle
-                          Text(
-                            'Lengkapi identitas Anda untuk personalisasi akun.',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.manrope(
-                              color: Colors.white.withOpacity(0.75),
-                              fontSize: 12.5,
+                            border: Border(
+                              top: BorderSide(color: cardBorder, width: 1),
                             ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(isDark ? 0.45 : 0.08),
+                                blurRadius: 24,
+                                offset: const Offset(0, -6),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 18),
-
-                          // Floating Frosted Form Card Container
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(22),
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                          child: SafeArea(
+                            top: false,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 18, 16, 20),
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF0C131D).withOpacity(0.85),
-                                  borderRadius: BorderRadius.circular(22),
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.10),
-                                    width: 1,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.35),
-                                      blurRadius: 24,
-                                      offset: const Offset(0, 8),
-                                    ),
-                                  ],
+                                  color: innerCardBg,
+                                  borderRadius: BorderRadius.circular(24),
+                                  border: Border.all(color: innerCardBorder, width: 1),
                                 ),
-                                padding: const EdgeInsets.all(20),
+                                padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
                                 child: Column(
+                                  mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
                                     // Field 1: Nama Lengkap
                                     Text(
-                                      'Nama Lengkap *',
+                                      'Nama Lengkap',
                                       style: GoogleFonts.manrope(
-                                        color: textSecondary,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
+                                        color: labelColor,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    const SizedBox(height: 6),
+                                    const SizedBox(height: 8),
                                     SizedBox(
-                                      height: 48,
+                                      height: 50,
                                       child: TextField(
                                         controller: _nameController,
-                                        autofocus: true,
+                                        autofocus: false,
+                                        textCapitalization: TextCapitalization.words,
                                         textAlignVertical: TextAlignVertical.center,
                                         style: GoogleFonts.manrope(
-                                          color: textPrimary,
-                                          fontSize: 13.5,
+                                          color: textInputColor,
+                                          fontSize: 14,
                                           fontWeight: FontWeight.w500,
                                         ),
                                         decoration: InputDecoration(
+                                          filled: true,
+                                          fillColor: inputBg,
                                           isDense: true,
-                                          hintText: 'Contoh: John Doe',
-                                          hintStyle: GoogleFonts.manrope(
-                                            color: isDark ? const Color(0xFF5A667A) : const Color(0xFF94A3B8),
-                                            fontSize: 13,
+                                          contentPadding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 14,
                                           ),
                                           prefixIcon: Icon(
                                             Icons.person_outline_rounded,
-                                            color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
                                             size: 19,
+                                            color: iconColor,
                                           ),
-                                          filled: true,
-                                          fillColor: inputBg,
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                          prefixIconConstraints: const BoxConstraints(
+                                            minWidth: 48,
+                                            minHeight: 50,
+                                          ),
                                           border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius: BorderRadius.circular(25),
                                             borderSide: BorderSide(color: inputBorder),
                                           ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius: BorderRadius.circular(25),
                                             borderSide: BorderSide(color: inputBorder),
                                           ),
                                           focusedBorder: const OutlineInputBorder(
-                                            borderRadius: BorderRadius.all(Radius.circular(12)),
-                                            borderSide: BorderSide(color: Color(0xFF02539A), width: 1.5),
+                                            borderRadius: BorderRadius.all(Radius.circular(25)),
+                                            borderSide: BorderSide(
+                                              color: Color(0xFF02539A),
+                                              width: 1.5,
+                                            ),
                                           ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-
-                                    // Field 2: Nomor Telepon
-                                    Text(
-                                      'Nomor Telepon (Opsional)',
-                                      style: GoogleFonts.manrope(
-                                        color: textSecondary,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    SizedBox(
-                                      height: 48,
-                                      child: TextField(
-                                        controller: _phoneController,
-                                        keyboardType: TextInputType.phone,
-                                        textAlignVertical: TextAlignVertical.center,
-                                        style: GoogleFonts.manrope(
-                                          color: textPrimary,
-                                          fontSize: 13.5,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                        decoration: InputDecoration(
-                                          isDense: true,
-                                          hintText: 'Contoh: 081234567890',
+                                          hintText: 'Masukkan nama lengkap',
                                           hintStyle: GoogleFonts.manrope(
-                                            color: isDark ? const Color(0xFF5A667A) : const Color(0xFF94A3B8),
-                                            fontSize: 13,
-                                          ),
-                                          prefixIcon: Icon(
-                                            Icons.phone_outlined,
-                                            color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-                                            size: 18,
-                                          ),
-                                          filled: true,
-                                          fillColor: inputBg,
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(12),
-                                            borderSide: BorderSide(color: inputBorder),
-                                          ),
-                                          enabledBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(12),
-                                            borderSide: BorderSide(color: inputBorder),
-                                          ),
-                                          focusedBorder: const OutlineInputBorder(
-                                            borderRadius: BorderRadius.all(Radius.circular(12)),
-                                            borderSide: BorderSide(color: Color(0xFF02539A), width: 1.5),
+                                            color: hintColor,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w400,
                                           ),
                                         ),
                                       ),
                                     ),
                                     const SizedBox(height: 18),
 
-                                    // Primary CTA Button (Matching reference)
+                                    // Field 2: No. Telp
+                                    Text(
+                                      'No. Telp',
+                                      style: GoogleFonts.manrope(
+                                        color: labelColor,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
                                     SizedBox(
-                                      height: 48,
+                                      height: 50,
+                                      child: TextField(
+                                        controller: _phoneController,
+                                        keyboardType: TextInputType.phone,
+                                        autofocus: false,
+                                        textAlignVertical: TextAlignVertical.center,
+                                        style: GoogleFonts.manrope(
+                                          color: textInputColor,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        decoration: InputDecoration(
+                                          filled: true,
+                                          fillColor: inputBg,
+                                          isDense: true,
+                                          contentPadding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 14,
+                                          ),
+                                          prefixIcon: Icon(
+                                            Icons.phone_outlined,
+                                            size: 19,
+                                            color: iconColor,
+                                          ),
+                                          prefixIconConstraints: const BoxConstraints(
+                                            minWidth: 48,
+                                            minHeight: 50,
+                                          ),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(25),
+                                            borderSide: BorderSide(color: inputBorder),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(25),
+                                            borderSide: BorderSide(color: inputBorder),
+                                          ),
+                                          focusedBorder: const OutlineInputBorder(
+                                            borderRadius: BorderRadius.all(Radius.circular(25)),
+                                            borderSide: BorderSide(
+                                              color: Color(0xFF02539A),
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                          hintText: 'Masukkan nomor telepon',
+                                          hintStyle: GoogleFonts.manrope(
+                                            color: hintColor,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+
+                                    // Primary CTA Button: Mulai Mencatat
+                                    SizedBox(
+                                      height: 50,
                                       child: ElevatedButton(
                                         onPressed: _isSubmitting ? null : _handleSubmit,
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF02539A),
+                                          backgroundColor: AppColors.primaryButton,
                                           foregroundColor: Colors.white,
                                           elevation: 0,
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius: BorderRadius.circular(25),
                                           ),
                                         ),
                                         child: _isSubmitting
@@ -330,13 +365,39 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                                                   color: Colors.white,
                                                 ),
                                               )
-                                            : Text(
-                                                'Mulai Aplikasi',
-                                                style: GoogleFonts.manrope(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
+                                            : Row(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Text(
+                                                    'Mulai Mencatat',
+                                                    style: GoogleFonts.manrope(
+                                                      fontSize: 14.5,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: Colors.white,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  const Icon(
+                                                    Icons.arrow_forward_rounded,
+                                                    size: 18,
+                                                    color: Colors.white,
+                                                  ),
+                                                ],
                                               ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 14),
+
+                                    // Local Data Security Footnote
+                                    Text(
+                                      'Seluruh data tersimpan aman di perangkat lokal.',
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.manrope(
+                                        color: isDark
+                                            ? Colors.white.withOpacity(0.4)
+                                            : const Color(0xFF94A3B8),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w400,
                                       ),
                                     ),
                                   ],
@@ -344,25 +405,13 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 14),
-
-                          // Bottom Subtle Disclaimer
-                          Text(
-                            'Seluruh data tersimpan 100% aman di perangkat lokal.',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.manrope(
-                              color: Colors.white.withOpacity(0.55),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
-            ],
+            ),
           );
         },
       ),

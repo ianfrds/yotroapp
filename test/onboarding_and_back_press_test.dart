@@ -38,9 +38,9 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('Selamat Datang'), findsOneWidget);
-      expect(find.text('Nama Lengkap *'), findsOneWidget);
-      expect(find.text('Nomor Telepon (Opsional)'), findsOneWidget);
+      expect(find.text('Welcome to Yotro'), findsOneWidget);
+      expect(find.text('Nama Lengkap'), findsOneWidget);
+      expect(find.text('No. Telp'), findsOneWidget);
 
       // Enter name & phone
       await tester.enterText(find.byType(TextField).first, 'Budi Santoso');
@@ -48,7 +48,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Tap submit button
-      await tester.tap(find.text('Mulai Aplikasi'));
+      await tester.tap(find.text('Mulai Mencatat'));
       await tester.pumpAndSettle();
 
       expect(provider.isOnboardingCompleted, isTrue);

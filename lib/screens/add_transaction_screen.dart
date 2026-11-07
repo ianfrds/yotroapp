@@ -733,42 +733,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           ),
         );
 
-        Widget buildAddPill() {
-          return InkWell(
-            onTap: () => _openAddCategoryModal(context),
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isDark ? Colors.white.withOpacity(0.12) : const Color(0xFFCBD5E1),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.add_rounded,
-                    size: 14,
-                    color: isDark ? Colors.white : const Color(0xFF0F172A),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Kategori',
-                    style: GoogleFonts.manrope(
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -802,14 +766,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       if (row2.isNotEmpty) const SizedBox(width: spacing),
                       lainyaButton,
                     ],
-                    const SizedBox(width: spacing),
-                    buildAddPill(),
                   ],
                 ),
               ),
-            ] else ...[
-              const SizedBox(height: spacing),
-              buildAddPill(),
             ],
           ],
         );
@@ -1002,13 +961,48 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           children: [
             // Category selector (if not transfer)
             if (_type != TransactionType.transfer) ...[
-              Text(
-                'Kategori',
-                style: GoogleFonts.manrope(
-                  color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w500,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'Kategori',
+                    style: GoogleFonts.manrope(
+                      color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  TextButton(
+                    key: const Key('btn_add_category_header'),
+                    onPressed: () => _openAddCategoryModal(context),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      foregroundColor: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.add_rounded,
+                          size: 14,
+                          color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          'Kategori',
+                          style: GoogleFonts.manrope(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               _buildCategorySelector(context, categories, isDark),

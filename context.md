@@ -35,7 +35,7 @@ money-tracker/
 │   └── key.properties.example      # Template konfigurasi signing; key asli wajib private/diabaikan Git
 ├── assets/
 │   ├── icon/                       # Quick action vector SVGs (Analisis.svg, Budget.svg, Dompet.svg, Split Bill.svg)
-│   └── images/                     # Master assets (app_icon.png, logo.png, logo_splash.png) + onboarding_bg.jpg
+│   └── images/                     # Master assets (app_icon.png, logo.png, logo_splash.png, onboarding_bg.png, onboarding_bg.jpg)
 ├── yotro-app.apk                   # Signed safe-release APK v1.0.6+7 ramping ARM64-v8a (35.2 MB; pangkas 63%)
 ├── yotro-app-arm64.apk             # Biner terkompresi khusus HP modern (35.2 MB)
 ├── yotro-app-universal.apk         # Biner multi-arsitektur lengkap (94.2 MB)
@@ -1176,6 +1176,35 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
   - Memangkas ukuran APK dari **94.2 MB** menjadi **35.2 MB** (pengurangan **63%**) khusus arsitektur smartphone Android modern (`ARM64-v8a`).
   - Menyediakan biner `yotro-app.apk` / `yotro-app-arm64.apk` (35.2 MB) dan fallback `yotro-app-universal.apk` (94.2 MB).
   - Live download endpoint di port 8080 telah disinkronkan ke biner 35.2 MB: `http://192.168.100.184:8080/yotro-app.apk`.
+- [x] Perbaikan 3 Isu Finansial & Input Aplikasi:
+  - **Input Suara (Pencegahan Layar Hitam & Auto-Stop 5 Detik)**:
+    - Menghilangkan *auto-pop* prematur pada `VoiceRecordingScreen` yang sebelumnya memicu navigasi ganda dan error context tidak aktif (*deactivated context*) saat `speech_to_text` selesai.
+    - Menambahkan timer hening 5 detik (`_silenceTimer`): jika pengguna tidak berbicara selama 5 detik, perekaman otomatis berhenti (*pause*) dan tombol mikrofon kembali ke mode siap; layar tetap aktif menampilkan hasil ucapan tanpa terlempar keluar.
+    - Perutean hasil transaksi suara dikendalikan secara aman melalui tombol **"Selesai & Tinjau"** dengan pengembalian `VoiceParseResult` ke konteks induk (`open()`).
+    - **Perbaikan Deteksi Nominal Ribuan NLP**: Menangani format angka ribuan bertitik/koma (`12.000`, `12,000`), varian unit bersambung (`12ribu`, `12 rb`, `12k`), serta ucapan singkat informal (misal: "kopi 12" -> Rp 12.000).
+  - **Split Bill (Pencegahan Keyboard Otomatis & Validasi Nama Tagihan Kosong)**:
+    - Menjadikan default Nama Tagihan kosong (`""`) agar pengguna wajib mengisi nama tagihan sebelum disimpan.
+    - Menambahkan validasi snackbar peringatan *"Nama tagihan wajib diisi terlebih dahulu."* pada tombol **"Catat Bagian Saya"** dan salin ringkasan.
+    - Mengisolasi fokus input dengan `_noteFocusNode` dan pemanggilan `unfocus()` saat menambah anggota baru, mengubah nama teman, atau menyimpan item pesanan, mencegah keyboard terbuka secara otomatis.
+  - **Tombol "+ Kategori" Header Form Catat Transaksi**:
+    - Memindahkan tombol `+ Kategori` dari dalam deretan pill horizontal ke sisi seberang judul `Kategori` (`MainAxisAlignment.spaceBetween`).
+    - Didesain sebagai `TextButton` elegan anti-slop, mencegah tombol terpotong pada layar beresolusi kecil dan menjaga deretan kategori tetap rapi.
+  - **Verifikasi & Build**:
+    - Seluruh **119 unit & widget tests** lulus 100% (`flutter test`).
+    - Flutter Web release dan Android Release APK (`yotro-app.apk` ARM64 35.2 MB) dikompilasi ulang dan siap diunduh di `http://192.168.100.184:8080/yotro-app.apk`.
+- [x] Perbaikan 3 Permintaan Terakhir (Single Plus Kategori, Icon App Baru, Redesain Onboarding Login):
+  - **Pencegahan Double Plus pada Tombol `+ Kategori` (`AddTransactionScreen`)**: Mengubah teks tombol header dari `+ Kategori` menjadi `Kategori` di samping `Icon(Icons.add_rounded)`, memastikan hanya tepat 1 tanda plus yang dirender (`[+] Kategori`).
+  - **Ikon Aplikasi Baru (Y Emblem Biru Gradient)**: Mengonversi aset logo baru ke `assets/images/app_icon.png` (982x982), mipmap Android (`mipmap-mdpi`, `mipmap-hdpi`, `mipmap-xhdpi`, `mipmap-xxhdpi`, `mipmap-xxxhdpi`), serta web icons (`web/favicon.png`, `web/icons/Icon-192.png`, `Icon-512.png`, `Icon-maskable-192.png`, `Icon-maskable-512.png`).
+  - **Redesain Onboarding Profile Screen Presisi Wireframe & Sesuai Desain Sistem Proyek**:
+    - Bagian Atas (Brand Hero): Background solid navy `#081C41` di safe area atas, lambang Y putih (`assets/images/logo_splash.png`), teks *"Welcome to Yotro"*, dan aset motif kotak (`assets/images/onboarding_bg.png`) mengalir di bawahnya dengan degradasi halus tanpa distorsi.
+    - Bagian Bawah (Komponen Form & Button Sesuai Style Proyek): Mengadopsi standar tema matte slate dan sapphire token:
+      - Bottom sheet adaptif (`#0C131D` dark mode / `#FFFFFF` light mode) dengan sudut melengkung atas (`Radius.circular(32)`) dan border halus.
+      - Inner card bertingkat (`#131A26` dark mode / `#F8FAFC` light mode, `Radius.circular(24)`).
+      - Input pill berikon vektor murni geometris (`Icons.person_outline_rounded`, `Icons.phone_outlined`) dengan border 1px dan tipografi `Manrope` berbobot maksimal `FontWeight.w600`.
+      - Presisi Placeholder & Alignment Anti-Slop: Memperbaiki alignment vertikal teks placeholder dan icon dengan native `InputDecoration` (`contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14)`, `prefixIconConstraints: BoxConstraints(minWidth: 48, minHeight: 50)`, `textAlignVertical: TextAlignVertical.center`, font size 14px setara) sehingga placeholder dan ikon berada tepat di titik tengah vertikal 0.0px container 50px.
+      - Tombol aksi utama (*primary CTA*) Sapphire Fin-tech (`#02539A`) dengan ikon panah halus (`Icons.arrow_forward_rounded`), tanpa emoji dekoratif.
+    - Responsivitas & Keyboard: `autofocus: false` mencegah keyboard menyembul otomatis, `SingleChildScrollView` + `IntrinsicHeight` menjamin tampilan rapi tanpa overflow pada semua resolusi perangkat.
+  - **Verifikasi & Build**: Seluruh 119 unit & widget tests lulus 100%, Flutter Web release dan Android Release APK berhasil dikompilasi.
 - [x] File handover AI context di `context.md`.
 - [x] Aturan otomatisasi workspace agent di `AGENTS.md` dan `GEMINI.md` (auto-sync `context.md`).
 

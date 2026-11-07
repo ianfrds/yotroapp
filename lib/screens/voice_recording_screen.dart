@@ -29,8 +29,8 @@ class VoiceRecordingScreen extends StatefulWidget {
     required BuildContext context,
     required void Function(VoiceTransactionItem singleItem) onSingleItem,
     required void Function(List<VoiceTransactionItem> multiItems) onBatchSave,
-  }) {
-    return Navigator.of(context).push(
+  }) async {
+    final result = await Navigator.of(context).push<VoiceParseResult>(
       MaterialPageRoute(
         builder: (_) => VoiceRecordingScreen(
           onSingleItem: onSingleItem,
@@ -38,6 +38,27 @@ class VoiceRecordingScreen extends StatefulWidget {
         ),
       ),
     );
+
+    if (result != null && result.isValid && context.mounted) {
+      if (result.isSingleItem) {
+        onSingleItem(result.items.first);
+      } else {
+        VoiceMultiItemSummarySheet.show(
+          context: context,
+          items: result.items,
+          onRetryRecording: () {
+            VoiceRecordingScreen.open(
+              context: context,
+              onSingleItem: onSingleItem,
+              onBatchSave: onBatchSave,
+            );
+          },
+          onSaveAll: (confirmedItems) {
+            onBatchSave(confirmedItems);
+          },
+        );
+      }
+    }
   }
 
   @override
@@ -54,9 +75,11 @@ class _VoiceRecordingScreenState extends State<VoiceRecordingScreen> {
   String _recognizedWords = '';
   VoiceParseResult? _parseResult;
   Timer? _speechTimeoutTimer;
+  Timer? _silenceTimer;
   Timer? _spectrumPreviewTimer;
   bool _isSpectrumPreviewing = false;
   int _spectrumPreviewTick = 0;
+  bool _hasNavigated = false;
 
   @override
   void initState() {
@@ -67,12 +90,36 @@ class _VoiceRecordingScreenState extends State<VoiceRecordingScreen> {
 
   @override
   void dispose() {
+    _silenceTimer?.cancel();
     _speechTimeoutTimer?.cancel();
     _spectrumPreviewTimer?.cancel();
     if (_isListening) {
       _speech.stop();
     }
     super.dispose();
+  }
+
+  void _startSilenceTimer() {
+    _silenceTimer?.cancel();
+    _silenceTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted && _isListening) {
+        _stopListeningDueToSilence();
+      }
+    });
+  }
+
+  Future<void> _stopListeningDueToSilence() async {
+    _silenceTimer?.cancel();
+    _speechTimeoutTimer?.cancel();
+    if (_isListening) {
+      await _speech.stop();
+      if (mounted) {
+        setState(() {
+          _isListening = false;
+          _soundLevel = 0;
+        });
+      }
+    }
   }
 
   Future<void> _initAndStartListening() async {
@@ -87,7 +134,6 @@ class _VoiceRecordingScreenState extends State<VoiceRecordingScreen> {
               _isListening = false;
               _soundLevel = 0;
             });
-            _onSpeechCompleted();
           }
         },
         onError: (val) {
@@ -120,6 +166,7 @@ class _VoiceRecordingScreenState extends State<VoiceRecordingScreen> {
       _ambientSoundFloor = null;
       _peakSoundLevel = null;
     });
+    _startSilenceTimer();
 
     try {
       await _speech.listen(
@@ -130,22 +177,14 @@ class _VoiceRecordingScreenState extends State<VoiceRecordingScreen> {
             _parseResult =
                 VoiceTransactionParserService.parse(_recognizedWords);
           });
-          _speechTimeoutTimer?.cancel();
-          if (result.finalResult) {
-            _onSpeechCompleted();
-          } else {
-            _speechTimeoutTimer = Timer(const Duration(milliseconds: 1800), () {
-              if (mounted && _isListening && _recognizedWords.isNotEmpty) {
-                _stopListeningAndProcess();
-              }
-            });
-          }
+          // Reset 5s silence countdown whenever speech is heard
+          _startSilenceTimer();
         },
         onSoundLevelChange: _handleSoundLevel,
         listenOptions: stt.SpeechListenOptions(
           localeId: 'id_ID',
-          listenFor: const Duration(seconds: 30),
-          pauseFor: const Duration(seconds: 3),
+          listenFor: const Duration(seconds: 60),
+          pauseFor: const Duration(seconds: 5),
         ),
       );
     } catch (_) {
@@ -207,6 +246,7 @@ class _VoiceRecordingScreenState extends State<VoiceRecordingScreen> {
   }
 
   Future<void> _stopListeningAndProcess() async {
+    _silenceTimer?.cancel();
     _speechTimeoutTimer?.cancel();
     if (_isListening) {
       await _speech.stop();
@@ -217,7 +257,6 @@ class _VoiceRecordingScreenState extends State<VoiceRecordingScreen> {
         });
       }
     }
-    _onSpeechCompleted();
   }
 
   void _toggleListening() {
@@ -232,39 +271,15 @@ class _VoiceRecordingScreenState extends State<VoiceRecordingScreen> {
     }
   }
 
-  void _onSpeechCompleted() {
-    if (!mounted || _recognizedWords.trim().isEmpty) return;
-    final result = VoiceTransactionParserService.parse(_recognizedWords);
-    if (!result.isValid) return;
-
-    _routeParsedResult(result);
-  }
-
   void _routeParsedResult(VoiceParseResult result) {
-    if (!result.isValid) return;
-
-    if (result.isSingleItem) {
-      // 1 Item -> Directly pop full screen and fill into AddTransactionScreen
-      Navigator.of(context).pop();
-      widget.onSingleItem(result.items.first);
-    } else {
-      // Multi-Item (>1) -> Pop full screen and open VoiceMultiItemSummarySheet
-      Navigator.of(context).pop();
-      VoiceMultiItemSummarySheet.show(
-        context: context,
-        items: result.items,
-        onRetryRecording: () {
-          VoiceRecordingScreen.open(
-            context: context,
-            onSingleItem: widget.onSingleItem,
-            onBatchSave: widget.onBatchSave,
-          );
-        },
-        onSaveAll: (confirmedItems) {
-          widget.onBatchSave(confirmedItems);
-        },
-      );
+    if (!result.isValid || _hasNavigated) return;
+    _hasNavigated = true;
+    _silenceTimer?.cancel();
+    _speechTimeoutTimer?.cancel();
+    if (_isListening) {
+      _speech.stop();
     }
+    Navigator.of(context).pop(result);
   }
 
   void _simulateSpeech(String text) {
@@ -275,9 +290,10 @@ class _VoiceRecordingScreenState extends State<VoiceRecordingScreen> {
       _recognizedWords = text;
       _parseResult = VoiceTransactionParserService.parse(text);
       _soundLevel = 0.85;
+      _isListening = false;
     });
     Timer(const Duration(milliseconds: 900), () {
-      if (mounted && _parseResult != null && _parseResult!.isValid) {
+      if (mounted && _parseResult != null && _parseResult!.isValid && !_hasNavigated) {
         _routeParsedResult(_parseResult!);
       }
     });

@@ -50,6 +50,33 @@ void main() {
       expect(result.items[0].suggestedCategory, 'Makanan & Minuman');
     });
 
+    test('correctly parses Kopi 12ribu and thousands formatted variations to 12000.0', () {
+      final res1 = VoiceTransactionParserService.parse('Kopi 12ribu');
+      expect(res1.isValid, isTrue);
+      expect(res1.items[0].title, 'Kopi');
+      expect(res1.items[0].amount, 12000.0);
+
+      final res2 = VoiceTransactionParserService.parse('Kopi 12.000');
+      expect(res2.isValid, isTrue);
+      expect(res2.items[0].title, 'Kopi');
+      expect(res2.items[0].amount, 12000.0);
+
+      final res3 = VoiceTransactionParserService.parse('Kopi 12,000');
+      expect(res3.isValid, isTrue);
+      expect(res3.items[0].title, 'Kopi');
+      expect(res3.items[0].amount, 12000.0);
+
+      final res4 = VoiceTransactionParserService.parse('Kopi 12 rb');
+      expect(res4.isValid, isTrue);
+      expect(res4.items[0].title, 'Kopi');
+      expect(res4.items[0].amount, 12000.0);
+
+      final res5 = VoiceTransactionParserService.parse('Kopi 12');
+      expect(res5.isValid, isTrue);
+      expect(res5.items[0].title, 'Kopi');
+      expect(res5.items[0].amount, 12000.0);
+    });
+
     test('parses multi-item separated by conjunctions like dan, lalu, sama', () {
       const speech = 'Beli bensin 50rb dan makan siang 35k sama parkir 5 ribu';
       final result = VoiceTransactionParserService.parse(speech);

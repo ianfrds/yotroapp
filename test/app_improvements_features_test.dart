@@ -9,6 +9,7 @@ import 'package:money_tracker/screens/analytics_screen.dart';
 import 'package:money_tracker/screens/financial_analysis_screen.dart';
 import 'package:money_tracker/screens/notifications_center_screen.dart';
 import 'package:money_tracker/screens/settings_screen.dart';
+import 'package:money_tracker/screens/split_bill_screen.dart';
 import 'package:money_tracker/utils/icon_catalog.dart';
 import 'package:money_tracker/widgets/month_filter_sheet.dart';
 
@@ -45,7 +46,7 @@ void main() {
       expect(emojis.contains('⛪'), isTrue); // Gereja
     });
 
-    testWidgets('AddTransactionScreen displays + Kategori pill', (tester) async {
+    testWidgets('AddTransactionScreen displays + Kategori text button in header opposite title', (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -55,7 +56,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Kategori'), findsWidgets);
-      expect(find.byIcon(Icons.add_rounded), findsWidgets);
+      expect(find.byKey(const Key('btn_add_category_header')), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const Key('btn_add_category_header')), matching: find.byIcon(Icons.add_rounded)), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const Key('btn_add_category_header')), matching: find.text('Kategori')), findsOneWidget);
     });
 
     testWidgets('FinancialAnalysisScreen places month filter below title', (tester) async {
@@ -120,6 +123,26 @@ void main() {
       expect(find.text('Notifikasi'), findsOneWidget);
       expect(find.text('Persetujuan Transaksi'), findsNothing);
       expect(find.text('Aktivitas Transaksi'), findsOneWidget);
+    });
+
+    testWidgets('SplitBillScreen defaults bill name to empty and validates before saving', (tester) async {
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final provider = TransactionProvider();
+      await tester.pumpWidget(buildTestApp(const SplitBillScreen(), provider));
+      await tester.pumpAndSettle();
+
+      // Bill name text field should be empty by default
+      expect(find.text('Makan Bersama'), findsNothing);
+
+      // Tapping "Catat Bagian Saya" without bill name should show warning
+      final saveBtn = find.text('Catat Bagian Saya');
+      await tester.tap(saveBtn);
+      await tester.pump();
+
+      expect(find.text('Nama tagihan wajib diisi terlebih dahulu.'), findsOneWidget);
     });
   });
 }

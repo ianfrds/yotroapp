@@ -91,7 +91,7 @@ class VoiceTransactionParserService {
   /// Handles cases where user spoke multiple items without comma or "dan".
   static List<String> _splitMultiAmountClause(String clause) {
     final amountPattern = RegExp(
-      r'(\d+(?:[\.,]\d+)?\s*(?:ribu|rb|k|juta|jt|ratus)?|seratus ribu|seribu|sejuta|setengah juta)\b',
+      r'(\d{1,3}(?:[.,]\d{3})+|\d+(?:[\.,]\d+)?\s*(?:ribu|rb|k|juta|jt|ratus)?|seratus ribu|seribu|sejuta|setengah juta)\b',
       caseSensitive: false,
     );
 
@@ -151,7 +151,22 @@ class VoiceTransactionParserService {
   static _AmountResult? _extractAmount(String text) {
     final lower = text.toLowerCase().replaceAll('rupiah', '').replaceAll('rp', '');
 
-    // 1. Regex for digit + units: e.g. "13 ribu", "13rb", "13k", "100 ribu", "1.5 juta", "1,5 juta", "50000", "50.000"
+    // 1. Indonesian formatted thousands numbers: e.g. "12.000", "12,000", "1.500.000", "1,500,000"
+    final thousandsPattern = RegExp(r'\b(\d{1,3}(?:[.,]\d{3})+)\b');
+    final thousandsMatch = thousandsPattern.firstMatch(lower);
+    if (thousandsMatch != null) {
+      final rawMatch = thousandsMatch.group(1)!;
+      final digitsOnly = rawMatch.replaceAll(RegExp(r'[.,]'), '');
+      final parsed = double.tryParse(digitsOnly);
+      if (parsed != null && parsed > 0) {
+        return _AmountResult(
+          amount: parsed,
+          matchedText: thousandsMatch.group(0)!,
+        );
+      }
+    }
+
+    // 2. Regex for digit + units: e.g. "12ribu", "12 ribu", "13rb", "13k", "100 ribu", "1.5 juta", "1,5 juta", "50000"
     final digitPattern = RegExp(
       r'(\d+(?:[\.,]\d+)?)\s*(ribu|rb|k|juta|jt|ratus)?\b',
       caseSensitive: false,
@@ -172,12 +187,12 @@ class VoiceTransactionParserService {
         } else if (unit == 'ratus') {
           multiplier = 100.0;
         } else if (unit.isEmpty) {
-          // If pure number like 13 -> in spoken Indonesian if < 1000 without unit,
-          // sometimes it's shorthand for thousands (e.g. "siomay 13" = 13 ribu)
-          // but if >= 1000 (e.g. 25000) it is the literal amount.
+          // If pure number like 12 or 25 without unit:
+          // In Indonesian spoken commerce, if <= 500 without decimals, it is colloquial shorthand for thousands.
+          // If >= 1000 (e.g. 25000) it is the literal amount.
           if (baseNum >= 1000) {
             multiplier = 1.0;
-          } else if (baseNum <= 100 && (lower.contains('ribu') || lower.contains('rb'))) {
+          } else if (baseNum <= 500 && !numStr.contains('.')) {
             multiplier = 1000.0;
           }
         }

@@ -79,8 +79,9 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
   SplitMode _splitMode = SplitMode.equal;
 
   final TextEditingController _billController = TextEditingController();
-  final TextEditingController _noteController = TextEditingController(text: 'Makan Bersama');
+  final TextEditingController _noteController = TextEditingController();
   final TextEditingController _discountController = TextEditingController();
+  final FocusNode _noteFocusNode = FocusNode();
 
   // Tax configuration
   bool _isTaxEnabled = true;
@@ -121,6 +122,7 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
   void dispose() {
     _billController.dispose();
     _noteController.dispose();
+    _noteFocusNode.dispose();
     _discountController.dispose();
     for (final m in _members) {
       m.dispose();
@@ -203,6 +205,9 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
   }
 
   void _addMember() {
+    FocusScope.of(context).unfocus();
+    _noteFocusNode.unfocus();
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _members.add(
         SplitBillMember(
@@ -280,6 +285,9 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                     _members[index].name = newName;
                   });
                 }
+                FocusScope.of(context).unfocus();
+                _noteFocusNode.unfocus();
+                FocusManager.instance.primaryFocus?.unfocus();
                 Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(
@@ -648,6 +656,9 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                         );
                       }
                     });
+                    FocusScope.of(ctx).unfocus();
+                    _noteFocusNode.unfocus();
+                    FocusManager.instance.primaryFocus?.unfocus();
                     Navigator.pop(ctx);
                   },
                   style: ElevatedButton.styleFrom(
@@ -824,6 +835,9 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                         }
                       }
                     });
+                    FocusScope.of(ctx).unfocus();
+                    _noteFocusNode.unfocus();
+                    FocusManager.instance.primaryFocus?.unfocus();
                     Navigator.pop(ctx);
                   },
                   style: ElevatedButton.styleFrom(
@@ -846,6 +860,10 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
   }
 
   void _copySummary() {
+    if (_noteController.text.trim().isEmpty) {
+      AppSnackBar.show(context, 'Nama tagihan wajib diisi terlebih dahulu.', type: SnackBarType.warning);
+      return;
+    }
     if (_totalBill <= 0) {
       AppSnackBar.show(context, 'Masukkan total tagihan terlebih dahulu.', type: SnackBarType.warning);
       return;
@@ -889,6 +907,10 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
   }
 
   void _saveExpenseToTracker() {
+    if (_noteController.text.trim().isEmpty) {
+      AppSnackBar.show(context, 'Nama tagihan wajib diisi terlebih dahulu.', type: SnackBarType.warning);
+      return;
+    }
     final myShare = _myShare;
     if (myShare <= 0) {
       AppSnackBar.show(context, 'Nominal pengeluaran masih Rp 0.', type: SnackBarType.warning);
@@ -990,6 +1012,7 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                     const SizedBox(height: 6),
                     TextField(
                       controller: _noteController,
+                      focusNode: _noteFocusNode,
                       style: GoogleFonts.manrope(
                         color: isDark ? Colors.white : const Color(0xFF0F172A),
                         fontSize: 13,
