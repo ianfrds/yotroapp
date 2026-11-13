@@ -1574,6 +1574,13 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
   - Perangkat yang memasang APK dengan signature lama perlu mencadangkan data lalu uninstall satu kali sebelum memasang `v2.0.4`; setelah itu pembaruan berikutnya dapat dipasang in-place selama release key yang sama dipertahankan.
   - Hasil uji: kompilasi lokal (`flutter build apk --release --split-per-abi`) sukses 100% via Gradle 9.3.1 (29.8MB armv7, 36.2MB arm64, 38.5MB x86_64) dan 155 unit & widget test lulus 100%. Web release dan APK tersalin di `yotro-app.apk` dan `build/web/yotro-app.apk`.
 - [x] Verifikasi v2.0.4: **155 test lulus, 1 test dilewati** (`flutter test`), test OTA/changelog lulus 4/4, YAML workflow valid, dan `git diff --check` bersih. Build Web/APK lokal tidak dijalankan agar penggunaan storage tetap kecil; build ARM64 dan Web dilakukan oleh GitHub Actions.
+- [x] Optimasi CI GitHub Actions (Hanya APK) & Perbaikan Fatal Crash Startup APK (`.github/workflows/build-apk.yml`, `android/app/build.gradle`, `android/app/proguard-rules.pro`, `lib/main.dart`, `lib/screens/splash_screen.dart`):
+  - **Eliminasi Build Web di CI:** Menghapus step `Build web release` dan upload direktori `build/web/**` pada workflow `.github/workflows/build-apk.yml`. Job CI kini berganti nama menjadi `Build signed APK` dan berfokus murni menghasilkan binary APK Android.
+  - **Resolusi Crash "Aplikasi Terpaksa Berhenti" (Universal ABI):** Perintah build APK rilis di CI diubah dari arsitektur terfragmentasi tunggal (`--split-per-abi --target-platform android-arm64`) menjadi **Universal APK** (`flutter build apk --release --no-tree-shake-icons --android-skip-build-dependency-validation`). Berkas disalin ke `yotro-app.apk`. Hal ini mengatasi crash langsung akibat `UnsatisfiedLinkError: dlopen failed: library "libflutter.so" not found` pada perangkat Android 32-bit (armeabi-v7a) maupun emulator (x86_64).
+  - **Stabilisasi Bytecode & ProGuard/R8 Rules:** Mengubah konfigurasi `proguard-android-optimize.txt` ke `proguard-android.txt` di `android/app/build.gradle` agar optimasi bytecode tidak menghapus signature JNI dan method channel Flutter. Menambahkan aturan `-keep` komprehensif di `android/app/proguard-rules.pro` untuk `com.dexterous.**` (`flutter_local_notifications`), `com.google.crypto.tink.**`, `io.flutter.**`, `com.github.dart_lang.jni.**`, `open_filex`, `permission_handler`, dan `speech_to_text`.
+  - **MultiDex Activation:** Menambahkan `multiDexEnabled true` pada `defaultConfig` di `android/app/build.gradle` untuk mencegah batasan method count dan kompatibilitas core desugaring Java 17.
+  - **Resiliensi Startup Runtime (`main.dart` & `splash_screen.dart`):** Membungkus inisialisasi `initializeDateFormatting` dan `SupabaseConfig.initialize()` di `main()` serta pengecekan akun cloud (`hasExistingUserData()` & `pullCloudData()`) di `SplashScreen` dalam blok `try-catch` aman. Memastikan aplikasi tidak pernah force stop sebelum atau saat rendering frame pertama.
+  - **Hasil Uji & Validasi:** Seluruh 155 unit & widget test lulus 100% (`flutter test`).
 - [x] File handover AI context di `context.md`.
 - [x] Aturan otomatisasi workspace agent di `AGENTS.md` dan `GEMINI.md` (auto-sync `context.md`).
 
@@ -1613,7 +1620,7 @@ Saat melanjutkan proyek ini:
    - Workflow `.github/workflows/build-apk.yml` membangun branch/PR untuk validasi, tetapi hanya menerbitkan GitHub Release saat tag `v*` yang sama dengan versi `pubspec.yaml` di-push.
    - Jangan distribusikan rilis `v2.0.3`; signature-nya berasal dari keystore CI sementara. Kandidat produksi berikutnya adalah tag `v2.0.4` dengan empat signing secrets produksi.
    - Dialog pembaruan `AppUpdateDialog` menggunakan tombol ringkas "Update Now" single-line dan catatan rilis ramah pengguna tanpa URL commit mentah.
-   - APK distribusi hanya menargetkan `android-arm64`; jangan mengembalikan artifact ARM32, x86_64, atau universal kecuali kebutuhan kompatibilitas berubah.
+   - APK distribusi menggunakan Universal binary (`app-release.apk` -> `yotro-app.apk`) yang memuat seluruh ABI (ARM64, ARMv7, x86_64) untuk mencegah crash atau gagal pasang di beragam model smartphone Android.
    - Sesi login akun dan database SQLite/SharedPreferences aman dari logout saat update berjalan.
 9. **Keamanan Sideload & Izin Minimal:**
    - Fitur pembaca notifikasi real-time (`BIND_NOTIFICATION_LISTENER_SERVICE`) telah **dihapus permanen** agar APK sideload tidak memicu peringatan Android Restricted Settings atau dianggap membahayakan.
@@ -1624,5 +1631,5 @@ Saat melanjutkan proyek ini:
 12. **Tone Komunikasi:** Sesuai preferensi user, berikan jawaban terfokus pada hasil teknis (*terse smart caveman*), langsung ke fakta dan link berkas.
 13. **Preview Web & Unduh APK:**
     - Preview UI/fungsional harian dijalankan dengan `flutter run -d chrome --web-port 8080` dan disajikan di `http://localhost:8080/`; hot reload tetap menjadi alur utama.
-    - `flutter build web --release` hanya diperlukan untuk verifikasi production Web. APK resmi ARM64 disimpan pada GitHub Releases, bukan permanen di root proyek atau `build/web/` lokal.
+    - GitHub CI tidak lagi mengompilasi release Web; build GitHub Actions difokuskan 100% untuk kompilasi dan rilis universal Android APK (`yotro-app.apk`).
 

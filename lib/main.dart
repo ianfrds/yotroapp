@@ -12,8 +12,16 @@ final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<v
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initializeDateFormatting('id_ID', null);
-  await SupabaseConfig.initialize();
+  try {
+    await initializeDateFormatting('id_ID', null);
+  } catch (e) {
+    debugPrint('[main] initializeDateFormatting error: $e');
+  }
+  try {
+    await SupabaseConfig.initialize();
+  } catch (e) {
+    debugPrint('[main] SupabaseConfig.initialize error: $e');
+  }
   runApp(const YotroApp());
 }
 

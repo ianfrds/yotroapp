@@ -56,16 +56,20 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         if (!mounted) return;
         final provider = context.read<TransactionProvider>();
         if (!provider.isOnboardingCompleted && SupabaseAuthService.isAuthenticated) {
-          final isExisting = await SupabaseSyncService.hasExistingUserData();
-          if (isExisting) {
-            await SupabaseSyncService.pullCloudData(provider);
-            final name = SupabaseAuthService.userName ?? provider.userName;
-            await provider.completeOnboarding(
-              name: name,
-              phone: provider.userPhone,
-              gender: provider.userGender,
-            );
-            await provider.handleAuthSuccess(fullName: name);
+          try {
+            final isExisting = await SupabaseSyncService.hasExistingUserData();
+            if (isExisting) {
+              await SupabaseSyncService.pullCloudData(provider);
+              final name = SupabaseAuthService.userName ?? provider.userName;
+              await provider.completeOnboarding(
+                name: name,
+                phone: provider.userPhone,
+                gender: provider.userGender,
+              );
+              await provider.handleAuthSuccess(fullName: name);
+            }
+          } catch (e) {
+            debugPrint('[SplashScreen] Auth sync check error: $e');
           }
         }
         if (!mounted) return;

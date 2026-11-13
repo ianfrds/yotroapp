@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    name: Build signed APK and Web
+    name: Build signed APK
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -83,19 +83,15 @@ jobs:
 
       - name: Build safe release APK
         run: |
-          flutter build apk --release --split-per-abi --target-platform android-arm64 --no-tree-shake-icons --android-skip-build-dependency-validation
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/yotro-app.apk
-
-      - name: Build web release
-        run: flutter build web --release --no-tree-shake-icons
+          # Build universal APK (contains all ABIs: arm64-v8a, armeabi-v7a, x86_64) to prevent force close on any device
+          flutter build apk --release --no-tree-shake-icons --android-skip-build-dependency-validation
+          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/yotro-app.apk
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
           name: yotro-safe-release
-          path: |
-            build/app/outputs/flutter-apk/yotro-app.apk
-            build/web/**
+          path: build/app/outputs/flutter-apk/yotro-app.apk
           if-no-files-found: error
           retention-days: 14
 
