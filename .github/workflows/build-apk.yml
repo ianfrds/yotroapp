@@ -100,14 +100,12 @@ jobs:
           retention-days: 14
 
       - name: Publish to GitHub Releases
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ env.APP_VERSION }}
+          tag_name: ${{ github.ref_name }}
           name: Yotro v${{ env.APP_VERSION }}
-          files: |
-            build/app/outputs/flutter-apk/yotro-app.apk
-            build/app/outputs/flutter-apk/*.apk
+          files: build/app/outputs/flutter-apk/yotro-app.apk
           generate_release_notes: false
           body: |
             ### Catatan Pembaruan Yotro v${{ env.APP_VERSION }}

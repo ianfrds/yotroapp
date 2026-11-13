@@ -17,10 +17,11 @@ class ChangelogItem {
 }
 
 class ChangelogData {
-  static const String currentVersion = '2.0.3';
+  static const String currentVersion = '2.0.4';
 
   static ChangelogItem? getRelease(String tagOrVersion) {
-    final clean = tagOrVersion.replaceAll(RegExp(r'^[vV]'), '').split('+').first.trim();
+    final clean =
+        tagOrVersion.replaceAll(RegExp(r'^[vV]'), '').split('+').first.trim();
     for (final item in history) {
       if (item.version == clean) return item;
     }
@@ -29,10 +30,23 @@ class ChangelogData {
 
   static const List<ChangelogItem> history = [
     ChangelogItem(
+      version: '2.0.4',
+      date: '13 November 2026',
+      title: 'Pembaruan Android Lebih Aman',
+      isCurrent: true,
+      features: [
+        'Pembaruan Android kini diterbitkan melalui rilis resmi dengan kunci aplikasi yang konsisten.',
+      ],
+      improvements: [
+        'Mencegah paket pembaruan dari build validasi terdeteksi sebagai rilis aplikasi.',
+        'Distribusi APK difokuskan untuk perangkat Android modern 64-bit.',
+      ],
+    ),
+    ChangelogItem(
       version: '2.0.3',
       date: '13 November 2026',
       title: 'Optimalisasi Tampilan & Pembaruan Sistem',
-      isCurrent: true,
+      isCurrent: false,
       features: [
         'Penyempurnaan tombol pembaruan menjadi lebih rapi dan responsif dalam satu baris.',
         'Catatan pembaruan otomatis menggunakan bahasa pengguna yang jelas tanpa tautan teknis.',
