@@ -17,14 +17,49 @@ class ChangelogItem {
 }
 
 class ChangelogData {
-  static const String currentVersion = '2.0.0';
+  static const String currentVersion = '2.0.3';
+
+  static ChangelogItem? getRelease(String tagOrVersion) {
+    final clean = tagOrVersion.replaceAll(RegExp(r'^[vV]'), '').split('+').first.trim();
+    for (final item in history) {
+      if (item.version == clean) return item;
+    }
+    return null;
+  }
 
   static const List<ChangelogItem> history = [
+    ChangelogItem(
+      version: '2.0.3',
+      date: '13 November 2026',
+      title: 'Optimalisasi Tampilan & Pembaruan Sistem',
+      isCurrent: true,
+      features: [
+        'Penyempurnaan tombol pembaruan menjadi lebih rapi dan responsif dalam satu baris.',
+        'Catatan pembaruan otomatis menggunakan bahasa pengguna yang jelas tanpa tautan teknis.',
+      ],
+      improvements: [
+        'Pembaruan performa dan efisiensi aplikasi yang lebih optimal.',
+        'Peningkatan stabilitas pencatatan transaksi dan konsumsi memori.',
+      ],
+    ),
+    ChangelogItem(
+      version: '2.0.2',
+      date: '13 November 2026',
+      title: 'Peningkatan Stabilitas Rilis Otomatis',
+      isCurrent: false,
+      features: [
+        'Pembaruan aplikasi diterbitkan langsung melalui otomatisasi rilis resmi yang aman.',
+      ],
+      improvements: [
+        'Validasi versi rilis dan signing key produksi mencegah APK pembaruan yang tidak kompatibel.',
+        'Peningkatan konsistensi deteksi versi terbaru di dalam aplikasi.',
+      ],
+    ),
     ChangelogItem(
       version: '2.0.0',
       date: '13 November 2026',
       title: 'Sinkronisasi Cloud, Auth Gate, & Manajemen Akun',
-      isCurrent: true,
+      isCurrent: false,
       features: [
         'Integrasi Cloud Supabase: Masuk dengan Google, Email & Password, dan sinkronisasi data transaksi dua arah otomatis.',
         'Mode Tamu 100% Offline: Pengguna dapat langsung menggunakan aplikasi secara lokal tanpa login dan tanpa internet.',

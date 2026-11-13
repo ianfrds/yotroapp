@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../models/changelog_model.dart';
 import '../providers/transaction_provider.dart';
 import '../services/supabase_auth_service.dart';
 import '../services/supabase_sync_service.dart';
@@ -192,7 +193,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   );
                 },
                 child: Text(
-                  'v2.0.0 · 100% Offline & Privat',
+                  'v${ChangelogData.currentVersion} · 100% Offline & Privat',
                   style: GoogleFonts.manrope(
                     color: subtitleColor.withOpacity(0.7),
                     fontSize: 11,

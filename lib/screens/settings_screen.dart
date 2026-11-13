@@ -1321,7 +1321,7 @@ class SettingsScreen extends StatelessWidget {
               },
               icon: const Icon(Icons.download_rounded, size: 18),
               label: Text(
-                'Unduh APK Android (v2.0.0)',
+                'Unduh APK Android (v${ChangelogData.currentVersion})',
                 style: GoogleFonts.manrope(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,

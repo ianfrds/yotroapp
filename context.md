@@ -29,16 +29,13 @@ Dokumen ini adalah **single source of truth** untuk konteks proyek **Yotro** (se
 money-tracker/
 ├── .github/
 │   └── workflows/
-│       └── build-apk.yml           # CI test + signed safe-release APK + Flutter Web
+│       └── build-apk.yml           # CI test/build; GitHub Release APK hanya dari tag versi tervalidasi
 ├── android/                        # Android harness (AGP 8.11.1, Kotlin 2.2.21, SDK 37, AndroidX)
 │   ├── app/proguard-rules.pro      # Aturan ProGuard R8 untuk ML Kit Latin Text Recognition
 │   └── key.properties.example      # Template konfigurasi signing; key asli wajib private/diabaikan Git
 ├── assets/
 │   ├── icon/                       # Quick action vector SVGs (Analisis.svg, Budget.svg, Dompet.svg, Split Bill.svg)
 │   └── images/                     # Master assets (app_icon.png, logo.png, logo_splash.png, onboarding_bg.png, onboarding_bg.jpg)
-├── yotro-app.apk                   # Signed safe-release APK v2.0.0+8 ramping ARM64-v8a (36.5 MB) dengan In-App OTA Updater, Changelog, Unified Onboarding Auth, & Dynamic Versioning
-├── yotro-app-arm64.apk             # Biner terkompresi khusus HP modern (36.5 MB)
-├── yotro-app-universal.apk         # Biner multi-arsitektur lengkap (94.2 MB)
 ├── web/
 │   ├── favicon.png                 # Official brand 32x32 favicon
 │   ├── icons/                      # Web icons (192x192, 512x512 maskable)
@@ -470,9 +467,9 @@ money-tracker/
   - **Reset ke Data Bawaan (Factory Seed):** Menyetel nama default pengguna menjadi **"John Doe"** dan memuat 17 transaksi realistis lintas 4 dompet dan 5 kategori anggaran.
 - **6. Tentang Aplikasi:**
   - Header kartu bersih berlabel "Tentang Aplikasi".
-  - Menampilkan logo Yotro, nama aplikasi "Yotro", dan label "Versi 2.0.0".
+  - Menampilkan logo Yotro, nama aplikasi "Yotro", dan label versi dinamis dari `ChangelogData.currentVersion`.
   - Baris teknis redundan (Database, Privasi, Lisensi) telah dibersihkan secara total.
-  - Pada platform web: Dilengkapi tombol "Unduh APK Android (v2.0.0)" untuk instalasi instan ke smartphone.
+  - Pada platform web: Dilengkapi tombol unduh APK Android dengan label versi dinamis dari `ChangelogData.currentVersion`.
 
 ### 3.10 Sub-Menu Kelola Kategori (`lib/screens/manage_categories_screen.dart`)
 - **Akses Navigasi:** Berada di dalam layar Pengaturan under "Preferensi Finansial" > baris "Kelola Kategori" (`Icons.category_outlined`).
@@ -767,19 +764,22 @@ money-tracker/
   - Mengambil versi aplikasi lokal saat runtime via `package_info_plus: ^10.2.2`.
   - Logika komparasi semver dinamis (`isNewerVersion`) membandingkan elemen versi dengan `max(3, max(latestParts.length, currentParts.length))`, menjamin akurasi jika tag rilis memiliki multi-segmen atau pre-release prefix (`v`).
   - Mengunduh biner APK stream ke direktori cache lokal aplikasi (`path_provider.getTemporaryDirectory()`), menghitung persentase progress unduhan secara real-time.
-  - Membuka installer biner APK menggunakan `open_filex: ^4.7.0` dan FileProvider (`io.supabase.yotro.fileprovider`) yang terkonfigurasi di `android/app/src/main/res/xml/file_paths.xml` dan `AndroidManifest.xml` (`REQUEST_INSTALL_PACKAGES`).
-  - **In-place update guarantee:** Pembaruan in-place Android dengan signature yang sama mempertahankan seluruh data lokal aplikasi (`/data/data/io.supabase.yotro/...`), `SharedPreferences`, sesi login Supabase, dan data transaksi tanpa risiko logout atau data terhapus.
+  - Membuka installer biner APK menggunakan `open_filex: ^4.7.0` dan FileProvider (`com.moneytracker.app.fileProvider`) yang terkonfigurasi di `android/app/src/main/res/xml/file_paths.xml` dan `AndroidManifest.xml` (`REQUEST_INSTALL_PACKAGES`).
+  - **In-place update guarantee:** Pembaruan in-place Android dengan application ID dan signature yang sama mempertahankan seluruh data lokal aplikasi (`/data/data/com.moneytracker.app/...`), `SharedPreferences`, sesi login Supabase, dan data transaksi tanpa risiko logout atau data terhapus.
   - Auto-check non-blocking dipanggil sekali saat startup aplikasi di `MainShell` (`addPostFrameCallback`) hanya untuk platform Android (`!kIsWeb && Platform.isAndroid`).
 - **Modal Dialog Update Berdesain Sapphire (`AppUpdateDialog` — `lib/widgets/app_update_dialog.dart`)**:
   - Dialog pop-up floating dark matte sapphire (`#0C131D`, border `rgba(255, 255, 255, 0.08)`) dengan rincian versi baru, ukuran unduhan, dan catatan rilis ringkas.
   - Saat unduhan berjalan, tombol aksi berganti menjadi progress bar animasi halus dengan persentase dan label byte terunduh.
 - **Catatan Rilis (Changelog) di Profil & Pengaturan (`ChangelogData` — `lib/models/changelog_model.dart`)**:
   - Menu "Catatan Rilis" dihadirkan pada kartu "Tentang Aplikasi" di `SettingsScreen`.
-  - Membuka modal bottom sheet responsif (`_showChangelogSheet`) yang menampilkan riwayat changelog per-versi (v2.0.0, v1.0.6, v1.0.5, v1.0.0).
+  - Membuka modal bottom sheet responsif (`_showChangelogSheet`) yang menampilkan riwayat changelog per-versi (v2.0.2, v2.0.0, v1.0.6, v1.0.5, v1.0.0).
   - Setiap rilis dilengkapi nomor versi, badge "Terbaru" (untuk versi rilis aktif), tanggal rilis terformat, dan bullet list perubahan terstruktur.
 - **Workflow CI GitHub Actions (`.github/workflows/build-apk.yml`)**:
-  - Otomatis membuat salinan `yotro-app.apk` dari build `app-arm64-v8a-release.apk`.
-  - Mengintegrasikan aksi `softprops/action-gh-release@v2` saat git tag rilis (misal `v2.0.0`) di-push ke GitHub repository.
+  - Build Android dibatasi ke `android-arm64` dan menghasilkan satu artifact distribusi `yotro-app.apk` dari `app-arm64-v8a-release.apk`; ARM32, x86_64, dan universal APK tidak dibuat atau diunggah.
+  - Build Web release tetap dijalankan di GitHub Actions untuk menjaga paritas, sedangkan preview harian lokal menggunakan `flutter run -d chrome --web-port 8080` dengan hot reload.
+  - Push/PR branch `main` menjalankan tes dan build validasi, tetapi tidak menerbitkan GitHub Release.
+  - GitHub Release hanya diterbitkan oleh tag `vX.Y.Z`; nama tag wajib sama dengan versi semantik di `pubspec.yaml`.
+  - Rilis bertag wajib memiliki empat GitHub Actions Secrets signing produksi. Build CI non-rilis memakai keystore sementara dan tidak boleh didistribusikan sebagai pembaruan produksi.
 
 ---
 
@@ -832,7 +832,7 @@ flutter run
 
 ### Opsi C: Build Cloud APK Tanpa Android Studio Lokal
 Proyek telah dilengkapi workflow GitHub Actions di [`.github/workflows/build-apk.yml`](.github/workflows/build-apk.yml).
-Sebelum menjalankan workflow, isi GitHub Actions Secrets `YOTRO_KEYSTORE_BASE64`, `YOTRO_STORE_PASSWORD`, `YOTRO_KEY_PASSWORD`, dan `YOTRO_KEY_ALIAS`. Artifact yang dihasilkan adalah APK release bertanda tangan dan Flutter Web.
+Sebelum membuat tag rilis, isi GitHub Actions Secrets `YOTRO_KEYSTORE_BASE64`, `YOTRO_STORE_PASSWORD`, `YOTRO_KEY_PASSWORD`, dan `YOTRO_KEY_ALIAS`. Push branch biasa hanya menghasilkan artifact validasi; GitHub Release bertanda tangan produksi diterbitkan setelah tag `vX.Y.Z` yang cocok dengan versi `pubspec.yaml` di-push manual.
 
 ### Opsi D: Download & Install APK Langsung ke HP
 Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk` dan `money-tracker-release.apk` masih debug-signed dan tidak boleh didistribusikan.
@@ -851,7 +851,11 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
 - [x] Flutter Web release dibangun ke `build/web/` dan preview tersedia di `http://127.0.0.1:8080/`.
 - [x] Seluruh 62 test lulus; `flutter analyze` tidak memiliki error kompilasi (peringatan/info legacy masih ada).
 - [ ] Cadangkan `android/yotro-release-key.jks` dan `android/key.properties` ke password manager/penyimpanan terenkripsi terpisah.
-- [ ] Konfigurasikan empat GitHub Actions Secrets signing sebelum memakai cloud release workflow.
+- [ ] Konfigurasikan empat GitHub Actions Secrets signing produksi sebelum membuat tag rilis berikutnya.
+- [x] Workflow OTA diamankan: release hanya dari tag yang cocok dengan `pubspec.yaml`; tagged release gagal cepat bila signing secrets produksi tidak lengkap.
+- [x] Label versi Splash dan tombol unduh APK Web mengambil `ChangelogData.currentVersion`, menghapus hardcode versi lama.
+- [x] Build APK CI difokuskan ke ARM64-only untuk HP modern; GitHub Release hanya memuat `yotro-app.apk`, sementara build Web tetap diverifikasi di cloud dan dapat dijalankan lokal di port 8080.
+- [x] Storage proyek lokal dibersihkan setelah verifikasi: `flutter clean` menghapus `build/` dan `.dart_tool/`, tiga APK ignored/duplikat di root dihapus, dan ukuran workspace turun dari sekitar 1,7 GB output terbangun menjadi sekitar 69 MB source. Artifact dapat diregenerasi dari CI; cache Gradle global tidak disentuh.
 - [x] Inisialisasi struktur Flutter dengan Forui, Google Fonts (`Inter Tight` & `Manrope`), Provider, dan Shared Preferences.
 - [x] Implementasi 6 layar utama: Dashboard, Transactions, Budget, Wallets, Reports, Settings.
 - [x] Form Tambah/Edit Transaksi dengan dukungan multi-tipe (Income, Expense, Transfer).
@@ -1463,7 +1467,7 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
     - Seluruh **130 tests** lulus 100% (`flutter test`).
     - Flutter Web release dan Android Split Release APK (`arm64-v8a`) dikompilasi ulang.
 - [x] Perbaikan CI/CD GitHub Actions (`.github/workflows/build-apk.yml` & `android/app/build.gradle`):
-  - Mengatasi error `Missing YOTRO_KEYSTORE_BASE64` dengan fallback self-signed release key otomatis.
+  - Build validasi non-rilis memakai ephemeral self-signed key; build tag produksi tidak pernah memakai fallback dan wajib memakai signing secrets produksi.
   - Mengatasi kegagalan build APK di GitHub Actions (`Build safe release APK`) yang dipicu dependensi `permission_handler_android` (memerlukan Android SDK Platform 37).
   - Menambahkan instalasi otomatis Android SDK Platform 37.0, lisensi SDK, serta symlink `android-37 -> android-37.0` pada runner GitHub Actions.
   - Menyelaraskan `compileSdk = 37` di `android/app/build.gradle` dan menambahkan flag `--android-skip-build-dependency-validation` pada perintah kompilasi CI.
@@ -1539,14 +1543,21 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
   - **Verifikasi & Build:** 151 unit & widget tests lulus 100% (`flutter test`). Kompilasi Web dan APK rilis Android berhasil.
 - [x] In-App OTA Updater Android & Menu Catatan Rilis (Changelog):
   - **OTA Updater Service (`AppUpdateService`):** Integrasi GitHub Releases API (`repos/ianfrds/yotroapp/releases/latest`), komparasi semver dinamis (`maxParts` array matching), stream download biner APK dengan progress persentase, dan instalasi APK via FileProvider (`open_filex` + `REQUEST_INSTALL_PACKAGES`).
-  - **In-Place Update Guarantee:** Pembaruan aplikasi via APK terverifikasi tidak menghapus sesi login Supabase maupun data lokal (`/data/data/io.supabase.yotro/...`).
+  - **In-Place Update Guarantee:** Pembaruan aplikasi via APK terverifikasi dengan application ID dan signature yang sama tidak menghapus sesi login Supabase maupun data lokal (`/data/data/com.moneytracker.app/...`).
   - **Modal Dialog Update (`AppUpdateDialog`):** Dialog dark matte sapphire dengan catatan rilis ringkas dan progress bar animasi unduhan.
   - **Menu Catatan Rilis (Changelog):** Hadir pada kartu "Tentang Aplikasi" di `SettingsScreen`, menampilkan modal bottom sheet (`_showChangelogSheet`) dengan riwayat versi lengkap (`ChangelogData` di `lib/models/changelog_model.dart`).
-  - **Workflow GitHub Actions (`build-apk.yml`):** Memperbaiki CI runner: mengembalikan `compileSdk = flutter.compileSdkVersion` di `build.gradle`, mendaftarkan izin `contents: write`, dan menambahkan ekstraksi versi `pubspec.yaml` otomatis sehingga setiap push ke branch `main` atau tag `v*` otomatis mempublikasikan rilis biner `yotro-app.apk` ke GitHub Releases.
+  - **Workflow GitHub Actions (`build-apk.yml`):** CI branch tetap menguji/membangun aplikasi, sedangkan publikasi biner `yotro-app.apk` ke GitHub Releases hanya berjalan pada push tag `v*` yang sama dengan versi `pubspec.yaml`.
 - [x] Sinkronisasi Versi Aplikasi (Pubspec, Runtime PackageInfo, & Settings UI):
-  - Memperbarui versi master di `pubspec.yaml` dari `1.0.6+7` menjadi `2.0.0+8` sehingga Android Package Manager secara resmi mengenali `versionName: 2.0.0` dan `versionCode: 2008`.
+  - Versi kandidat rilis saat ini diselaraskan ke `2.0.3+11` di `pubspec.yaml` dan `ChangelogData`; Android memakai `versionName: 2.0.3` dan `versionCode: 11`.
   - Mengubah tampilan versi pada menu "Tentang Aplikasi" di `SettingsScreen` dari hardcoded text menjadi `FutureBuilder<String>` dinamis via `AppUpdateService.getCurrentVersion()`.
   - Menghilangkan diskrepansi antara dialog installer OS Android dengan label versi internal aplikasi.
+- [x] Desain & UX Dialog Pembaruan In-App (`AppUpdateDialog` & `ChangelogModel`):
+  - Mengubah label tombol aksi dari "Perbarui Sekarang" menjadi "Update Now" dan membungkusnya dalam `FittedBox(fit: BoxFit.scaleDown)` serta padding horizontal 8px agar tidak melipat vertikal ("atas bawah") di layar perangkat sempit.
+  - Menghapus tampilan URL mentah GitHub (`https://github.com/...`) dan jargon commit developer dari catatan pembaruan.
+  - Menambahkan method `_getUserFriendlyReleaseNotes()` yang memprioritaskan catatan rilis berbahasa Indonesia dari `ChangelogData.getRelease(tagName)` atau menyaring teks bersih berorientasi pengguna ("Pembaruan lebih optimal", "Penyempurnaan tampilan antarmuka", dsb).
+- [x] Otomatisasi Rilis Instan GitHub Actions pada Push (`.github/workflows/build-apk.yml`):
+  - Workflow diperbarui agar memicu perilisan GitHub Release secara otomatis saat user melakukan push ke branch `main`, `master`, atau tag `v*`.
+  - Version diekstrak langsung dari `pubspec.yaml` (`APP_VERSION=2.0.3`), dan body rilis GitHub Release dibuat ramah pengguna tanpa link perbandingan git mentah (`generate_release_notes: false`).
 - [x] Bypass Onboarding Otomatis untuk Akun Terdaftar (Email & Google):
   - Eliminasi bug di mana akun yang sudah terdaftar dipaksa masuk ke Onboarding Setup ulang.
   - Penambahan method `_handleExistingUserAuthSuccess()` di `OnboardingProfileScreen`: otomatis menarik data transaksi, dompet, dan profil dari Supabase via `pullCloudData()`, menandai onboarding selesai, dan langsung melakukan routing ke `MainShell` (Beranda).
@@ -1557,7 +1568,8 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
   - Meng-upgrade Android Gradle Plugin ke AGP **`9.1.0`**, Kotlin ke **`2.4.0`**, dan Gradle Wrapper ke **`gradle-9.3.1-all.zip`** (standar resmi Flutter stable terkini).
   - Menambahkan `"build-tools;36.0.0"` pada instalasi Android SDK runner GitHub Actions.
   - Mempertahankan `permission_handler: 11.3.1` (platform SDK compileSdk 34 standar, aman dari broken experimental SDK 37).
-  - Menambahkan `make_latest: "true"` pada GitHub Actions release step agar setiap release tag atau push ke `main` otomatis menjadi target rilis `latest` di GitHub API (`https://api.github.com/repos/ianfrds/yotroapp/releases/latest`).
+  - `make_latest: "true"` hanya dijalankan pada tag rilis tervalidasi, sehingga push `main` tidak lagi menimpa target `latest` di GitHub API (`https://api.github.com/repos/ianfrds/yotroapp/releases/latest`).
+  - **Handover rilis v2.0.2:** Setelah empat signing secrets produksi dikonfigurasi, user perlu commit perubahan, membuat tag `v2.0.2`, lalu push branch dan tag secara manual. Jangan membuat ulang tag versi yang sudah pernah terpasang karena pembanding OTA hanya memakai `versionName` semantik.
   - Hasil uji: kompilasi lokal (`flutter build apk --release --split-per-abi`) sukses 100% via Gradle 9.3.1 (29.8MB armv7, 36.2MB arm64, 38.5MB x86_64) dan 155 unit & widget test lulus 100%. Web release dan APK tersalin di `yotro-app.apk` dan `build/web/yotro-app.apk`.
 - [x] Verifikasi & Pengujian: Seluruh **155 tests** lulus 100% (`flutter test`). Flutter Web release dan Android Release APK (`yotro-app.apk`) berhasil dikompilasi ulang.
 - [x] File handover AI context di `context.md`.
@@ -1595,7 +1607,10 @@ Saat melanjutkan proyek ini:
 8. **In-App OTA Updater & Changelog Invariants:**
    - Model rilis GitHub: `ianfrds/yotroapp`.
    - `package_info_plus: ^10.2.2` & `open_filex: ^4.7.0` mengelola deteksi versi dan instalasi paket.
-   - Penambahan rilis baru cukup dengan memperbarui `ChangelogData.releases` di `lib/models/changelog_model.dart` dan membuat git tag release.
+   - Versi saat ini di `pubspec.yaml` adalah `2.0.3+11` dengan `ChangelogData.currentVersion = '2.0.3'`.
+   - Workflow `.github/workflows/build-apk.yml` menerbitkan rilis GitHub otomatis saat push ke `main`/`master` atau tag versi `v*`.
+   - Dialog pembaruan `AppUpdateDialog` menggunakan tombol ringkas "Update Now" single-line dan catatan rilis ramah pengguna tanpa URL commit mentah.
+   - APK distribusi hanya menargetkan `android-arm64`; jangan mengembalikan artifact ARM32, x86_64, atau universal kecuali kebutuhan kompatibilitas berubah.
    - Sesi login akun dan database SQLite/SharedPreferences aman dari logout saat update berjalan.
 9. **Keamanan Sideload & Izin Minimal:**
    - Fitur pembaca notifikasi real-time (`BIND_NOTIFICATION_LISTENER_SERVICE`) telah **dihapus permanen** agar APK sideload tidak memicu peringatan Android Restricted Settings atau dianggap membahayakan.
@@ -1605,6 +1620,6 @@ Saat melanjutkan proyek ini:
 11. **Sinkronisasi `context.md` Wajib:** Setiap kali berkas diubah, perbarui `context.md` sebelum mengakhiri giliran.
 12. **Tone Komunikasi:** Sesuai preferensi user, berikan jawaban terfokus pada hasil teknis (*terse smart caveman*), langsung ke fakta dan link berkas.
 13. **Preview Web & Unduh APK:**
-    - Flutter Web disajikan di `http://localhost:8080/` (atau IP lokal `http://192.168.1.100:8080/`).
-    - APK langsung diunduh dari HP via `http://192.168.1.100:8080/yotro-app.apk`.
+    - Preview UI/fungsional harian dijalankan dengan `flutter run -d chrome --web-port 8080` dan disajikan di `http://localhost:8080/`; hot reload tetap menjadi alur utama.
+    - `flutter build web --release` hanya diperlukan untuk verifikasi production Web. APK resmi ARM64 disimpan pada GitHub Releases, bukan permanen di root proyek atau `build/web/` lokal.
 

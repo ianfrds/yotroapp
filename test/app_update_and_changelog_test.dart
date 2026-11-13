@@ -28,17 +28,19 @@ void main() {
 
   group('ChangelogModel & Semantic Versioning Tests', () {
     test('ChangelogData history contains accurate metadata', () {
-      expect(ChangelogData.currentVersion, '2.0.0');
+      expect(ChangelogData.currentVersion, '2.0.3');
       expect(ChangelogData.history, isNotEmpty);
 
       final current = ChangelogData.history.first;
-      expect(current.version, '2.0.0');
+      expect(current.version, '2.0.3');
       expect(current.isCurrent, isTrue);
       expect(current.features, isNotEmpty);
       expect(current.improvements, isNotEmpty);
 
       // Verify past versions exist
       final versions = ChangelogData.history.map((e) => e.version).toList();
+      expect(versions, contains('2.0.3'));
+      expect(versions, contains('2.0.2'));
       expect(versions, contains('2.0.0'));
       expect(versions, contains('1.0.6'));
       expect(versions, contains('1.0.5'));
@@ -84,7 +86,7 @@ void main() {
 
       expect(checkUpdateRow, findsOneWidget);
       expect(changelogRow, findsOneWidget);
-      expect(find.textContaining('Versi terpasang v2.0.0'), findsOneWidget);
+      expect(find.textContaining('Versi terpasang v2.0.3'), findsOneWidget);
 
       // Tap Catatan Rilis to open sheet
       await tester.tap(changelogRow);
@@ -92,7 +94,7 @@ void main() {
 
       expect(find.text('Catatan Rilis (Changelog)'), findsNWidgets(2)); // row + sheet title
       expect(find.text('Versi Terpasang'), findsOneWidget);
-      expect(find.text('v2.0.0'), findsOneWidget);
+      expect(find.text('v2.0.3'), findsOneWidget);
 
       final v105 = find.text('v1.0.5');
       await tester.scrollUntilVisible(v105, 100, scrollable: find.byType(Scrollable).last);
@@ -102,10 +104,10 @@ void main() {
 
     testWidgets('AppUpdateDialog renders release info, changelog, and action buttons', (tester) async {
       const releaseInfo = ReleaseInfo(
-        tagName: 'v2.0.1',
-        version: '2.0.1',
-        body: 'Fitur baru dan perbaikan stabilitas transaksi.',
-        apkUrl: 'https://github.com/ianfrds/yotroapp/releases/download/v2.0.1/yotro-app.apk',
+        tagName: 'v2.0.3',
+        version: '2.0.3',
+        body: '**Full Changelog**: https://github.com/ianfrds/yotroapp/compare/v2.0.2...v2.0.3',
+        apkUrl: 'https://github.com/ianfrds/yotroapp/releases/download/v2.0.3/yotro-app.apk',
         apkSize: 38200000,
       );
 
@@ -122,10 +124,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Pembaruan Tersedia'), findsOneWidget);
-      expect(find.textContaining('v2.0.1'), findsOneWidget);
+      expect(find.textContaining('v2.0.3'), findsOneWidget);
       expect(find.text('Catatan Pembaruan:'), findsOneWidget);
-      expect(find.textContaining('Fitur baru dan perbaikan stabilitas'), findsOneWidget);
-      expect(find.text('Perbarui Sekarang'), findsOneWidget);
+      // Ensures raw github url is NEVER rendered
+      expect(find.textContaining('https://github.com'), findsNothing);
+      expect(find.textContaining('Penyempurnaan tombol pembaruan'), findsOneWidget);
+      expect(find.text('Update Now'), findsOneWidget);
       expect(find.text('Nanti Saja'), findsOneWidget);
 
       // Tap Nanti Saja closes dialog

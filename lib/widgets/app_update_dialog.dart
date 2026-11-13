@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../models/changelog_model.dart';
 import '../services/app_update_service.dart';
 
 class AppUpdateDialog extends StatefulWidget {
@@ -62,6 +63,51 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
   String _formatSize(int bytes) {
     if (bytes <= 0) return '';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  String _getUserFriendlyReleaseNotes() {
+    // 1. Check local ChangelogData first for matching version
+    final changelog = ChangelogData.getRelease(widget.releaseInfo.tagName);
+    if (changelog != null) {
+      final items = [...changelog.features, ...changelog.improvements];
+      if (items.isNotEmpty) {
+        return items.map((e) => '• $e').join('\n');
+      }
+    }
+
+    final raw = widget.releaseInfo.body.trim();
+    if (raw.isEmpty) {
+      return '• Pembaruan performa dan efisiensi aplikasi yang lebih optimal.\n• Penyempurnaan tata letak tombol dan antarmuka pengguna.\n• Peningkatan stabilitas pencatatan data.';
+    }
+
+    // 2. Filter raw body: remove URLs, markdown links, git commit hashes, PR merge text
+    final lines = raw.split('\n');
+    final cleanLines = <String>[];
+    for (final line in lines) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) continue;
+      // Skip github comparison or commit links
+      if (trimmed.contains('http://') ||
+          trimmed.contains('https://') ||
+          trimmed.toLowerCase().contains('full changelog') ||
+          trimmed.toLowerCase().startsWith('merge pull request') ||
+          trimmed.toLowerCase().startsWith('merge branch')) {
+        continue;
+      }
+      // If line is markdown header, remove hashes
+      final sanitized = trimmed.replaceAll(RegExp(r'^#+\s*'), '').trim();
+      if (sanitized.isNotEmpty) {
+        cleanLines.add(sanitized.startsWith('•') || sanitized.startsWith('-')
+            ? sanitized
+            : '• $sanitized');
+      }
+    }
+
+    if (cleanLines.isEmpty) {
+      return '• Pembaruan performa dan efisiensi aplikasi yang lebih optimal.\n• Penyempurnaan tata letak tombol dan antarmuka pengguna.\n• Peningkatan stabilitas pencatatan data.';
+    }
+
+    return cleanLines.join('\n');
   }
 
   @override
@@ -164,9 +210,7 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      widget.releaseInfo.body.trim().isNotEmpty
-                          ? widget.releaseInfo.body.trim()
-                          : 'Perbaikan performa, stabilitas, dan fitur baru untuk pengalaman pencatatan keuangan yang lebih baik.',
+                      _getUserFriendlyReleaseNotes(),
                       style: GoogleFonts.manrope(
                         color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
                         fontSize: 12,
@@ -260,15 +304,20 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: mutedColor,
                           side: BorderSide(color: borderColor),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: Text(
-                          'Nanti Saja',
-                          style: GoogleFonts.manrope(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'Nanti Saja',
+                            maxLines: 1,
+                            style: GoogleFonts.manrope(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
@@ -284,15 +333,20 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                           backgroundColor: const Color(0xFF02539A),
                           foregroundColor: Colors.white,
                           elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: Text(
-                          _errorMessage != null ? 'Coba Lagi' : 'Perbarui Sekarang',
-                          style: GoogleFonts.manrope(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            _errorMessage != null ? 'Coba Lagi' : 'Update Now',
+                            maxLines: 1,
+                            style: GoogleFonts.manrope(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),

@@ -19,6 +19,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Extract and validate app version
+        run: |
+          APP_VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f1 | tr -d '[:space:]')
+          echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+          echo "Target app version: v$APP_VERSION"
+
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "v$APP_VERSION" ]; then
+            echo "Release tag $GITHUB_REF_NAME does not match pubspec version v$APP_VERSION."
+            exit 1
+          fi
+
       - name: Set up Java 17
         uses: actions/setup-java@v5
         with:
@@ -43,15 +54,19 @@ jobs:
           YOTRO_KEY_PASSWORD: ${{ secrets.YOTRO_KEY_PASSWORD }}
           YOTRO_KEY_ALIAS: ${{ secrets.YOTRO_KEY_ALIAS }}
         run: |
-          if [ -n "$YOTRO_KEYSTORE_BASE64" ]; then
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            if [ -z "$YOTRO_KEYSTORE_BASE64" ] || [ -z "$YOTRO_STORE_PASSWORD" ] || [ -z "$YOTRO_KEY_PASSWORD" ] || [ -z "$YOTRO_KEY_ALIAS" ]; then
+              echo "Tagged releases require all four production signing secrets."
+              exit 1
+            fi
+
             echo "Restoring production release keystore from GitHub Secrets..."
             echo "$YOTRO_KEYSTORE_BASE64" | base64 --decode > android/yotro-release-key.jks
             printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=../yotro-release-key.jks\n' \
               "$YOTRO_STORE_PASSWORD" "$YOTRO_KEY_PASSWORD" "$YOTRO_KEY_ALIAS" \
               > android/key.properties
           else
-            echo "Notice: YOTRO_KEYSTORE_BASE64 is not configured in GitHub Secrets."
-            echo "Generating self-signed CI release keystore to allow build to succeed..."
+            echo "Generating an ephemeral key for non-release CI validation..."
             keytool -genkeypair -v -keystore android/yotro-release-key.jks \
               -storepass yotroci123 -alias yotro -keypass yotroci123 \
               -keyalg RSA -keysize 2048 -validity 10000 \
@@ -68,7 +83,7 @@ jobs:
 
       - name: Build safe release APK
         run: |
-          flutter build apk --release --split-per-abi --no-tree-shake-icons --android-skip-build-dependency-validation
+          flutter build apk --release --split-per-abi --target-platform android-arm64 --no-tree-shake-icons --android-skip-build-dependency-validation
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/yotro-app.apk
 
       - name: Build web release
@@ -79,17 +94,10 @@ jobs:
         with:
           name: yotro-safe-release
           path: |
-            build/app/outputs/flutter-apk/*.apk
+            build/app/outputs/flutter-apk/yotro-app.apk
             build/web/**
           if-no-files-found: error
           retention-days: 14
-
-      - name: Extract app version
-        id: get_version
-        run: |
-          APP_VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f1 | tr -d '[:space:]')
-          echo "APP_VERSION=$APP_VERSION" >> $GITHUB_ENV
-          echo "Target Release Version: v$APP_VERSION"
 
       - name: Publish to GitHub Releases
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
@@ -100,7 +108,12 @@ jobs:
           files: |
             build/app/outputs/flutter-apk/yotro-app.apk
             build/app/outputs/flutter-apk/*.apk
-          generate_release_notes: true
+          generate_release_notes: false
+          body: |
+            ### Catatan Pembaruan Yotro v${{ env.APP_VERSION }}
+            • Pembaruan performa dan efisiensi aplikasi yang lebih optimal.
+            • Penyempurnaan tampilan tombol dan antarmuka pengguna.
+            • Peningkatan stabilitas pencatatan keuangan dan sinkronisasi data.
           draft: false
           prerelease: false
           make_latest: "true"
