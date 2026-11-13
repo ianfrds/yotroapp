@@ -1552,13 +1552,13 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
   - Penambahan method `_handleExistingUserAuthSuccess()` di `OnboardingProfileScreen`: otomatis menarik data transaksi, dompet, dan profil dari Supabase via `pullCloudData()`, menandai onboarding selesai, dan langsung melakukan routing ke `MainShell` (Beranda).
   - Pengecekan cerdas `hasExistingUserData()` di `SupabaseSyncService`: membedakan pendaftar Google baru dengan pengguna Google yang sudah memiliki akun/data.
   - Penyempurnaan `SplashScreen`: mendeteksi sesi Supabase aktif yang belum sinkron lokal dan mengarahkan langsung ke Beranda.
-- [x] Perbaikan CI/CD GitHub Actions & AGP Compatibility (`.github/workflows/build-apk.yml`, `android/settings.gradle`, `android/gradle/wrapper/gradle-wrapper.properties`, `pubspec.yaml`):
-  - Mengatasi error crash `line 13: ApplicationExtension.getDefaultConfig()` di runner GitHub Actions yang dipicu ketidakcocokan AGP 8.11.1 canary dengan Flutter Gradle Plugin.
-  - Mengatasi error metadata AAR `checkReleaseAarMetadata` yang menuntut AGP >= 8.9.1 untuk dependensi `androidx.browser`, `androidx.activity`, dan `androidx.core`.
-  - Mengatasi dependensi `permission_handler` yang sempat menarik `permission_handler_android: 14.1.1` (memerlukan platform experimental SDK 37) dengan menstabilkannya ke `permission_handler: 11.3.1` (menggunakan compileSdk 34 standar).
-  - Menyelaraskan konfigurasi Android Gradle: AGP `8.9.1`, Kotlin `2.1.0`, Gradle `8.11.1` (`gradle-8.11.1-all.zip`), dan `compileSdk = flutter.compileSdkVersion`.
+- [x] Perbaikan CI/CD GitHub Actions & AGP 9.1.0 Alignment (`.github/workflows/build-apk.yml`, `android/settings.gradle`, `android/gradle/wrapper/gradle-wrapper.properties`, `pubspec.yaml`):
+  - Mengatasi error crash `line 13: ApplicationExtension.getDefaultConfig()` di runner GitHub Actions. Masalah ini merupakan isu resmi Flutter (Flutter SDK stable 3.47+ / 3.50 mengompilasi `flutter-gradle-plugin` terhadap AGP 9.1.0+ sehingga pemanggilan `ApplicationExtension.getDefaultConfig()` pada AGP versi 8.x memicu `NoSuchMethodError`).
+  - Meng-upgrade Android Gradle Plugin ke AGP **`9.1.0`**, Kotlin ke **`2.4.0`**, dan Gradle Wrapper ke **`gradle-9.3.1-all.zip`** (standar resmi Flutter stable terkini).
+  - Menambahkan `"build-tools;36.0.0"` pada instalasi Android SDK runner GitHub Actions.
+  - Mempertahankan `permission_handler: 11.3.1` (platform SDK compileSdk 34 standar, aman dari broken experimental SDK 37).
   - Menambahkan `make_latest: "true"` pada GitHub Actions release step agar setiap release tag atau push ke `main` otomatis menjadi target rilis `latest` di GitHub API (`https://api.github.com/repos/ianfrds/yotroapp/releases/latest`).
-  - Hasil uji: kompilasi lokal (`flutter build apk --release --split-per-abi`) sukses 100% (30.1MB armv7, 36.5MB arm64, 38.7MB x86_64) dan 155 unit & widget test lulus 100%.
+  - Hasil uji: kompilasi lokal (`flutter build apk --release --split-per-abi`) sukses 100% via Gradle 9.3.1 (29.8MB armv7, 36.2MB arm64, 38.5MB x86_64) dan 155 unit & widget test lulus 100%. Web release dan APK tersalin di `yotro-app.apk` dan `build/web/yotro-app.apk`.
 - [x] Verifikasi & Pengujian: Seluruh **155 tests** lulus 100% (`flutter test`). Flutter Web release dan Android Release APK (`yotro-app.apk`) berhasil dikompilasi ulang.
 - [x] File handover AI context di `context.md`.
 - [x] Aturan otomatisasi workspace agent di `AGENTS.md` dan `GEMINI.md` (auto-sync `context.md`).

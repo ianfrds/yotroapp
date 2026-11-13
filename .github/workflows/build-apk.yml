@@ -34,7 +34,7 @@ jobs:
       - name: Set up Android SDK Platform & licenses
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "platforms;android-34" "cmake;3.22.1" || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "platforms;android-34" "build-tools;36.0.0" "cmake;3.22.1" || true
 
       - name: Restore release signing key
         env:
