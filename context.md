@@ -36,17 +36,23 @@ money-tracker/
 ├── assets/
 │   ├── icon/                       # Quick action vector SVGs (Analisis.svg, Budget.svg, Dompet.svg, Split Bill.svg)
 │   └── images/                     # Master assets (app_icon.png, logo.png, logo_splash.png, onboarding_bg.png, onboarding_bg.jpg)
-├── yotro-app.apk                   # Signed safe-release APK v1.0.6+7 ramping ARM64-v8a (35.2 MB; pangkas 63%)
-├── yotro-app-arm64.apk             # Biner terkompresi khusus HP modern (35.2 MB)
+├── yotro-app.apk                   # Signed safe-release APK v2.0.0+8 ramping ARM64-v8a (36.5 MB) dengan In-App OTA Updater, Changelog, Unified Onboarding Auth, & Dynamic Versioning
+├── yotro-app-arm64.apk             # Biner terkompresi khusus HP modern (36.5 MB)
 ├── yotro-app-universal.apk         # Biner multi-arsitektur lengkap (94.2 MB)
 ├── web/
 │   ├── favicon.png                 # Official brand 32x32 favicon
 │   ├── icons/                      # Web icons (192x192, 512x512 maskable)
 │   └── index.html                  # Bootstrap Flutter Web/PWA bersih (zero floating overlay)
+├── supabase/
+│   ├── config.toml                 # Konfigurasi Supabase project ref njjcviwihzvzjgfbzitg
+│   └── migrations/
+│       ├── 20261113000000_init_yotro_schema.sql      # DDL skema database (profiles, wallets, categories, transactions, budgets, RLS)
+│       └── 20261113000001_delete_user_account.sql    # PostgreSQL RPC SECURITY DEFINER delete_user_account() untuk hapus akun aman
 ├── lib/
 │   ├── main.dart                   # Entry point aplikasi Flutter (YotroApp)
 │   ├── config/
-│   │   └── app_capabilities.dart   # Build-time capability gate untuk Notification Reader sensitif
+│   │   ├── app_capabilities.dart   # Build-time capability gate untuk Notification Reader sensitif
+│   │   └── supabase_config.dart    # Konfigurasi Supabase project ref, default URL, fallback aman & persistensi
 │   ├── widgets/
 │   │   ├── ambient_top_glow.dart   # Reusable atmospheric sapphire radial glow widget untuk background 4 layar utama
 │   │   ├── app_snackbar.dart       # High-contrast floating snackbar helper (anti-slop, rounded, with status icons)
@@ -59,6 +65,7 @@ money-tracker/
 │   │   ├── spending_calendar_card.dart # Kalender pengeluaran harian
 │   │   ├── nested_card.dart        # Reusable card-inside-card container
 │   │   ├── modal_card_sheet.dart   # Reusable floating modal bottom sheet
+│   │   ├── app_update_dialog.dart  # Modal dialog notifikasi pembaruan OTA dark matte & progress bar unduhan
 │   │   ├── circular_spectrum_visualizer.dart # Circular spectrum halus: standby outline + waveform radial audio-reaktif
 │   │   ├── voice_recording_sheet.dart # Facade kompatibilitas pembuka layar penuh perekam suara
 │   │   ├── voice_multi_item_summary_sheet.dart # Lembar ringkasan multi-item vertikal, inline edit, dan simpan batch
@@ -72,12 +79,16 @@ money-tracker/
 │   │   ├── budget_model.dart       # Model anggaran bulanan & anggaran per kategori
 │   │   ├── notification_rule_model.dart # Aturan pemicu/abaikan deteksi notifikasi & antrean pending approval
 │   │   ├── receipt_data_model.dart # Model ekstraksi data struk OCR (total, merchant, tanggal, kategori, alternatif)
-│   │   └── voice_transaction_item.dart # Model ekstraksi item transaksi suara & hasil agregat validasi
+│   │   ├── voice_transaction_item.dart # Model ekstraksi item transaksi suara & hasil agregat validasi
+│   │   └── changelog_model.dart    # Model item riwayat rilis versi aplikasi (versi, tanggal rilis, daftar perubahan)
 │   ├── providers/
 │   │   └── transaction_provider.dart # State manager, mutasi saldo, kalkulasi budget, tema (system/light/dark), pembaca notifikasi, I/O
 │   ├── services/
+│   │   ├── app_update_service.dart # Layanan pemeriksaan pembaruan OTA in-app via GitHub Releases API, stream unduhan & installer
 │   │   ├── voice_transaction_parser_service.dart # Mesin parsing suara NLP on-device multi-item bahasa Indonesia
 │   │   ├── storage_service.dart    # Helper abstraksi penyimpanan lokal
+│   │   ├── supabase_auth_service.dart # Otentikasi Supabase (Daftar manual Email+Password+Nama, Masuk Email, Google OAuth, status sesi, sign out & error formatting)
+│   │   ├── supabase_sync_service.dart # Mesin sinkronisasi offline-first dua arah (Local <-> Cloud PostgreSQL)
 │   │   ├── backup_storage_service.dart # Export/Download berkas cadangan JSON lintas platform (Web & Android)
 │   │   ├── backup_storage_stub.dart    # Implementasi ekspor cadangan via temporary file & system share sheet (Android/iOS)
 │   │   ├── backup_storage_web.dart     # Implementasi unduh berkas cadangan via Blob & HTML anchor download (Web)
@@ -90,7 +101,8 @@ money-tracker/
 │   │       ├── receipt_scanner_stub.dart     # Stub implementasi platform
 │   │       └── receipt_scanner_platform.dart # Conditional export lintas platform
 │   ├── screens/
-│   │   ├── splash_screen.dart      # Layar Splash Screen beranimasi dengan logo Yotro & navigasi kondisional onboarding/main
+│   │   ├── splash_screen.dart      # Layar Splash Screen beranimasi dengan logo Yotro & navigasi kondisional auth/main
+│   │   ├── auth_screen.dart        # Layar Autentikasi Multi-Opsi (Daftar Email + Nama + Password, Masuk Email, Google OAuth, & Mode Tamu 100% Offline)
 │   │   ├── onboarding_profile_screen.dart # Layar Baru Onboarding Data Pengguna Pertama Kali (Nama, No Telp, Gender & trigger izin notifikasi native)
 │   │   ├── main_shell.dart         # Scaffold utama dengan IndexedStack, Floating Dock, dan PopScope (double back exit / return to Beranda)
 │   │   ├── dashboard_screen.dart   # Layar Beranda (Hero Card dengan AppMonthFilterPill, Quick Action, Transaksi, bell navigates to NotificationsCenterScreen)
@@ -126,7 +138,7 @@ money-tracker/
 │       ├── balance_card.dart       # Kartu metrik finansial
 │       ├── category_chip.dart      # Chip pemilihan kategori
 │       └── receipt_adjustment_sheet.dart # Modal sheet penyesuaian/persetujuan hasil scan OCR struk
-├── test/                           # Unit & Widget test suite (117 tests passed)
+├── test/                           # Unit & Widget test suite (155 tests passed)
 │   ├── app_improvements_features_test.dart # Test verifikasi 6 fitur peningkatan antarmuka & opsi tema
 │   ├── receipt_parser_test.dart    # Test unit mesin ekstraksi & heuristik OCR struk
 │   ├── add_transaction_ocr_action_bar_test.dart # Test widget 3-button bottom bar & receipt adjustment sheet
@@ -134,7 +146,16 @@ money-tracker/
 │   ├── transactions_filter_unified_test.dart   # Test filter waktu lengkap riwayat transaksi
 │   ├── voice_recording_sheet_test.dart         # Test circular spectrum, standby, preview web, simulator & autofill form
 │   ├── financial_analysis_ux_test.dart         # Test UX bahasa awam analisis keuangan & panduan bantuan
-│   └── transfer_validation_and_settings_test.dart # Test validasi transfer dompet beda & penyembunyian reset data bawaan di mobile
+│   ├── transfer_validation_and_settings_test.dart # Test validasi transfer dompet beda & penyembunyian reset data bawaan di mobile
+│   ├── wallet_sync_transaction_test.dart       # Test sinkronisasi transaksi otomatis saat tambah/ubah dompet & toggle ON/OFF
+│   ├── supabase_sync_test.dart                 # Test konfigurasi Supabase, graceful fallback, snapshot apply & UI Settings
+│   ├── auth_screen_test.dart                   # Test layar autentikasi multi-opsi (daftar email+nama, masuk, guest 100% lokal & error formatting)
+│   └── app_update_and_changelog_test.dart      # Test changelog metadata, semver comparison logic, changelog sheet & update dialog UI
+├── supabase/
+│   ├── config.toml                 # Konfigurasi Supabase project ref njjcviwihzvzjgfbzitg
+│   └── migrations/
+│       └── 20261113000000_init_yotro_schema.sql # Skema PostgreSQL 5 tabel, index FK, trigger & RLS
+├── .agents/skills/                 # Skills agent resmi Supabase (supabase & supabase-postgres-best-practices)
 ├── design.md                       # Spesifikasi sistem desain & token visual
 ├── AGENTS.md                       # Aturan wajib agent & auto-sync context.md
 ├── GEMINI.md                       # Aturan hierarki workspace Gemini / Antigravity
@@ -250,9 +271,19 @@ money-tracker/
     - Empty state informatif dengan tombol "+ Catat Transaksi" yang otomatis mengisi kategori terkait pada form pencatatan.
   - **Menu Aksi Cepat:** Titik tiga (`...`) di pojok kanan atas untuk mengubah limit budget atau menghapus budget kategori dengan modal konfirmasi aman.
 
-### 3.5 Wallet Management
+### 3.5 Wallet Management (`lib/screens/wallets_screen.dart` & `lib/providers/transaction_provider.dart`)
 - Tipe default: Bank Account, Cash, E-Wallet, Savings, Other.
 - Fitur: Multi-wallet dengan saldo terpisah, mutasi transfer antar-dompet, riwayat per dompet.
+- **Sinkronisasi Otomatis Transaksi dari Penambahan & Pengeditan Dompet:**
+  - **Penambahan Dompet Baru:** Jika dompet dibuat dengan saldo awal > 0, otomatis mencatat transaksi pemasukan (`TransactionType.income`) berjudul `Saldo Awal - [Nama Dompet]` dengan kategori `Lainnya` (`other_inc`) dan nominal sesuai saldo awal. Saldo dompet terisi otomatis via `addTransaction` tanpa risiko *double counting*.
+  - **Pengeditan Saldo Dompet:** Saat saldo dompet diubah dari $S_{lama}$ ke $S_{baru}$ (selisih $\Delta = S_{baru} - S_{lama}$):
+    - Jika $\Delta > 0$ (saldo bertambah): Otomatis mencatat transaksi pemasukan (`TransactionType.income`) berjudul `Penyesuaian Saldo - [Nama Dompet]` nominal $\Delta$.
+    - Jika $\Delta < 0$ (saldo berkurang): Otomatis mencatat transaksi pengeluaran (`TransactionType.expense`) berjudul `Penyesuaian Saldo - [Nama Dompet]` nominal $|\Delta|$.
+    - Jika $\Delta == 0$: Tidak ada transaksi yang dicatat (hanya nama/tipe dompet yang diperbarui).
+  - **Dua Tingkat Kendali Toggle ON/OFF:**
+    1. **Toggle Global di Halaman Dompet:** Kartu `NestedCard` ("Otomatisasi Transaksi") dengan switch "Sinkronkan ke Transaksi" yang tersimpan persisten ke `SharedPreferences` (`syncWalletToTransactions`, default `true`).
+    2. **Toggle Lokal di Modal Sheet:** Switch interaktif di dalam modal bottom sheet tambah/ubah dompet ("Catat ke Transaksi") memungkinkan pengguna mengaktifkan/menonaktifkan sinkronisasi transaksi per-aksi secara instan.
+  - **Onboarding Aman:** Penambahan dompet saat pertama kali pengguna menyelesaikan onboarding profil diatur `syncToTransaction: false` agar tidak mengotori riwayat transaksi perdana pengguna.
 
 ### 3.6 Reports & Analytics (Layar Laporan / Report Screen Redesign)
 - **Rhythm & Spasi Antar-Kartu (Universal 12px Spacing):**
@@ -419,21 +450,29 @@ money-tracker/
   - Tombol aksi `Ubah Nama >` membuka dialog untuk mengedit nama secara instan dan memperbarui greeting di Beranda.
   - 3 Metrik Finansial Ringkas: Jumlah catatan transaksi, jumlah dompet aktif, dan total pengeluaran bulan berjalan.
 - **2. Preferensi Finansial:**
-  - **Mata Uang Acuan:** Dropdown IDR (Rp) vs USD (\$) tersinkron ke `provider.setCurrency` (tampilan ringkas title-only).
-  - **Preferensi Tampilan (3 Mode):** Menggantikan switch lama dengan bottom sheet pilihan (`showModalCardSheet`) yang memiliki 3 mode:
-    1. `Complete View`: Tampilan default lengkap (saldo, pengeluaran, pemasukan).
-    2. `Pemasukan dan Pengeluaran`: Sembunyikan view saldo saat ini di kartu beranda.
-    3. `Pengeluaran saja`: Fokus pada tampilan pengeluaran saja (tanpa saldo & pemasukan).
-- **3. Cadangan & Pemulihan Data (Offline JSON — Modal Bottom Sheet):**
+  - **Mata Uang Acuan:** Dropdown IDR (Rp) vs USD ($) tersinkron ke `provider.setCurrency` (tampilan ringkas title-only).
+  - **Preferensi Tampilan (3 Mode):** Menggantikan switch lama dengan bottom sheet pilihan (`showModalCardSheet`) yang memiliki 3 mode: Complete View, Pemasukan dan Pengeluaran, dan Pengeluaran saja.
+- **3. Sinkronisasi Cloud (Private Cloud Sync & Keamanan Akun):**
+  - Menampilkan status koneksi ("Mode Offline (Lokal)" vs "Terhubung sebagai [email]" / "Akun Cloud Terhubung").
+  - Bebas dari ekspos kredensial teknis: Tombol dan modal sheet kredensial Supabase dihilangkan agar antarmuka privat dan tidak membingungkan pengguna awam. Kredensial telah tertanam aman di `SupabaseConfig`.
+  - Tombol aksi utama "Masuk / Hubungkan Akun" dan "Masuk dengan Google".
+  - **Keamanan Akun (Hanya tampil saat Terhubung Cloud):**
+    - **Ganti Kata Sandi:** Dialog modal bergaya Card-Inside-Card (`_showChangePasswordSheet`) untuk memasukkan kata sandi baru dan konfirmasi kata sandi, yang memvalidasi minimal 6 karakter dan kesesuaian sandi sebelum memanggil `SupabaseAuthService.updatePassword`.
+    - **Lupa Kata Sandi:** Dialog modal (`_showForgotPasswordSheet`) untuk mengirimkan tautan pemulihan sandi langsung ke email akun cloud yang sedang aktif melalui `SupabaseAuthService.resetPassword`.
+    - **Mode Offline Bersih:** Saat dalam mode tamu/offline, sub-bagian Keamanan Akun tidak ditampilkan karena data tersimpan lokal tanpa kata sandi.
+  - Saat terhubung: Tombol "Sinkronkan Sekarang" dan opsi "Keluar dari Akun Cloud".
+- **4. Cadangan & Pemulihan Data (Offline JSON — Modal Bottom Sheet):**
   - **Ekspor Cadangan:** Menampilkan preview string format snapshot JSON lengkap dan tombol `Salin JSON ke Clipboard` dalam bottom sheet modal.
   - **Pulihkan Data (Restore):** Validasi format JSON otomatis (`validateBackupJson`), menampilkan ringkasan transaksi & dompet yang terdeteksi, serta dua pilihan aksi pemulihan aman: `Merge Data` (menggabungkan tanpa duplikasi ID) atau `Replace Data` (menimpa seluruh database) dalam bottom sheet modal.
-- **4. Zona Bahaya (Danger Zone — Modal Bottom Sheet):**
+- **5. Zona Bahaya (Danger Zone — Modal Bottom Sheet):**
   - **Kosongkan Riwayat Transaksi:** Bottom sheet konfirmasi merah untuk menghapus seluruh riwayat mutasi dan menolkan saldo rekening.
+  - **Hapus Akun Pengguna:** Modal konfirmasi destruktif permanen bertajuk **"Hapus Akun Yotro?"** dan peringatan bahwa **"Akun Yotro Anda"** beserta seluruh data akan dihapus secara total. Menghapus akun di database cloud via RPC dan membersihkan memori lokal sebelum diarahkan kembali ke Onboarding.
   - **Reset ke Data Bawaan (Factory Seed):** Menyetel nama default pengguna menjadi **"John Doe"** dan memuat 17 transaksi realistis lintas 4 dompet dan 5 kategori anggaran.
-  - **Catatan Pembersihan:** Tombol "Keluar Akun (Uji Onboarding)" telah dihapus permanen dari zona bahaya dan beranda agar APK rilis bersih tanpa opsi logout pengujian.
-- **5. Tentang Aplikasi & Keamanan:**
-  - Badge `Offline-First` hijau pada header.
-  - Keterangan status database lokal (`SharedPreferences`), nihil pelacakan cloud, dan arsitektur anti-slop.
+- **6. Tentang Aplikasi:**
+  - Header kartu bersih berlabel "Tentang Aplikasi".
+  - Menampilkan logo Yotro, nama aplikasi "Yotro", dan label "Versi 2.0.0".
+  - Baris teknis redundan (Database, Privasi, Lisensi) telah dibersihkan secara total.
+  - Pada platform web: Dilengkapi tombol "Unduh APK Android (v2.0.0)" untuk instalasi instan ke smartphone.
 
 ### 3.10 Sub-Menu Kelola Kategori (`lib/screens/manage_categories_screen.dart`)
 - **Akses Navigasi:** Berada di dalam layar Pengaturan under "Preferensi Finansial" > baris "Kelola Kategori" (`Icons.category_outlined`).
@@ -682,6 +721,65 @@ money-tracker/
     - `WalletsScreen`: Sheet Tambah/Edit Dompet (`Simpan Dompet` & tombol hapus), Konfirmasi Hapus Dompet (`Batal` & `Hapus Dompet`).
     - `BudgetScreen`: Sheet Edit Anggaran Kategori (`Simpan Anggaran`), Edit Total Anggaran Bulanan (`Simpan Perubahan`), Kartu Kosong (`Atur Anggaran Bulanan`).
   - Menghilangkan tombol-tombol kerdil yang sebelumnya hanya berukuran 38-44px, memberikan touch target ergonomis dan visual premium anti-slop.
+
+### 3.26 Integrasi Cloud Supabase (Google Sign-In, MCP Server & Offline-First Sync)
+- **Koneksi MCP Supabase**: Mendaftarkan server MCP resmi Supabase (`https://mcp.supabase.com/mcp?project_ref=njjcviwihzvzjgfbzitg&...`) di `~/.gemini/antigravity/mcp_config.json`.
+- **Konfigurasi Proyek & Graceful Fallback (`SupabaseConfig` — `lib/config/supabase_config.dart`)**:
+  - Project reference default `njjcviwihzvzjgfbzitg`, URL `https://njjcviwihzvzjgfbzitg.supabase.co`.
+  - Inisialisasi aman dalam blok `try-catch` sehingga aplikasi 100% fungsional offline tanpa gangguan jika kredensial belum diisi atau sedang tanpa jaringan internet.
+  - Mendukung input/edit kredensial mandiri melalui form modal di layar Pengaturan.
+- **Otentikasi Google Sign-In (`SupabaseAuthService` — `lib/services/supabase_auth_service.dart`)**:
+  - Tombol aksi satu klik "Masuk dengan Google" memanfaatkan `supabase.auth.signInWithOAuth(OAuthProvider.google)` dengan deep-link mobile `io.supabase.yotro://login-callback`.
+- **Mesin Sinkronisasi Dua Arah (`SupabaseSyncService` — `lib/services/supabase_sync_service.dart`)**:
+  - Sinkronisasi tabel PostgreSQL dengan RLS: `profiles`, `wallets`, `categories`, `transactions`, dan `budgets`.
+  - Eksekusi non-blocking di latar belakang saat transaksi dibuat atau dihapus.
+- **Kartu Sinkronisasi Cloud di Pengaturan (`lib/screens/settings_screen.dart`)**:
+  - Menampilkan status koneksi ("Mode Tamu (100% Lokal)" vs "Terhubung sebagai [email]").
+  - Tombol aksi utama "Masuk / Hubungkan Akun" membuka `AuthScreen(fromSettings: true)` dan tombol sekunder "Masuk dengan Google".
+  - Saat terhubung: tombol "Sinkronkan Sekarang" dan opsi "Keluar" kembali ke mode lokal.
+
+### 3.12 Otentikasi Multi-Opsi & Mode Tamu 100% Offline (`AuthScreen` — `lib/screens/auth_screen.dart`)
+- **Layar Autentikasi Mandiri (`AuthScreen`):**
+  - Menjadi gerbang awal saat aplikasi dibuka pertama kali (`!provider.isOnboardingCompleted`) sebelum masuk ke alur utama.
+  - Menghadirkan kontrol tab segmen halus antara **Daftar Baru** dan **Masuk**.
+  - **1. Pendaftaran Manual (Daftar Baru):**
+    - Input: Nama Lengkap, Email, Kata Sandi (min. 6 karakter dengan toggle visibilitas), dan Ulangi Kata Sandi (validasi kesesuaian).
+    - Memanggil `SupabaseAuthService.signUpWithEmail(email, password, fullName)`.
+    - PostgreSQL trigger otomatis `on_auth_user_created` di Supabase langsung mengisi baris `profiles` dengan nama dan email pengguna.
+    - Menangani dua skenario pendaftaran: auto-confirmed session (langsung masuk) dan email confirmation requirement (dialog petunjuk ramah pengguna).
+  - **2. Masuk Manual (Masuk):**
+    - Input: Email dan Kata Sandi dengan tautan pemulihan "Lupa kata sandi?".
+    - Memanggil `SupabaseAuthService.signInWithEmail(email, password)`.
+    - Pesan error teknis Supabase diformat menjadi bahasa Indonesia awam yang ramah (`formatAuthException`).
+    - **Bypass Onboarding Akun Terdaftar:** User yang masuk via tab "Masuk" langsung menarik data cloud via `SupabaseSyncService.pullCloudData()`, menandai `isOnboardingCompleted = true`, dan langsung diarahkan ke `MainShell` (Beranda) tanpa masuk ke tahapan setup ulang.
+  - **3. Masuk dengan Google:**
+    - Tombol vektor clean "Lanjutkan dengan Google" menjalankan `SupabaseAuthService.signInWithGoogle()`.
+    - **Deteksi Akun Terdaftar (`hasExistingUserData`):** Memeriksa apakah user Google telah memiliki data dompet/transaksi/profil cloud atau akun terdaftar lama. Jika terdaftar, otomatis menarik data cloud dan langsung masuk ke Beranda. Jika user Google baru pertama kali, diarahkan ke Step 1 untuk memilih preferensi awal.
+  - **4. Mode Tamu / Lewati (100% Offline First):**
+    - Pilihan aksi "Lewati / Masuk sebagai Tamu" dengan keterangan *"Mode 100% lokal tanpa sinkronisasi cloud"*.
+    - Mengaktifkan status lokal `provider.continueAsGuest(name: 'Pengguna Tamu')` tanpa memerlukan akun Supabase atau koneksi internet.
+    - Data keuangan (dompet, kategori, transaksi, anggaran) tersimpan 100% aman di memori lokal (`SharedPreferences` / `localStorage`).
+    - Pengguna tamu dapat kapan saja menghubungkan akun atau mendaftar ke Supabase dari menu Pengaturan (`SettingsScreen`), di mana data lokal yang telah dibuat dapat diunggah langsung ke cloud (*push local to remote*).
+
+### 3.27 In-App OTA Updater & Catatan Rilis / Changelog
+- **In-App OTA Updater Android (`AppUpdateService` — `lib/services/app_update_service.dart`)**:
+  - Memeriksa rilis terbaru secara non-blocking via GitHub Releases API (`https://api.github.com/repos/ianfrds/yotroapp/releases/latest`).
+  - Mengambil versi aplikasi lokal saat runtime via `package_info_plus: ^10.2.2`.
+  - Logika komparasi semver dinamis (`isNewerVersion`) membandingkan elemen versi dengan `max(3, max(latestParts.length, currentParts.length))`, menjamin akurasi jika tag rilis memiliki multi-segmen atau pre-release prefix (`v`).
+  - Mengunduh biner APK stream ke direktori cache lokal aplikasi (`path_provider.getTemporaryDirectory()`), menghitung persentase progress unduhan secara real-time.
+  - Membuka installer biner APK menggunakan `open_filex: ^4.7.0` dan FileProvider (`io.supabase.yotro.fileprovider`) yang terkonfigurasi di `android/app/src/main/res/xml/file_paths.xml` dan `AndroidManifest.xml` (`REQUEST_INSTALL_PACKAGES`).
+  - **In-place update guarantee:** Pembaruan in-place Android dengan signature yang sama mempertahankan seluruh data lokal aplikasi (`/data/data/io.supabase.yotro/...`), `SharedPreferences`, sesi login Supabase, dan data transaksi tanpa risiko logout atau data terhapus.
+  - Auto-check non-blocking dipanggil sekali saat startup aplikasi di `MainShell` (`addPostFrameCallback`) hanya untuk platform Android (`!kIsWeb && Platform.isAndroid`).
+- **Modal Dialog Update Berdesain Sapphire (`AppUpdateDialog` — `lib/widgets/app_update_dialog.dart`)**:
+  - Dialog pop-up floating dark matte sapphire (`#0C131D`, border `rgba(255, 255, 255, 0.08)`) dengan rincian versi baru, ukuran unduhan, dan catatan rilis ringkas.
+  - Saat unduhan berjalan, tombol aksi berganti menjadi progress bar animasi halus dengan persentase dan label byte terunduh.
+- **Catatan Rilis (Changelog) di Profil & Pengaturan (`ChangelogData` — `lib/models/changelog_model.dart`)**:
+  - Menu "Catatan Rilis" dihadirkan pada kartu "Tentang Aplikasi" di `SettingsScreen`.
+  - Membuka modal bottom sheet responsif (`_showChangelogSheet`) yang menampilkan riwayat changelog per-versi (v2.0.0, v1.0.6, v1.0.5, v1.0.0).
+  - Setiap rilis dilengkapi nomor versi, badge "Terbaru" (untuk versi rilis aktif), tanggal rilis terformat, dan bullet list perubahan terstruktur.
+- **Workflow CI GitHub Actions (`.github/workflows/build-apk.yml`)**:
+  - Otomatis membuat salinan `yotro-app.apk` dari build `app-arm64-v8a-release.apk`.
+  - Mengintegrasikan aksi `softprops/action-gh-release@v2` saat git tag rilis (misal `v2.0.0`) di-push ke GitHub repository.
 
 ---
 
@@ -1234,11 +1332,11 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
   - **Pembersihan Fitur Persetujuan Transaksi**: Menghapus kartu persetujuan transaksi dan badge pending dari Pusat Notifikasi (`NotificationsCenterScreen`) dan Beranda (`DashboardScreen`), sehingga Pusat Notifikasi kini berfokus murni pada riwayat aktivitas mutasi dan status pengingat harian.
   - **Verifikasi & Build**: Seluruh **117 test** unit & widget lulus 100%, Flutter Web release dikompilasi ke `build/web/`, APK disinkronkan ke `build/web/yotro-app.apk`.
 - [x] Kompilasi Signed Release APK Android v1.0.6+7 ([`yotro-app.apk`](yotro-app.apk) & `build/web/yotro-app.apk`):
-  - Konfigurasi OpenJDK 17 (`/opt/homebrew/opt/openjdk@17`) dan Android SDK 35/37 via Homebrew & Flutter toolchain.
-  - Kompilasi `flutter build apk --release` sukses menghasilkan biner 94.2 MB (`build/app/outputs/flutter-apk/app-release.apk`).
-  - SHA256: `217591be6744e27f2bedfee4250dcfb6964c7cd93d2445e4c4e4d925d7cf0640`.
-  - Disalin ke root `yotro-app.apk` dan `build/web/yotro-app.apk`.
-  - Live download endpoint tersedia di server lokal port 8080: `http://192.168.100.184:8080/yotro-app.apk`.
+  - Konfigurasi OpenJDK 17 (`/opt/homebrew/opt/openjdk@17`) dan Android SDK 35 via Homebrew & Flutter toolchain.
+  - Kompilasi `flutter build apk --release --split-per-abi` sukses menghasilkan biner ARM64 modern 36.3 MB (`build/app/outputs/flutter-apk/app-arm64-v8a-release.apk`).
+  - SHA-256: `ff15b958594b1c17e45c78b9bdc32d1317e6a065bdcb8a35b96227aeee72e2de`.
+  - Disalin ke root `yotro-app.apk`, `yotro-app-arm64.apk`, dan `build/web/yotro-app.apk`.
+  - Live download endpoint tersedia di server lokal port 8080: `http://192.168.111.7:8080/yotro-app.apk`.
 - [x] Pembersihan Berkas Aset Gambar Tidak Terpakai:
   - Menghapus berkas aset gambar yang tidak direferensikan oleh kode: `assets/images/voice_orb_spectrum.jpg`.
   - Memverifikasi seluruh sisa aset gambar aktif (`app_icon.png`, `logo.png`, `logo_splash.png`, `onboarding_bg.jpg`, dan 4 icon SVG cepat).
@@ -1369,6 +1467,92 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
   - Mengatasi kegagalan build APK di GitHub Actions (`Build safe release APK`) yang dipicu dependensi `permission_handler_android` (memerlukan Android SDK Platform 37).
   - Menambahkan instalasi otomatis Android SDK Platform 37.0, lisensi SDK, serta symlink `android-37 -> android-37.0` pada runner GitHub Actions.
   - Menyelaraskan `compileSdk = 37` di `android/app/build.gradle` dan menambahkan flag `--android-skip-build-dependency-validation` pada perintah kompilasi CI.
+- [x] Sinkronisasi Otomatis Transaksi Saat Tambah & Edit Dompet dengan Toggle ON/OFF (`lib/screens/wallets_screen.dart`, `lib/providers/transaction_provider.dart`, `test/wallet_sync_transaction_test.dart`):
+  - **Saldo Awal Dompet Baru:** Otomatis mencatat transaksi pemasukan (`TransactionType.income`) saat penambahan dompet dengan saldo awal > 0 ("Saldo Awal - [Nama]").
+  - **Penyesuaian Saldo Dompet:** Otomatis mencatat transaksi pemasukan (jika saldo naik) atau pengeluaran (jika saldo turun) saat saldo diedit ("Penyesuaian Saldo - [Nama]").
+  - **Kontrol Toggle Dua Tingkat:**
+    1. Kartu `NestedCard` ("Otomatisasi Transaksi") di halaman Dompet dengan switch persisten ke `SharedPreferences` (`syncWalletToTransactions`, default `true`).
+    2. Toggle lokal di dalam modal bottom sheet tambah/edit dompet untuk opsi per-aksi.
+  - **Onboarding Bersih:** Penambahan dompet di onboarding awal diset `syncToTransaction: false`.
+  - **Verifikasi & Build:** Ditambahkan 9 tes baru di `test/wallet_sync_transaction_test.dart`. Seluruh **138 tests** lulus 100% (`flutter test`). Flutter Web release berhasil dikompilasi ke `build/web/`.
+- [x] Integrasi Cloud Supabase (Google Sign-In, MCP Server & Offline-First Sync Engine):
+  - **MCP Supabase Server:** Dikonfigurasi di `~/.gemini/antigravity/mcp_config.json` dan `~/.gemini/config/mcp_config.json` dengan project ref `njjcviwihzvzjgfbzitg`.
+  - **Dependensi & Inisialisasi:** Menambahkan `supabase_flutter: ^2.18.3` dan `lib/config/supabase_config.dart` dengan inisialisasi aman (zero-crash saat offline).
+  - **Otentikasi Google Sign-In:** Disediakan via `lib/services/supabase_auth_service.dart` (`OAuthProvider.google`) lengkap dengan deep-linking `io.supabase.yotro://login-callback` di `AndroidManifest.xml`.
+  - **Mesin Sinkronisasi Dua Arah:** `lib/services/supabase_sync_service.dart` memfasilitasi upload dan pull data PostgreSQL relasional lengkap (`profiles`, `wallets`, `categories`, `transactions`, `budgets`) dengan hook mutasi background.
+  - **UI Pengaturan:** Menambahkan kartu `NestedCard` *"Sinkronisasi Cloud (Supabase)"* di `SettingsScreen` dengan tombol "Masuk dengan Google", "Sinkronkan Sekarang", "Keluar", dan dialog input kredensial mandiri.
+  - **Verifikasi & Build:** Ditambahkan `test/supabase_sync_test.dart`. Seluruh **143 tests** lulus 100% (`flutter test`). Flutter Web release berhasil dikompilasi ke `build/web/`.
+- [x] Instalasi Supabase Agent Skills & Skema Database Lengkap:
+  - Menginstal `supabase/agent-skills` (`.agents/skills/supabase` dan `.agents/skills/supabase-postgres-best-practices`).
+  - Menyiapkan `supabase/config.toml` terhubung ke project ref `njjcviwihzvzjgfbzitg`.
+  - Membuat berkas migrasi lengkap `supabase/migrations/20261113000000_init_yotro_schema.sql` (5 tabel: `profiles`, `wallets`, `categories`, `transactions`, `budgets`, index FK, trigger `updated_at`, trigger `handle_new_user`, dan RLS privat `to authenticated`).
+- [x] Eksekusi Skema Database Supabase via Management API:
+  - Berhasil mengeksekusi migrasi `20261113000000_init_yotro_schema.sql` langsung ke project `njjcviwihzvzjgfbzitg` melalui endpoint Management API (`STATUS 201`).
+  - Terverifikasi 5 tabel aktif: `profiles`, `wallets`, `categories`, `transactions`, dan `budgets` dengan 19 kebijakan Row Level Security (RLS) privat (`to authenticated`).
+  - Mengambil API keys resmi project dan menginjeksi `anon` public key ke `lib/config/supabase_config.dart`.
+  - Supabase CLI login terautentikasi (`npx supabase login --token`).
+- [x] Layar Autentikasi Multi-Opsi & Mode Tamu 100% Offline (`AuthScreen`):
+  - **Layar Baru `lib/screens/auth_screen.dart`:** Gerbang awal saat first-run atau saat ingin menghubungkan akun dari Pengaturan.
+  - **Daftar Manual:** Form Nama Lengkap, Email, Kata Sandi, dan Konfirmasi Kata Sandi via `SupabaseAuthService.signUpWithEmail`. Profil otomatis terbuat di tabel Supabase `profiles` via trigger.
+  - **Masuk Manual:** Form Email & Kata Sandi via `SupabaseAuthService.signInWithEmail` dengan pesan error bahasa Indonesia awam (`formatAuthException`).
+  - **Masuk dengan Google:** Tombol vektor satu sentuhan `SupabaseAuthService.signInWithGoogle()`.
+  - **Mode Tamu / Lewati (100% Offline):** Opsi "Lewati / Masuk sebagai Tamu" mengaktifkan mode lokal murni tanpa akun Supabase (`isGuestMode = true`), zero network request, dan persistensi lokal utuh. Dapat dihubungkan ke cloud kapan saja dari Pengaturan (`pushLocal`).
+  - **Verifikasi & Build:** Ditambahkan 7 test di `test/auth_screen_test.dart`. Seluruh **150 tests** lulus 100% (`flutter test`). Flutter Web release berhasil dikompilasi ke `build/web/`.
+- [x] Pengujian End-to-End Live Supabase (`tool/test_supabase_sync_engine.dart`):
+  - Pengujian live langsung terhadap project Supabase `njjcviwihzvzjgfbzitg` berhasil 100%.
+  - Verifikasi mencakup 9 alur: Sign Up Email+Password+Nama, verifikasi baris `profiles` via trigger, Insert Dompet, Insert Kategori, Insert Transaksi, Update Transaksi, Upsert Anggaran/Budget, Simulasi Pull Cloud Data, dan Sign Out & Re-Login.
+  - Opsi `mailer_autoconfirm: true` diaktifkan di Supabase Auth Config untuk memastikan login instan tanpa hambatan verifikasi email.
+- [x] Perbaikan Redirect Google OAuth & Deep Link Callback:
+  - Mengubah konfigurasi Supabase Auth (`site_url: io.supabase.yotro://login-callback` dan `uri_allow_list`) via Management API untuk mencegah fallback ke `http://localhost:3000` dan error `flow_state_already_used`.
+  - Memperbarui `SupabaseAuthService.signInWithGoogle` dengan `authScreenLaunchMode: LaunchMode.externalApplication` pada mobile untuk memastikan kembalinya intent ke aplikasi secara mulus.
+- [x] Penyatuan Onboarding & Autentikasi (`OnboardingProfileScreen`):
+  - Mengintegrasikan opsi "Lanjutkan dengan Google", modal bottom sheet "Daftar / Masuk Email", serta alur "Tamu / Manual" langsung pada Step 1 Onboarding.
+  - Nama pengguna otomatis diprefill dari Google OAuth metadata (`SupabaseAuthService.userName`) saat login Google berhasil, dan tetap dapat disesuaikan/diedit oleh pengguna sebelum melanjutkan.
+  - Mengarahkan pengguna langsung menyelesaikan setup 4-langkah (Data Diri, Tema & Tampilan, Atur Dompet, Kategori) saat pendaftaran.
+  - Penyelesaian onboarding otomatis mengunggah seluruh setup lokal ke Supabase jika terotentikasi, atau menyimpannya 100% lokal jika mode tamu.
+- [x] Fitur Hapus Akun Pengguna di Zona Bahaya (`SettingsScreen`):
+  - Menginstal PostgreSQL RPC `delete_user_account()` pada Supabase (`SECURITY DEFINER`) yang mengeksekusi `DELETE FROM auth.users WHERE id = auth.uid();` dan secara otomatis meng-cascade penghapusan seluruh data tabel relasional anak (`profiles`, `wallets`, `categories`, `transactions`, `budgets`).
+  - Menambahkan baris "Hapus Akun Pengguna" pada Zona Bahaya di `SettingsScreen` dengan modal konfirmasi destruktif permanen.
+  - Menghapus sesi Supabase, membersihkan seluruh data lokal perangkat via `TransactionProvider.deleteAccount()`, mereset status onboarding, dan mengarahkan kembali ke `OnboardingProfileScreen`.
+- [x] Restrukturisasi Auth Gate & Setup Onboarding Terfokus (`OnboardingProfileScreen`):
+  - **Layar Awal Onboarding (Step 0: Auth Gate):** Menjadikan layar pertama sebagai pusat autentikasi terfokus dengan form input Email & Kata Sandi, switcher tab "Masuk" / "Daftar Baru", tombol utama "Masuk / Daftar", tombol "Lanjutkan dengan Google", serta text button "Masuk tanpa akun" di paling bawah.
+  - **Alur Setup Bertahap (Step 1..4):**
+    - Memilih "Masuk tanpa akun" langsung membawa user ke Step 1 (Data Diri: Nama Lengkap, No. Telp, Gender) dalam mode tamu offline.
+    - Login via Google berhasil otomatis memprefill Nama Lengkap dari metadata Google akun user ke Step 1 (Data Diri), dengan hak edit 100% tetap bebas disesuaikan user.
+    - Login/Daftar via Email & Kata Sandi berhasil langsung membawa user ke Step 1 (Data Diri).
+    - Setup multi-step lanjutan (Step 2: Tema & Tampilan, Step 3: Atur Dompet & Rekening, Step 4: Kategori Transaksi) tetap berjalan runtut dengan tombol "Lanjutkan" / "Lewati" dan diakhiri dengan tombol "Mulai Mencatat".
+  - **Stepper Dinamis:** Indikator progress 4 langkah disembunyikan saat di Auth Gate (Step 0) dan aktif saat memasuki tahapan setup (Step 1..4).
+- [x] Pembersihan Branding & Antarmuka Profil Pengguna (`SettingsScreen` & `OnboardingProfileScreen`):
+  - Mengubah teks alert dan modal dialog hapus akun menjadi "Akun Yotro" ("Hapus Akun Yotro?", "Akun Yotro Anda").
+  - Menghilangkan seluruh teks dan kata "Supabase" pada antarmuka UI pengguna (`SettingsScreen` dan `OnboardingProfileScreen`), menggantikannya dengan "Akun Cloud" / "Sinkronisasi Cloud".
+  - Menyederhanakan kartu "Tentang Aplikasi" dengan membuang baris Database, Privasi, dan Lisensi.
+  - Menghilangkan tombol konfigurasi kredensial Supabase (`_showSupabaseConfigSheet`) dari Sinkronisasi Cloud, menjadikan koneksi cloud privat dan seamless tanpa ekspos pengaturan teknis.
+  - Verifikasi: Seluruh 150 tests lulus 100%. Kompilasi ulang Web dan APK release Android (`yotro-app.apk`).
+- [x] Fitur Lupa Kata Sandi & Ganti Kata Sandi:
+  - **Login Onboarding (`OnboardingProfileScreen`):** Tombol "Lupa kata sandi?" di bawah field password pada tab Masuk memicu modal sheet (`_showForgotPasswordSheet`) untuk mengirimkan link reset via email (`SupabaseAuthService.resetPassword`).
+  - **Profil & Pengaturan (`SettingsScreen`):**
+    - Sub-bagian "Keamanan Akun" di kartu Sinkronisasi Cloud hanya muncul jika akun terhubung (`isAuthenticated == true`).
+    - Opsi **Ganti Kata Sandi**: Modal sheet (`_showChangePasswordSheet`) untuk menginput kata sandi baru dan konfirmasi kata sandi via `SupabaseAuthService.updatePassword`.
+    - Opsi **Lupa Kata Sandi**: Modal sheet (`_showForgotPasswordSheet`) untuk mengirimkan tautan pemulihan sandi ke email akun cloud terdaftar.
+    - Mode offline tetap bersih tanpa opsi kata sandi karena data tersimpan 100% lokal di perangkat.
+  - **Backend Auth Service (`SupabaseAuthService`):** Penambahan method `updatePassword`, parameter `redirectTo` di `resetPassword`, dan pesan error bahasa Indonesia awam yang ramah di `formatAuthException`.
+  - **Verifikasi & Build:** 151 unit & widget tests lulus 100% (`flutter test`). Kompilasi Web dan APK rilis Android berhasil.
+- [x] In-App OTA Updater Android & Menu Catatan Rilis (Changelog):
+  - **OTA Updater Service (`AppUpdateService`):** Integrasi GitHub Releases API (`repos/ianfrds/yotroapp/releases/latest`), komparasi semver dinamis (`maxParts` array matching), stream download biner APK dengan progress persentase, dan instalasi APK via FileProvider (`open_filex` + `REQUEST_INSTALL_PACKAGES`).
+  - **In-Place Update Guarantee:** Pembaruan aplikasi via APK terverifikasi tidak menghapus sesi login Supabase maupun data lokal (`/data/data/io.supabase.yotro/...`).
+  - **Modal Dialog Update (`AppUpdateDialog`):** Dialog dark matte sapphire dengan catatan rilis ringkas dan progress bar animasi unduhan.
+  - **Menu Catatan Rilis (Changelog):** Hadir pada kartu "Tentang Aplikasi" di `SettingsScreen`, menampilkan modal bottom sheet (`_showChangelogSheet`) dengan riwayat versi lengkap (`ChangelogData` di `lib/models/changelog_model.dart`).
+  - **Workflow GitHub Actions (`build-apk.yml`):** Ditambahkan build copy ke `yotro-app.apk` dan rilis otomatis via `softprops/action-gh-release@v2`.
+- [x] Sinkronisasi Versi Aplikasi (Pubspec, Runtime PackageInfo, & Settings UI):
+  - Memperbarui versi master di `pubspec.yaml` dari `1.0.6+7` menjadi `2.0.0+8` sehingga Android Package Manager secara resmi mengenali `versionName: 2.0.0` dan `versionCode: 2008`.
+  - Mengubah tampilan versi pada menu "Tentang Aplikasi" di `SettingsScreen` dari hardcoded text menjadi `FutureBuilder<String>` dinamis via `AppUpdateService.getCurrentVersion()`.
+  - Menghilangkan diskrepansi antara dialog installer OS Android dengan label versi internal aplikasi.
+- [x] Bypass Onboarding Otomatis untuk Akun Terdaftar (Email & Google):
+  - Eliminasi bug di mana akun yang sudah terdaftar dipaksa masuk ke Onboarding Setup ulang.
+  - Penambahan method `_handleExistingUserAuthSuccess()` di `OnboardingProfileScreen`: otomatis menarik data transaksi, dompet, dan profil dari Supabase via `pullCloudData()`, menandai onboarding selesai, dan langsung melakukan routing ke `MainShell` (Beranda).
+  - Pengecekan cerdas `hasExistingUserData()` di `SupabaseSyncService`: membedakan pendaftar Google baru dengan pengguna Google yang sudah memiliki akun/data.
+  - Penyempurnaan `SplashScreen`: mendeteksi sesi Supabase aktif yang belum sinkron lokal dan mengarahkan langsung ke Beranda.
+- [x] Verifikasi & Pengujian: Seluruh **155 tests** lulus 100% (`flutter test`). Flutter Web release dan Android Release APK (`yotro-app.apk`) berhasil dikompilasi ulang.
 - [x] File handover AI context di `context.md`.
 - [x] Aturan otomatisasi workspace agent di `AGENTS.md` dan `GEMINI.md` (auto-sync `context.md`).
 
@@ -1391,14 +1575,29 @@ Saat melanjutkan proyek ini:
    - Mendukung 3 mode: `ThemeMode.system`, `ThemeMode.light`, `ThemeMode.dark` tersimpan persisten di `SharedPreferences`.
 5. **Month Filter Konsisten:**
    - Gunakan `AppMonthFilterPill` dan `showAppMonthFilterSheet` dari `lib/widgets/month_filter_sheet.dart` untuk semua filter periode bulanan di Beranda, Analisis, dan Laporan Keuangan.
-6. **Keamanan Sideload & Izin Minimal:**
+6. **Sinkronisasi Dompet & Transaksi:**
+   - Perubahan saldo dompet memicu transaksi pemasukan/pengeluaran otomatis jika `syncWalletToTransactions` bernilai `true`.
+   - `addWallet()` dan `updateWallet()` menerima parameter opsional `bool? syncToTransaction` untuk kontrol per-aksi.
+7. **Integrasi Cloud, Multi-Auth, Auth Gate Onboarding & Hapus Akun:**
+   - Backend Cloud: Supabase project `njjcviwihzvzjgfbzitg` (`https://njjcviwihzvzjgfbzitg.supabase.co`) terintegrasi privat di `SupabaseConfig`.
+   - Zero "Supabase" text di user interface: Seluruh UI merujuk ke "Akun Cloud", "Sinkronisasi Cloud", dan "Akun Yotro".
+   - Layar Onboarding: Step 0 adalah Auth Gate (Email & Password, Google Sign-In, Masuk tanpa akun). Memilih opsi manapun mengalirkan user ke Step 1 (Data Diri, nama prefill dari Google 100% editable) -> Step 2 (Tema & Tampilan) -> Step 3 (Dompet) -> Step 4 (Kategori).
+   - Hapus Akun via RPC `delete_user_account()` di PostgreSQL cascade delete data `auth.users` dan tabel relasional. Dialog bertajuk "Hapus Akun Yotro?".
+   - Aplikasi mempertahankan prinsip offline-first (zero hard crash jika offline atau anon key kosong).
+   - MCP Supabase terhubung di `~/.gemini/antigravity/mcp_config.json`.
+8. **In-App OTA Updater & Changelog Invariants:**
+   - Model rilis GitHub: `ianfrds/yotroapp`.
+   - `package_info_plus: ^10.2.2` & `open_filex: ^4.7.0` mengelola deteksi versi dan instalasi paket.
+   - Penambahan rilis baru cukup dengan memperbarui `ChangelogData.releases` di `lib/models/changelog_model.dart` dan membuat git tag release.
+   - Sesi login akun dan database SQLite/SharedPreferences aman dari logout saat update berjalan.
+9. **Keamanan Sideload & Izin Minimal:**
    - Fitur pembaca notifikasi real-time (`BIND_NOTIFICATION_LISTENER_SERVICE`) telah **dihapus permanen** agar APK sideload tidak memicu peringatan Android Restricted Settings atau dianggap membahayakan.
-   - Aplikasi hanya menggunakan izin notifikasi standar lokal (`POST_NOTIFICATIONS`, `VIBRATE`, `RECEIVE_BOOT_COMPLETED`) untuk pengingat transaksi harian offline.
-   - Jangan pernah menambahkan kembali service pembaca notifikasi tanpa persetujuan eksplisit user.
-7. **Kategori Finansial:**
+   - Aplikasi hanya menggunakan izin notifikasi standar lokal (`POST_NOTIFICATIONS`, `VIBRATE`, `RECEIVE_BOOT_COMPLETED`) untuk pengingat transaksi harian offline dan `REQUEST_INSTALL_PACKAGES` untuk update mandiri in-app.
+10. **Kategori Finansial:**
    - Seluruh kategori default wajib menggunakan Bahasa Indonesia (Makanan & Minuman, Transportasi, Belanja, Tagihan & Utilitas, dsb).
-   - Form catat transaksi menyediakan pembuatan kategori instan di halaman yang sama (`_openAddCategoryModal`).
-8. **Sinkronisasi `context.md` Wajib:** Setiap kali berkas diubah, perbarui `context.md` sebelum mengakhiri giliran.
-9. **Tone Komunikasi:** Sesuai preferensi user, berikan jawaban terfokus pada hasil teknis (*terse smart caveman*), langsung ke fakta dan link berkas.
-10. **Preview Web:** Build Flutter Web adalah sumber preview yang setara dengan kode `lib/`; disajikan di `http://localhost:8080/`.
+11. **Sinkronisasi `context.md` Wajib:** Setiap kali berkas diubah, perbarui `context.md` sebelum mengakhiri giliran.
+12. **Tone Komunikasi:** Sesuai preferensi user, berikan jawaban terfokus pada hasil teknis (*terse smart caveman*), langsung ke fakta dan link berkas.
+13. **Preview Web & Unduh APK:**
+    - Flutter Web disajikan di `http://localhost:8080/` (atau IP lokal `http://192.168.1.100:8080/`).
+    - APK langsung diunduh dari HP via `http://192.168.1.100:8080/yotro-app.apk`.
 

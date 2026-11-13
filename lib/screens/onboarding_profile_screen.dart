@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,8 +7,11 @@ import 'package:provider/provider.dart';
 import '../models/category_model.dart';
 import '../models/wallet_model.dart';
 import '../providers/transaction_provider.dart';
+import '../services/supabase_auth_service.dart';
+import '../services/supabase_sync_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_snackbar.dart';
+import '../widgets/modal_card_sheet.dart';
 import 'edit_category_screen.dart';
 import 'main_shell.dart';
 
@@ -25,13 +29,54 @@ class OnboardingProfileScreen extends StatefulWidget {
 }
 
 class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
-  int _currentStep = 0; // 0: Profil, 1: Tampilan/Tema, 2: Dompet, 3: Kategori
+  int _currentStep = 0; // 0: Auth Gate, 1: Data Diri, 2: Tema, 3: Dompet, 4: Kategori
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  bool _isSignUpMode = false;
+  bool _obscurePassword = true;
   String _selectedGender = 'Pria';
   TransactionType _selectedCategoryType = TransactionType.expense;
   Set<String> _selectedCategoryIds = {};
   bool _isSubmitting = false;
+  bool _isAuthLoading = false;
+  bool _isHandlingSuccess = false;
+  StreamSubscription? _authSub;
+
+  @override
+  void initState() {
+    super.initState();
+    if (SupabaseAuthService.isAuthenticated) {
+      final cloudName = SupabaseAuthService.userName;
+      if (cloudName != null && cloudName.isNotEmpty) {
+        _nameController.text = cloudName;
+      }
+    }
+    _authSub = SupabaseAuthService.onAuthStateChange?.listen((event) async {
+      if (!mounted) return;
+      if (event.session != null) {
+        final cloudName = SupabaseAuthService.userName;
+        if (cloudName != null && cloudName.isNotEmpty && _nameController.text.trim().isEmpty) {
+          _nameController.text = cloudName;
+        }
+        if (_currentStep == 0 && !_isHandlingSuccess) {
+          final isExisting = await SupabaseSyncService.hasExistingUserData();
+          if (isExisting && mounted) {
+            await _handleExistingUserAuthSuccess();
+          } else if (mounted) {
+            setState(() {
+              _currentStep = 1;
+            });
+          }
+        } else {
+          setState(() {});
+        }
+      } else {
+        setState(() {});
+      }
+    });
+  }
 
   @override
   void didChangeDependencies() {
@@ -44,13 +89,16 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
 
   @override
   void dispose() {
+    _authSub?.cancel();
+    _emailController.dispose();
+    _passwordController.dispose();
     _nameController.dispose();
     _phoneController.dispose();
     super.dispose();
   }
 
   void _nextStep() {
-    if (_currentStep == 0) {
+    if (_currentStep == 1) {
       final name = _nameController.text.trim();
       if (name.isEmpty) {
         AppSnackBar.show(
@@ -62,7 +110,7 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
       }
     }
 
-    if (_currentStep < 3) {
+    if (_currentStep < 4) {
       setState(() => _currentStep++);
     } else {
       _finishOnboarding();
@@ -75,12 +123,312 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
     }
   }
 
+  Future<void> _handleExistingUserAuthSuccess() async {
+    if (_isHandlingSuccess) return;
+    _isHandlingSuccess = true;
+
+    final provider = context.read<TransactionProvider>();
+
+    try {
+      // 1. Tarik seluruh data yang ada dari cloud
+      await SupabaseSyncService.pullCloudData(provider);
+
+      // 2. Jika dompet di cloud kosong, upload default lokal agar aman
+      if (provider.wallets.isEmpty) {
+        await SupabaseSyncService.uploadAllLocalData(provider);
+      }
+
+      // 3. Lengkapi onboarding & tandai selesai
+      final name = SupabaseAuthService.userName ?? provider.userName;
+      await provider.completeOnboarding(
+        name: name,
+        phone: provider.userPhone,
+        gender: provider.userGender,
+      );
+      await provider.handleAuthSuccess(fullName: name);
+
+      if (!mounted) return;
+
+      AppSnackBar.show(
+        context,
+        'Selamat datang kembali, $name!',
+        type: SnackBarType.success,
+      );
+
+      // 4. Langsung navigasi ke Beranda (MainShell) tanpa setup ulang
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      } else {
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => const MainShell(),
+            transitionsBuilder: (_, animation, __, child) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+            transitionDuration: const Duration(milliseconds: 300),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('[Onboarding] Error saat handleExistingUserAuthSuccess: $e');
+      if (mounted) setState(() => _currentStep = 1);
+    } finally {
+      if (mounted) setState(() => _isAuthLoading = false);
+    }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    setState(() => _isAuthLoading = true);
+    try {
+      await SupabaseAuthService.signInWithGoogle();
+      final name = SupabaseAuthService.userName;
+      if (name != null && name.isNotEmpty) {
+        _nameController.text = name;
+      }
+      if (mounted) {
+        final isExisting = await SupabaseSyncService.hasExistingUserData();
+        if (isExisting) {
+          await _handleExistingUserAuthSuccess();
+          return;
+        }
+        AppSnackBar.show(
+          context,
+          'Berhasil menghubungkan akun Google. Lengkapi data awal Anda.',
+          type: SnackBarType.success,
+        );
+        setState(() {
+          _currentStep = 1;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.show(
+          context,
+          'Login Google gagal: $e',
+          type: SnackBarType.danger,
+        );
+      }
+    } finally {
+      if (mounted && !_isHandlingSuccess) setState(() => _isAuthLoading = false);
+    }
+  }
+
+  Future<void> _handleEmailAuth(BuildContext context) async {
+    final email = _emailController.text.trim();
+    final pass = _passwordController.text;
+
+    if (email.isEmpty || pass.isEmpty) {
+      AppSnackBar.show(context, 'Email dan kata sandi wajib diisi', type: SnackBarType.danger);
+      return;
+    }
+    if (pass.length < 6) {
+      AppSnackBar.show(context, 'Kata sandi minimal 6 karakter', type: SnackBarType.danger);
+      return;
+    }
+
+    setState(() => _isAuthLoading = true);
+    try {
+      if (_isSignUpMode) {
+        // Tab Daftar Baru -> Pendaftaran baru, lanjutkan ke Step 1
+        await SupabaseAuthService.signUpWithEmail(
+          email: email,
+          password: pass,
+          fullName: email.split('@').first,
+        );
+        if (_nameController.text.trim().isEmpty) {
+          _nameController.text = email.split('@').first;
+        }
+        if (mounted) {
+          AppSnackBar.show(
+            context,
+            'Pendaftaran berhasil! Lengkapi data diri Anda.',
+            type: SnackBarType.success,
+          );
+          setState(() {
+            _currentStep = 1;
+          });
+        }
+      } else {
+        // Tab Masuk -> Akun sudah terdaftar! Langsung masuk ke Beranda
+        await SupabaseAuthService.signInWithEmail(email: email, password: pass);
+        if (mounted) {
+          await _handleExistingUserAuthSuccess();
+          return;
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.show(context, 'Autentikasi gagal: $e', type: SnackBarType.danger);
+      }
+    } finally {
+      if (mounted && !_isHandlingSuccess) setState(() => _isAuthLoading = false);
+    }
+  }
+
+  Future<void> _handleContinueAsGuest(BuildContext context) async {
+    final provider = context.read<TransactionProvider>();
+    await provider.continueAsGuest();
+    if (mounted) {
+      setState(() {
+        _currentStep = 1;
+      });
+    }
+  }
+
+  void _showForgotPasswordSheet(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final emailController = TextEditingController(text: _emailController.text.trim());
+    bool isLoading = false;
+
+    showModalCardSheet(
+      context: context,
+      title: 'Lupa Kata Sandi',
+      titleIcon: Icons.lock_reset_rounded,
+      titleIconColor: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+      child: StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+          final mutedColor = isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B);
+          final inputBg = isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFF1F5F9);
+          final inputBorder = isDark ? Colors.white.withOpacity(0.1) : const Color(0xFFCBD5E1);
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Masukkan alamat email akun cloud Anda. Kami akan mengirimkan tautan untuk mengatur ulang kata sandi.',
+                style: GoogleFonts.manrope(
+                  color: mutedColor,
+                  fontSize: 12.5,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Alamat Email',
+                style: GoogleFonts.manrope(
+                  color: mutedColor,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 46,
+                child: TextField(
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  style: GoogleFonts.manrope(color: textColor, fontSize: 13.5),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: inputBg,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    prefixIcon: Icon(
+                      Icons.mail_outline_rounded,
+                      size: 18,
+                      color: mutedColor,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: inputBorder),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: inputBorder),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+                        width: 1.5,
+                      ),
+                    ),
+                    hintText: 'nama@email.com',
+                    hintStyle: GoogleFonts.manrope(
+                      color: isDark ? const Color(0xFF6C7D93) : const Color(0xFF94A3B8),
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                height: 46,
+                child: ElevatedButton(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          final email = emailController.text.trim();
+                          if (email.isEmpty || !email.contains('@')) {
+                            AppSnackBar.show(
+                              context,
+                              'Masukkan alamat email yang valid.',
+                              type: SnackBarType.danger,
+                            );
+                            return;
+                          }
+                          setSheetState(() => isLoading = true);
+                          try {
+                            await SupabaseAuthService.resetPassword(email);
+                            if (ctx.mounted) Navigator.pop(ctx);
+                            if (context.mounted) {
+                              AppSnackBar.show(
+                                context,
+                                'Tautan reset kata sandi telah dikirim ke $email',
+                                type: SnackBarType.success,
+                              );
+                            }
+                          } catch (e) {
+                            setSheetState(() => isLoading = false);
+                            if (context.mounted) {
+                              AppSnackBar.show(
+                                context,
+                                SupabaseAuthService.formatAuthException(e),
+                                type: SnackBarType.danger,
+                              );
+                            }
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF02539A),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          'Kirim Tautan Reset',
+                          style: GoogleFonts.manrope(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Future<void> _finishOnboarding() async {
     final name = _nameController.text.trim();
     final phone = _phoneController.text.trim();
 
     if (name.isEmpty) {
-      setState(() => _currentStep = 0);
+      setState(() => _currentStep = 1);
       AppSnackBar.show(
         context,
         'Nama lengkap wajib diisi untuk memulai aplikasi',
@@ -103,11 +451,22 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
       }
     }
 
-    await provider.completeOnboarding(
-      name: name,
-      phone: phone,
-      gender: _selectedGender,
-    );
+    if (SupabaseAuthService.isAuthenticated) {
+      await provider.completeOnboarding(
+        name: name,
+        phone: phone,
+        gender: _selectedGender,
+      );
+      await provider.handleAuthSuccess(fullName: name);
+      await SupabaseSyncService.uploadAllLocalData(provider);
+    } else {
+      await provider.continueAsGuest(name: name);
+      await provider.completeOnboarding(
+        name: name,
+        phone: phone,
+        gender: _selectedGender,
+      );
+    }
 
     if (!mounted) return;
 
@@ -303,6 +662,7 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                           name: name,
                           type: selectedType,
                           initialBalance: balance,
+                          syncToTransaction: false,
                         );
                         if (ctx.mounted) Navigator.pop(ctx);
                         if (context.mounted) {
@@ -363,7 +723,8 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
             builder: (context, constraints) {
               final isWide = constraints.maxWidth >= 600;
               final contentWidth = isWide ? 460.0 : constraints.maxWidth;
-              const heroHeight = 235.0;
+              final isCompactHero = _currentStep <= 1;
+              final heroHeight = isCompactHero ? 155.0 : 225.0;
               final minCardHeight = (constraints.maxHeight - heroHeight).clamp(0.0, double.infinity);
 
               return Center(
@@ -412,7 +773,7 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                               SafeArea(
                                 bottom: false,
                                 child: Padding(
-                                  padding: const EdgeInsets.only(top: 40),
+                                  padding: EdgeInsets.only(top: isCompactHero ? 16 : 36),
                                   child: Align(
                                     alignment: Alignment.topCenter,
                                     child: Column(
@@ -420,24 +781,26 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                                       children: [
                                         Image.asset(
                                           'assets/images/logo_splash.png',
-                                          width: 48,
-                                          height: 48,
+                                          width: isCompactHero ? 36 : 48,
+                                          height: isCompactHero ? 36 : 48,
                                           fit: BoxFit.contain,
                                           color: Colors.white,
                                         ),
-                                        const SizedBox(height: 12),
+                                        SizedBox(height: isCompactHero ? 8 : 12),
                                         Text(
                                           'Welcome to Yotro',
                                           style: GoogleFonts.manrope(
                                             color: Colors.white,
-                                            fontSize: 17,
+                                            fontSize: isCompactHero ? 15.5 : 17,
                                             fontWeight: FontWeight.w600,
                                             letterSpacing: -0.2,
                                           ),
                                         ),
-                                        const SizedBox(height: 18),
-                                        // Step Progress Indicator
-                                        _buildStepIndicator(),
+                                        if (_currentStep >= 1) ...[
+                                          SizedBox(height: isCompactHero ? 12 : 18),
+                                          // Step Progress Indicator
+                                          _buildStepIndicator(),
+                                        ],
                                       ],
                                     ),
                                   ),
@@ -466,7 +829,7 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                             child: SafeArea(
                               top: false,
                               child: Padding(
-                                padding: const EdgeInsets.fromLTRB(22, 22, 22, 24),
+                                padding: EdgeInsets.fromLTRB(22, isCompactHero ? 14 : 22, 22, isCompactHero ? 14 : 24),
                                 child: _buildStepContent(
                                   context,
                                   provider,
@@ -495,12 +858,15 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
   }
 
   Widget _buildStepIndicator() {
+    if (_currentStep == 0) return const SizedBox.shrink();
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(4, (index) {
-        final isActive = index == _currentStep;
-        final isCompleted = index < _currentStep;
+        final stepNum = index + 1; // 1: Data Diri, 2: Tema, 3: Dompet, 4: Kategori
+        final isActive = stepNum == _currentStep;
+        final isCompleted = stepNum < _currentStep;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOutCubic,
@@ -533,6 +899,18 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
   ) {
     switch (_currentStep) {
       case 0:
+        return _buildStep0AuthGate(
+          context,
+          provider,
+          isDark,
+          labelColor,
+          inputBg,
+          inputBorder,
+          textInputColor,
+          hintColor,
+          iconColor,
+        );
+      case 1:
         return _buildStep1Profile(
           context,
           isDark,
@@ -543,14 +921,351 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
           hintColor,
           iconColor,
         );
-      case 1:
-        return _buildStep2ThemeAndPreferences(context, provider, isDark, labelColor, textInputColor);
       case 2:
-        return _buildStep3Wallets(context, provider, isDark, labelColor, textInputColor);
+        return _buildStep2ThemeAndPreferences(context, provider, isDark, labelColor, textInputColor);
       case 3:
+        return _buildStep3Wallets(context, provider, isDark, labelColor, textInputColor);
+      case 4:
       default:
         return _buildStep4Categories(context, provider, isDark, labelColor, textInputColor);
     }
+  }
+
+  // --- STEP 0: AUTH GATE (EMAIL & PASS, GOOGLE, MASUK TANPA AKUN) ---
+  Widget _buildStep0AuthGate(
+    BuildContext context,
+    TransactionProvider provider,
+    bool isDark,
+    Color labelColor,
+    Color inputBg,
+    Color inputBorder,
+    Color textInputColor,
+    Color hintColor,
+    Color iconColor,
+  ) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Title & Subtitle
+        Text(
+          _isSignUpMode ? 'Daftar Akun Baru' : 'Masuk ke Akun Anda',
+          style: GoogleFonts.interTight(
+            color: textInputColor,
+            fontSize: 16.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          _isSignUpMode
+              ? 'Daftar untuk backup cloud otomatis & akses multi-perangkat'
+              : 'Gunakan email atau Google untuk sinkronisasi data cloud',
+          style: GoogleFonts.manrope(
+            color: labelColor,
+            fontSize: 12,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // Segmented Switcher: Masuk vs Daftar Baru
+        Container(
+          height: 38,
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF131A26) : const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: inputBorder),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: () => setState(() => _isSignUpMode = false),
+                  borderRadius: BorderRadius.circular(9),
+                  child: Container(
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: !_isSignUpMode ? AppColors.primaryButton : Colors.transparent,
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Text(
+                      'Masuk',
+                      style: GoogleFonts.manrope(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: !_isSignUpMode ? Colors.white : labelColor,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: InkWell(
+                  onTap: () => setState(() => _isSignUpMode = true),
+                  borderRadius: BorderRadius.circular(9),
+                  child: Container(
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: _isSignUpMode ? AppColors.primaryButton : Colors.transparent,
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Text(
+                      'Daftar Baru',
+                      style: GoogleFonts.manrope(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: _isSignUpMode ? Colors.white : labelColor,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Field Email
+        Text(
+          'Alamat Email',
+          style: GoogleFonts.manrope(
+            color: labelColor,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 6),
+        SizedBox(
+          height: 46,
+          child: TextField(
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
+            autofocus: false,
+            textAlignVertical: TextAlignVertical.center,
+            style: GoogleFonts.manrope(
+              color: textInputColor,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w500,
+            ),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: inputBg,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              prefixIcon: Icon(Icons.email_outlined, size: 18, color: iconColor),
+              prefixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 46),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: inputBorder),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: inputBorder),
+              ),
+              focusedBorder: const OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(14)),
+                borderSide: BorderSide(color: Color(0xFF02539A), width: 1.5),
+              ),
+              hintText: 'nama@domain.com',
+              hintStyle: GoogleFonts.manrope(
+                color: hintColor,
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        // Field Kata Sandi
+        Text(
+          'Kata Sandi',
+          style: GoogleFonts.manrope(
+            color: labelColor,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 6),
+        SizedBox(
+          height: 46,
+          child: TextField(
+            controller: _passwordController,
+            obscureText: _obscurePassword,
+            autofocus: false,
+            textAlignVertical: TextAlignVertical.center,
+            style: GoogleFonts.manrope(
+              color: textInputColor,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w500,
+            ),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: inputBg,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              prefixIcon: Icon(Icons.lock_outline_rounded, size: 18, color: iconColor),
+              prefixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 46),
+              suffixIcon: IconButton(
+                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  size: 18,
+                  color: iconColor,
+                ),
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: inputBorder),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: inputBorder),
+              ),
+              focusedBorder: const OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(14)),
+                borderSide: BorderSide(color: Color(0xFF02539A), width: 1.5),
+              ),
+              hintText: 'Minimal 6 karakter',
+              hintStyle: GoogleFonts.manrope(
+                color: hintColor,
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
+        ),
+        if (!_isSignUpMode) ...[
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => _showForgotPasswordSheet(context),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                'Lupa kata sandi?',
+                style: GoogleFonts.manrope(
+                  color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ] else ...[
+          const SizedBox(height: 14),
+        ],
+
+        // Button Masuk / Daftar
+        SizedBox(
+          height: 46,
+          child: ElevatedButton(
+            onPressed: _isAuthLoading ? null : () => _handleEmailAuth(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryButton,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            child: _isAuthLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : Text(
+                    _isSignUpMode ? 'Daftar Akun' : 'Masuk',
+                    style: GoogleFonts.manrope(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Divider
+        Row(
+          children: [
+            Expanded(child: Divider(color: inputBorder, height: 1)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Text(
+                'atau lanjutkan dengan',
+                style: GoogleFonts.manrope(fontSize: 11, color: labelColor.withOpacity(0.7)),
+              ),
+            ),
+            Expanded(child: Divider(color: inputBorder, height: 1)),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Tombol Google
+        SizedBox(
+          height: 46,
+          child: OutlinedButton(
+            onPressed: _isAuthLoading ? null : _handleGoogleSignIn,
+            style: OutlinedButton.styleFrom(
+              backgroundColor: isDark ? Colors.white.withOpacity(0.04) : Colors.white,
+              side: BorderSide(color: inputBorder),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            child: _isAuthLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF38BDF8)),
+                  )
+                : FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.g_mobiledata_rounded, size: 26, color: Color(0xFF4285F4)),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Lanjutkan dengan Google',
+                          style: GoogleFonts.manrope(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: textInputColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Tombol Masuk Tanpa Akun
+        Center(
+          child: TextButton(
+            onPressed: _isAuthLoading ? null : () => _handleContinueAsGuest(context),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            ),
+            child: Text(
+              'Masuk tanpa akun',
+              style: GoogleFonts.manrope(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   // --- STEP 1: PROFIL & DATA DIRI ---
@@ -568,6 +1283,147 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (SupabaseAuthService.isAuthenticated) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF131A26) : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: const Color(0xFF38BDF8).withOpacity(0.35),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF38BDF8).withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.cloud_done_rounded, color: Color(0xFF38BDF8), size: 18),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Akun Cloud Terhubung',
+                        style: GoogleFonts.interTight(
+                          color: textInputColor,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        SupabaseAuthService.userEmail ?? '',
+                        style: GoogleFonts.manrope(
+                          color: labelColor,
+                          fontSize: 11.5,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    await SupabaseAuthService.signOut();
+                    setState(() {
+                      _currentStep = 0;
+                    });
+                  },
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    'Ganti',
+                    style: GoogleFonts.manrope(
+                      color: const Color(0xFFE05362),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ] else ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF131A26) : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFCBD5E1),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFE2E8F0),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.person_outline_rounded, color: labelColor, size: 18),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Mode Tamu (Offline)',
+                        style: GoogleFonts.interTight(
+                          color: textInputColor,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        'Data disimpan 100% lokal di perangkat ini',
+                        style: GoogleFonts.manrope(
+                          color: labelColor,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _currentStep = 0;
+                    });
+                  },
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    'Masuk',
+                    style: GoogleFonts.manrope(
+                      color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+
         Text(
           'Data Diri',
           style: GoogleFonts.interTight(
@@ -578,27 +1434,29 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
         ),
         const SizedBox(height: 2),
         Text(
-          'Lengkapi identitas untuk memulai pencatatan keuangan',
+          SupabaseAuthService.isAuthenticated
+              ? 'Periksa dan sesuaikan nama untuk profil keuangan Anda'
+              : 'Lengkapi identitas untuk memulai pencatatan keuangan',
           style: GoogleFonts.manrope(
             color: labelColor,
             fontSize: 12,
             fontWeight: FontWeight.w400,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
 
         // Field: Nama Lengkap
         Text(
           'Nama Lengkap',
           style: GoogleFonts.manrope(
             color: labelColor,
-            fontSize: 13,
+            fontSize: 12.5,
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         SizedBox(
-          height: 50,
+          height: 46,
           child: TextField(
             controller: _nameController,
             autofocus: false,
@@ -606,16 +1464,16 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
             textAlignVertical: TextAlignVertical.center,
             style: GoogleFonts.manrope(
               color: textInputColor,
-              fontSize: 14,
+              fontSize: 13.5,
               fontWeight: FontWeight.w500,
             ),
             decoration: InputDecoration(
               filled: true,
               fillColor: inputBg,
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              prefixIcon: Icon(Icons.person_outline_rounded, size: 19, color: iconColor),
-              prefixIconConstraints: const BoxConstraints(minWidth: 48, minHeight: 50),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              prefixIcon: Icon(Icons.person_outline_rounded, size: 18, color: iconColor),
+              prefixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 46),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide(color: inputBorder),
@@ -631,26 +1489,26 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
               hintText: 'Masukkan nama lengkap',
               hintStyle: GoogleFonts.manrope(
                 color: hintColor,
-                fontSize: 14,
+                fontSize: 13.5,
                 fontWeight: FontWeight.w400,
               ),
             ),
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
 
         // Field: No. Telp
         Text(
           'No. Telp',
           style: GoogleFonts.manrope(
             color: labelColor,
-            fontSize: 13,
+            fontSize: 12.5,
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         SizedBox(
-          height: 50,
+          height: 46,
           child: TextField(
             controller: _phoneController,
             keyboardType: TextInputType.phone,
@@ -658,16 +1516,16 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
             textAlignVertical: TextAlignVertical.center,
             style: GoogleFonts.manrope(
               color: textInputColor,
-              fontSize: 14,
+              fontSize: 13.5,
               fontWeight: FontWeight.w500,
             ),
             decoration: InputDecoration(
               filled: true,
               fillColor: inputBg,
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              prefixIcon: Icon(Icons.phone_outlined, size: 19, color: iconColor),
-              prefixIconConstraints: const BoxConstraints(minWidth: 48, minHeight: 50),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              prefixIcon: Icon(Icons.phone_outlined, size: 18, color: iconColor),
+              prefixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 46),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide(color: inputBorder),
@@ -683,24 +1541,24 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
               hintText: 'Masukkan nomor telepon',
               hintStyle: GoogleFonts.manrope(
                 color: hintColor,
-                fontSize: 14,
+                fontSize: 13.5,
                 fontWeight: FontWeight.w400,
               ),
             ),
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
 
         // Field: Jenis Kelamin
         Text(
           'Jenis Kelamin',
           style: GoogleFonts.manrope(
             color: labelColor,
-            fontSize: 13,
+            fontSize: 12.5,
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Row(
           children: [
             _buildGenderOption('Pria', Icons.male_rounded, isDark, inputBorder),
@@ -708,11 +1566,11 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
             _buildGenderOption('Wanita', Icons.female_rounded, isDark, inputBorder),
           ],
         ),
-        const SizedBox(height: 22),
+        const SizedBox(height: 16),
 
         // Action Buttons Row: Lanjutkan & Mulai Cepat
         SizedBox(
-          height: 48,
+          height: 46,
           child: ElevatedButton(
             onPressed: _nextStep,
             style: ElevatedButton.styleFrom(
@@ -738,7 +1596,7 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         Center(
           child: TextButton(
             onPressed: _finishOnboarding,

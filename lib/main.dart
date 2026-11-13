@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
 import 'providers/transaction_provider.dart';
+import 'config/supabase_config.dart';
 import 'screens/splash_screen.dart';
 
 final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<void>>();
@@ -12,6 +13,7 @@ final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<v
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('id_ID', null);
+  await SupabaseConfig.initialize();
   runApp(const YotroApp());
 }
 

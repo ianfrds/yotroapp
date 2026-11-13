@@ -6,10 +6,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/transaction_provider.dart';
 import '../config/app_capabilities.dart';
+import '../services/supabase_auth_service.dart';
 import '../services/backup_storage_service.dart';
 import '../widgets/app_snackbar.dart';
 import '../widgets/nested_card.dart';
@@ -19,6 +21,9 @@ import '../widgets/ambient_top_glow.dart';
 import 'manage_categories_screen.dart';
 import 'display_preferences_screen.dart';
 import 'onboarding_profile_screen.dart';
+import 'auth_screen.dart';
+import '../models/changelog_model.dart';
+import '../services/app_update_service.dart';
 
 class SettingsScreen extends StatelessWidget {
   final ScrollController? scrollController;
@@ -71,6 +76,13 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 NestedCard(
+                  title: 'Sinkronisasi Cloud',
+                  action: SupabaseAuthService.isAuthenticated ? 'Terhubung' : 'Offline',
+                  innerPadding: const EdgeInsets.symmetric(vertical: 2),
+                  child: _buildSupabaseCloudCard(context, provider, isDark),
+                ),
+                const SizedBox(height: 12),
+                NestedCard(
                   title: 'Cadangan & Pemulihan Data',
                   action: 'JSON Backup',
                   innerPadding: const EdgeInsets.symmetric(vertical: 2),
@@ -84,7 +96,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 NestedCard(
-                  title: 'Tentang Aplikasi & Privasi',
+                  title: 'Tentang Aplikasi',
                   innerPadding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   child: _buildAboutSystem(context, isDark),
@@ -1032,6 +1044,18 @@ class SettingsScreen extends StatelessWidget {
           trailing:
               Icon(Icons.chevron_right_rounded, color: mutedColor, size: 20),
         ),
+        _buildDivider(context),
+        _buildSettingRow(
+          context: context,
+          icon: Icons.person_remove_rounded,
+          iconColor: _danger,
+          iconBg: _danger.withOpacity(0.14),
+          title: 'Hapus Akun Pengguna',
+          subtitle: 'Hapus akun Yotro dan bersihkan seluruh data lokal secara permanen',
+          onTap: () => _showDeleteAccountSheet(context, provider),
+          trailing:
+              Icon(Icons.chevron_right_rounded, color: mutedColor, size: 20),
+        ),
         if (kIsWeb) ...[
           _buildDivider(context),
           _buildSettingRow(
@@ -1147,13 +1171,20 @@ class SettingsScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 1),
-                  Text(
-                    'Versi 2.0.0',
-                    style: GoogleFonts.manrope(
-                      color: mutedColor,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  FutureBuilder<String>(
+                    future: AppUpdateService.getCurrentVersion(),
+                    initialData: ChangelogData.currentVersion,
+                    builder: (context, snapshot) {
+                      final version = snapshot.data ?? ChangelogData.currentVersion;
+                      return Text(
+                        'Versi $version',
+                        style: GoogleFonts.manrope(
+                          color: mutedColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -1162,21 +1193,115 @@ class SettingsScreen extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: borderColor),
+            color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? Colors.white.withOpacity(0.07) : const Color(0xFFE2E8F0),
+            ),
           ),
           child: Column(
             children: [
-              _buildInfoRow('Database:',
-                  'Lokal di perangkat (SharedPreferences)', isDark),
-              const SizedBox(height: 6),
-              _buildInfoRow('Privasi:',
-                  '100% Offline (Data tidak dikirim ke server luar)', isDark),
-              const SizedBox(height: 6),
-              _buildInfoRow('Lisensi:', 'Pencatat Keuangan Mandiri', isDark),
+              InkWell(
+                onTap: () => AppUpdateService.checkForUpdate(context, manualTrigger: true),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.system_update_rounded,
+                        size: 18,
+                        color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Periksa Pembaruan',
+                              style: GoogleFonts.manrope(
+                                color: textColor,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            FutureBuilder<String>(
+                              future: AppUpdateService.getCurrentVersion(),
+                              initialData: ChangelogData.currentVersion,
+                              builder: (context, snapshot) {
+                                final version = snapshot.data ?? ChangelogData.currentVersion;
+                                return Text(
+                                  'Versi terpasang v$version',
+                                  style: GoogleFonts.manrope(
+                                    color: mutedColor,
+                                    fontSize: 11,
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: mutedColor,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFE2E8F0),
+              ),
+              InkWell(
+                onTap: () => _showChangelogSheet(context),
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.history_rounded,
+                        size: 18,
+                        color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Catatan Rilis (Changelog)',
+                              style: GoogleFonts.manrope(
+                                color: textColor,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              'Riwayat pembaruan dan catatan tiap versi',
+                              style: GoogleFonts.manrope(
+                                color: mutedColor,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: mutedColor,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -1196,7 +1321,7 @@ class SettingsScreen extends StatelessWidget {
               },
               icon: const Icon(Icons.download_rounded, size: 18),
               label: Text(
-                'Unduh APK Android (v1.0.6)',
+                'Unduh APK Android (v2.0.0)',
                 style: GoogleFonts.manrope(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -1217,34 +1342,932 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoRow(String label, String value, bool isDark) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 74,
-          child: Text(
-            label,
+  void _showChangelogSheet(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final mutedColor = isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B);
+    final cardBg = isDark ? const Color(0xFF131A26) : const Color(0xFFF8FAFC);
+    final borderColor = isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFCBD5E1);
+
+    _showModalCardSheet(
+      context: context,
+      title: 'Catatan Rilis (Changelog)',
+      titleIcon: Icons.history_rounded,
+      titleIconColor: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Riwayat fitur baru, perbaikan, dan pembaruan sistem aplikasi Yotro.',
+            style: GoogleFonts.manrope(
+              color: mutedColor,
+              fontSize: 12.5,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 14),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.6,
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              physics: const BouncingScrollPhysics(),
+              itemCount: ChangelogData.history.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (ctx, index) {
+                final item = ChangelogData.history[index];
+                return Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: item.isCurrent
+                          ? (isDark ? const Color(0xFF55C7FF).withOpacity(0.3) : const Color(0xFF02539A).withOpacity(0.3))
+                          : borderColor,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Text(
+                                  'v${item.version}',
+                                  style: GoogleFonts.interTight(
+                                    color: textColor,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                if (item.isCurrent)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF10B981).withOpacity(0.14),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: const Color(0xFF10B981).withOpacity(0.3),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Versi Terpasang',
+                                      style: GoogleFonts.manrope(
+                                        color: const Color(0xFF10B981),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            item.date,
+                            style: GoogleFonts.manrope(
+                              color: mutedColor,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item.title,
+                        style: GoogleFonts.manrope(
+                          color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ...item.features.map(
+                        (f) => Padding(
+                          padding: const EdgeInsets.only(bottom: 5),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 5,
+                                height: 5,
+                                margin: const EdgeInsets.only(top: 6, right: 8),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  f,
+                                  style: GoogleFonts.manrope(
+                                    color: textColor.withOpacity(0.9),
+                                    fontSize: 11.5,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSupabaseCloudCard(
+      BuildContext context, TransactionProvider provider, bool isDark) {
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final mutedColor =
+        isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B);
+    final isAuthenticated = SupabaseAuthService.isAuthenticated;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isDark ? const Color(0xFF131A26) : const Color(0xFFF1F5F9),
+                  border: Border.all(
+                    color: isAuthenticated
+                        ? const Color(0xFF10B981).withOpacity(0.4)
+                        : (isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFCBD5E1)),
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  isAuthenticated ? Icons.cloud_done_rounded : Icons.cloud_outlined,
+                  color: isAuthenticated
+                      ? const Color(0xFF10B981)
+                      : (isDark ? _cyan : const Color(0xFF0284C7)),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isAuthenticated
+                          ? (SupabaseAuthService.userEmail ?? 'Akun Cloud Terhubung')
+                          : 'Mode Offline (Lokal)',
+                      style: GoogleFonts.manrope(
+                        color: textColor,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isAuthenticated
+                          ? (provider.lastCloudSyncTime != null
+                              ? 'Sinkron: ${DateFormat('d MMM, HH:mm').format(provider.lastCloudSyncTime!)}'
+                              : 'Terhubung ke cloud')
+                          : 'Data tersimpan di perangkat ini',
+                      style: GoogleFonts.manrope(
+                        color: mutedColor,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (!isAuthenticated) ...[
+            SizedBox(
+              height: 44,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  final result = await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const AuthScreen(fromSettings: true),
+                    ),
+                  );
+                  if (result == true && context.mounted) {
+                    AppSnackBar.show(
+                      context,
+                      'Berhasil terhubung ke Akun Cloud!',
+                      type: SnackBarType.success,
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+                  foregroundColor: isDark ? const Color(0xFF09101C) : Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                icon: const Icon(Icons.cloud_sync_outlined, size: 18),
+                label: Text(
+                  'Masuk / Hubungkan Akun',
+                  style: GoogleFonts.manrope(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 42,
+              child: OutlinedButton(
+                onPressed: () async {
+                  try {
+                    await SupabaseAuthService.signInWithGoogle();
+                  } catch (e) {
+                    if (context.mounted) {
+                      AppSnackBar.show(
+                        context,
+                        'Gagal login Google: $e',
+                        type: SnackBarType.danger,
+                      );
+                    }
+                  }
+                },
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(
+                    color: isDark ? Colors.white.withOpacity(0.12) : const Color(0xFFCBD5E1),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.g_mobiledata_rounded, size: 24),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Masuk dengan Google',
+                      style: GoogleFonts.manrope(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ] else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 42,
+                    child: ElevatedButton.icon(
+                      onPressed: provider.isSyncingWithCloud
+                          ? null
+                          : () async {
+                              final ok = await provider.syncWithCloud();
+                              if (context.mounted) {
+                                AppSnackBar.show(
+                                  context,
+                                  ok
+                                      ? 'Data berhasil disinkronkan ke Cloud'
+                                      : 'Gagal sinkronisasi data cloud',
+                                  type: ok
+                                      ? SnackBarType.success
+                                      : SnackBarType.danger,
+                                );
+                              }
+                            },
+                      icon: provider.isSyncingWithCloud
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.sync_rounded, size: 16),
+                      label: Text(
+                        provider.isSyncingWithCloud
+                            ? 'Menyinkronkan...'
+                            : 'Sinkronkan Sekarang',
+                        style: GoogleFonts.manrope(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF02539A),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 42,
+                  child: OutlinedButton(
+                    onPressed: () => _showConfirmSignOutSheet(context, provider),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _danger,
+                      side: BorderSide(color: _danger.withOpacity(0.3)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Text(
+                      'Keluar',
+                      style: GoogleFonts.manrope(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? Colors.white.withOpacity(0.07) : const Color(0xFFE2E8F0),
+                ),
+              ),
+              child: Column(
+                children: [
+                  InkWell(
+                    onTap: () => _showChangePasswordSheet(context),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.lock_outline_rounded,
+                            size: 18,
+                            color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Ganti Kata Sandi',
+                                  style: GoogleFonts.manrope(
+                                    color: textColor,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  'Perbarui kata sandi akun cloud Anda',
+                                  style: GoogleFonts.manrope(
+                                    color: mutedColor,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            size: 18,
+                            color: mutedColor,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFE2E8F0),
+                  ),
+                  InkWell(
+                    onTap: () => _showForgotPasswordSheet(
+                      context,
+                      initialEmail: SupabaseAuthService.userEmail,
+                    ),
+                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.lock_reset_rounded,
+                            size: 18,
+                            color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Lupa Kata Sandi',
+                                  style: GoogleFonts.manrope(
+                                    color: textColor,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  'Kirim tautan pemulihan ke email terdaftar',
+                                  style: GoogleFonts.manrope(
+                                    color: mutedColor,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            size: 18,
+                            color: mutedColor,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showChangePasswordSheet(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final passwordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    bool obscurePassword = true;
+    bool obscureConfirm = true;
+    bool isLoading = false;
+
+    _showModalCardSheet(
+      context: context,
+      title: 'Ganti Kata Sandi',
+      titleIcon: Icons.lock_outline_rounded,
+      titleIconColor: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+      child: StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+          final mutedColor = isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B);
+          final fieldBg = isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFF8FAFC);
+          final fieldBorder = isDark ? Colors.white.withOpacity(0.1) : const Color(0xFFCBD5E1);
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Perbarui kata sandi untuk akun cloud Anda (${SupabaseAuthService.userEmail ?? ''}).',
+                style: GoogleFonts.manrope(
+                  color: mutedColor,
+                  fontSize: 12.5,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Kata Sandi Baru',
+                style: GoogleFonts.manrope(
+                  color: mutedColor,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 46,
+                child: TextField(
+                  controller: passwordController,
+                  obscureText: obscurePassword,
+                  style: GoogleFonts.manrope(color: textColor, fontSize: 13.5),
+                  decoration: InputDecoration(
+                    hintText: 'Minimal 6 karakter',
+                    hintStyle: GoogleFonts.manrope(
+                      color: isDark ? const Color(0xFF6C7D93) : const Color(0xFF94A3B8),
+                      fontSize: 13,
+                    ),
+                    filled: true,
+                    fillColor: fieldBg,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    prefixIcon: Icon(Icons.lock_outline_rounded, size: 18, color: mutedColor),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                        size: 18,
+                        color: mutedColor,
+                      ),
+                      onPressed: () => setSheetState(() => obscurePassword = !obscurePassword),
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: fieldBorder),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: fieldBorder),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Ulangi Kata Sandi Baru',
+                style: GoogleFonts.manrope(
+                  color: mutedColor,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 46,
+                child: TextField(
+                  controller: confirmPasswordController,
+                  obscureText: obscureConfirm,
+                  style: GoogleFonts.manrope(color: textColor, fontSize: 13.5),
+                  decoration: InputDecoration(
+                    hintText: 'Masukkan ulang kata sandi baru',
+                    hintStyle: GoogleFonts.manrope(
+                      color: isDark ? const Color(0xFF6C7D93) : const Color(0xFF94A3B8),
+                      fontSize: 13,
+                    ),
+                    filled: true,
+                    fillColor: fieldBg,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    prefixIcon: Icon(Icons.lock_reset_rounded, size: 18, color: mutedColor),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                        size: 18,
+                        color: mutedColor,
+                      ),
+                      onPressed: () => setSheetState(() => obscureConfirm = !obscureConfirm),
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: fieldBorder),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: fieldBorder),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          final p1 = passwordController.text;
+                          final p2 = confirmPasswordController.text;
+                          if (p1.isEmpty || p1.length < 6) {
+                            AppSnackBar.show(
+                              context,
+                              'Kata sandi minimal 6 karakter.',
+                              type: SnackBarType.danger,
+                            );
+                            return;
+                          }
+                          if (p1 != p2) {
+                            AppSnackBar.show(
+                              context,
+                              'Konfirmasi kata sandi tidak cocok.',
+                              type: SnackBarType.danger,
+                            );
+                            return;
+                          }
+
+                          setSheetState(() => isLoading = true);
+                          try {
+                            await SupabaseAuthService.updatePassword(p1);
+                            if (ctx.mounted) Navigator.pop(ctx);
+                            if (context.mounted) {
+                              AppSnackBar.show(
+                                context,
+                                'Kata sandi berhasil diperbarui!',
+                                type: SnackBarType.success,
+                              );
+                            }
+                          } catch (e) {
+                            setSheetState(() => isLoading = false);
+                            if (context.mounted) {
+                              AppSnackBar.show(
+                                context,
+                                SupabaseAuthService.formatAuthException(e),
+                                type: SnackBarType.danger,
+                              );
+                            }
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF02539A),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          'Simpan Kata Sandi Baru',
+                          style: GoogleFonts.manrope(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showForgotPasswordSheet(BuildContext context, {String? initialEmail}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final emailController = TextEditingController(text: initialEmail ?? SupabaseAuthService.userEmail ?? '');
+    bool isLoading = false;
+
+    _showModalCardSheet(
+      context: context,
+      title: 'Lupa Kata Sandi',
+      titleIcon: Icons.lock_reset_rounded,
+      titleIconColor: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+      child: StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+          final mutedColor = isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B);
+          final inputBg = isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFF8FAFC);
+          final inputBorder = isDark ? Colors.white.withOpacity(0.1) : const Color(0xFFCBD5E1);
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Kami akan mengirimkan tautan pemulihan kata sandi ke alamat email akun cloud Anda.',
+                style: GoogleFonts.manrope(
+                  color: mutedColor,
+                  fontSize: 12.5,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Alamat Email',
+                style: GoogleFonts.manrope(
+                  color: mutedColor,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 46,
+                child: TextField(
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  style: GoogleFonts.manrope(color: textColor, fontSize: 13.5),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: inputBg,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    prefixIcon: Icon(Icons.mail_outline_rounded, size: 18, color: mutedColor),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: inputBorder),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: inputBorder),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+                        width: 1.5,
+                      ),
+                    ),
+                    hintText: 'nama@email.com',
+                    hintStyle: GoogleFonts.manrope(
+                      color: isDark ? const Color(0xFF6C7D93) : const Color(0xFF94A3B8),
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          final email = emailController.text.trim();
+                          if (email.isEmpty || !email.contains('@')) {
+                            AppSnackBar.show(
+                              context,
+                              'Masukkan alamat email yang valid.',
+                              type: SnackBarType.danger,
+                            );
+                            return;
+                          }
+                          setSheetState(() => isLoading = true);
+                          try {
+                            await SupabaseAuthService.resetPassword(email);
+                            if (ctx.mounted) Navigator.pop(ctx);
+                            if (context.mounted) {
+                              AppSnackBar.show(
+                                context,
+                                'Tautan reset kata sandi telah dikirim ke $email',
+                                type: SnackBarType.success,
+                              );
+                            }
+                          } catch (e) {
+                            setSheetState(() => isLoading = false);
+                            if (context.mounted) {
+                              AppSnackBar.show(
+                                context,
+                                SupabaseAuthService.formatAuthException(e),
+                                type: SnackBarType.danger,
+                              );
+                            }
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF02539A),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          'Kirim Tautan Reset',
+                          style: GoogleFonts.manrope(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showConfirmSignOutSheet(
+      BuildContext context, TransactionProvider provider) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    _showModalCardSheet(
+      context: context,
+      title: 'Keluar dari Akun Cloud',
+      titleIcon: Icons.logout_rounded,
+      titleIconColor: _danger,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Apakah Anda yakin ingin keluar dari akun cloud?\nData lokal di perangkat ini tetap aman dan tidak akan terhapus.',
             style: GoogleFonts.manrope(
               color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-              fontSize: 10.5,
-              fontWeight: FontWeight.w500,
+              fontSize: 12.5,
+              height: 1.4,
             ),
           ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: GoogleFonts.manrope(
-              color: isDark
-                  ? Colors.white.withOpacity(0.85)
-                  : const Color(0xFF1E293B),
-              fontSize: 10.5,
-              fontWeight: FontWeight.w500,
-            ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 44,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Text(
+                      'Batal',
+                      style: GoogleFonts.manrope(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: SizedBox(
+                  height: 44,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      await SupabaseAuthService.signOut();
+                      if (context.mounted) {
+                        AppSnackBar.show(
+                          context,
+                          'Berhasil keluar dari akun cloud.',
+                          type: SnackBarType.info,
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _danger,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'Keluar',
+                      style: GoogleFonts.manrope(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -2511,6 +3534,123 @@ class SettingsScreen extends StatelessWidget {
                     },
                     child: Text(
                       'Hapus Semua',
+                      style: GoogleFonts.manrope(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteAccountSheet(
+      BuildContext context, TransactionProvider provider) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    _showModalCardSheet(
+      context: context,
+      title: 'Hapus Akun Yotro?',
+      titleIcon: Icons.person_remove_rounded,
+      titleIconColor: _danger,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isDark ? _danger.withOpacity(0.12) : const Color(0xFFFEE2E2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark ? _danger.withOpacity(0.3) : const Color(0xFFFCA5A5),
+              ),
+            ),
+            child: Text(
+              'Tindakan ini permanen. Akun Yotro Anda beserta seluruh data transaksi, dompet, kategori, anggaran, dan penyimpanan lokal akan dihapus secara total.',
+              style: GoogleFonts.manrope(
+                color: isDark ? const Color(0xFFFECACA) : const Color(0xFF991B1B),
+                fontSize: 12.5,
+                height: 1.4,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDark ? Colors.white : const Color(0xFF0F172A),
+                      side: BorderSide(
+                        color: isDark ? Colors.white.withOpacity(0.15) : const Color(0xFFCBD5E1),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(
+                      'Batalkan',
+                      style: GoogleFonts.manrope(
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _danger,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      try {
+                        await provider.deleteAccount();
+                        if (context.mounted) {
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const OnboardingProfileScreen(),
+                            ),
+                            (route) => false,
+                          );
+                          AppSnackBar.show(
+                            context,
+                            'Akun dan seluruh data berhasil dihapus permanen.',
+                            type: SnackBarType.danger,
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          AppSnackBar.show(
+                            context,
+                            'Gagal menghapus akun: $e',
+                            type: SnackBarType.danger,
+                          );
+                        }
+                      }
+                    },
+                    child: Text(
+                      'Hapus Akun',
                       style: GoogleFonts.manrope(
                         color: Colors.white,
                         fontSize: 14,

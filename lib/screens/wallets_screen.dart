@@ -45,6 +45,7 @@ class WalletsScreen extends StatelessWidget {
         : '0';
     final balanceController = TextEditingController(text: initialFormatted);
     String selectedType = walletToEdit?.type ?? 'Bank Account';
+    bool syncToTransactions = provider.syncWalletToTransactions;
 
     showModalCardSheet(
       context: context,
@@ -196,9 +197,65 @@ class WalletsScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
+
+              // 4. Toggle Sinkronkan ke Transaksi
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFE2E8F0),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.sync_alt_rounded,
+                      size: 18,
+                      color: isDark ? _cyan : const Color(0xFF0284C7),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Catat ke Transaksi',
+                            style: GoogleFonts.manrope(
+                              color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            isEditing
+                                ? 'Buat transaksi penyesuaian selisih saldo otomatis'
+                                : 'Buat transaksi pemasukan saldo awal otomatis',
+                            style: GoogleFonts.manrope(
+                              color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                              fontSize: 10.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch.adaptive(
+                      value: syncToTransactions,
+                      activeColor: _cyan,
+                      activeTrackColor: _accentOceanic,
+                      onChanged: (val) {
+                        setSheetState(() => syncToTransactions = val);
+                      },
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 20),
 
-              // 4. Tombol Aksi Simpan & Hapus
+              // 5. Tombol Aksi Simpan & Hapus
               Row(
                 children: [
                   if (isEditing && provider.wallets.length > 1) ...[
@@ -242,12 +299,14 @@ class WalletsScreen extends StatelessWidget {
                               name: name,
                               type: selectedType,
                               balance: bal,
+                              syncToTransaction: syncToTransactions,
                             );
                           } else {
                             await provider.addWallet(
                               name: name,
                               type: selectedType,
                               initialBalance: bal,
+                              syncToTransaction: syncToTransactions,
                             );
                           }
                           if (context.mounted) Navigator.pop(ctx);
@@ -529,7 +588,67 @@ class WalletsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // 2. Transfer Callout Card (NestedCard)
+            // 2. Otomatisasi Transaksi Toggle Card
+            NestedCard(
+              title: 'Otomatisasi Transaksi',
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF131A26) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFCBD5E1),
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        Icons.sync_alt_rounded,
+                        color: isDark ? _cyan : const Color(0xFF0284C7),
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Sinkronkan ke Transaksi',
+                            style: GoogleFonts.manrope(
+                              color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Catat saldo awal & perubahan saldo sebagai transaksi otomatis',
+                            style: GoogleFonts.manrope(
+                              color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                              fontSize: 10.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch.adaptive(
+                      value: provider.syncWalletToTransactions,
+                      onChanged: (val) => provider.setSyncWalletToTransactions(val),
+                      activeColor: _cyan,
+                      activeTrackColor: _accentOceanic,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // 3. Transfer Callout Card (NestedCard)
             NestedCard(
               title: 'Transfer Antar Dompet',
               child: Padding(

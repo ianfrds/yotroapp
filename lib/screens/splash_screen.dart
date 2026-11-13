@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../providers/transaction_provider.dart';
+import '../services/supabase_auth_service.dart';
+import '../services/supabase_sync_service.dart';
+import 'auth_screen.dart';
 import 'main_shell.dart';
 import 'onboarding_profile_screen.dart';
 
@@ -48,22 +51,35 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     // Navigate after splash duration
     if (widget.autoNavigate) {
-      Future.delayed(widget.splashDuration, () {
-        if (mounted) {
-          final provider = context.read<TransactionProvider>();
-          final target = provider.isOnboardingCompleted
-              ? const MainShell()
-              : const OnboardingProfileScreen();
-          Navigator.of(context).pushReplacement(
-            PageRouteBuilder(
-              pageBuilder: (_, __, ___) => target,
-              transitionsBuilder: (_, animation, __, child) {
-                return FadeTransition(opacity: animation, child: child);
-              },
-              transitionDuration: const Duration(milliseconds: 350),
-            ),
-          );
+      Future.delayed(widget.splashDuration, () async {
+        if (!mounted) return;
+        final provider = context.read<TransactionProvider>();
+        if (!provider.isOnboardingCompleted && SupabaseAuthService.isAuthenticated) {
+          final isExisting = await SupabaseSyncService.hasExistingUserData();
+          if (isExisting) {
+            await SupabaseSyncService.pullCloudData(provider);
+            final name = SupabaseAuthService.userName ?? provider.userName;
+            await provider.completeOnboarding(
+              name: name,
+              phone: provider.userPhone,
+              gender: provider.userGender,
+            );
+            await provider.handleAuthSuccess(fullName: name);
+          }
         }
+        if (!mounted) return;
+        final target = provider.isOnboardingCompleted
+            ? const MainShell()
+            : const OnboardingProfileScreen();
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => target,
+            transitionsBuilder: (_, animation, __, child) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+            transitionDuration: const Duration(milliseconds: 350),
+          ),
+        );
       });
     }
   }

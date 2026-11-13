@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../services/app_update_service.dart';
 import 'dashboard_screen.dart';
 import 'transactions_screen.dart';
 import 'budget_screen.dart';
@@ -22,6 +24,16 @@ class _MainShellState extends State<MainShell> {
   DateTime? _lastBackPressTime;
   final List<ScrollController> _tabControllers =
       List.generate(6, (_) => ScrollController());
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!kIsWeb && mounted) {
+        AppUpdateService.checkForUpdate(context);
+      }
+    });
+  }
 
   @override
   void dispose() {

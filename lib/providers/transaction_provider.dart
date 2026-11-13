@@ -12,6 +12,8 @@ import '../models/wallet_model.dart';
 import '../models/budget_model.dart';
 import '../models/notification_rule_model.dart';
 import '../services/native_notification_service.dart';
+import '../services/supabase_auth_service.dart';
+import '../services/supabase_sync_service.dart';
 import '../config/app_capabilities.dart';
 
 bool get canUseNativePermission {
@@ -101,6 +103,7 @@ class TransactionProvider with ChangeNotifier {
   String _userPhone = '';
   String _userGender = 'Pria';
   bool _isOnboardingCompleted = false;
+  bool _isGuestMode = false;
   String _selectedPeriod = 'this_month';
   DateTime _selectedDashboardMonth =
       DateTime(DateTime.now().year, DateTime.now().month, 1);
@@ -116,6 +119,9 @@ class TransactionProvider with ChangeNotifier {
   List<NotificationRule> _notificationRules = NotificationRule.defaultRules;
   List<PendingNotification> _pendingNotifications = [];
   List<ActivityNotification> _activityNotifications = [];
+  bool _syncWalletToTransactions = true;
+  bool _isSyncingWithCloud = false;
+  DateTime? _lastCloudSyncTime;
   bool _isLoading = true;
   TransactionType _analyticsTab = TransactionType.expense;
   Timer? _reminderTimer;
@@ -139,6 +145,7 @@ class TransactionProvider with ChangeNotifier {
   String get userPhone => _userPhone;
   String get userGender => _userGender;
   bool get isOnboardingCompleted => _isOnboardingCompleted;
+  bool get isGuestMode => _isGuestMode;
   String get selectedPeriod => _selectedPeriod;
   DateTime get selectedDashboardMonth => _selectedDashboardMonth;
   bool get isBalanceVisible => _isBalanceVisible;
@@ -171,6 +178,9 @@ class TransactionProvider with ChangeNotifier {
   bool get shouldShowDailyReminder =>
       _isDailyReminderEnabled && !hasTransactionToday;
   bool get isNotificationReaderEnabled => _isNotificationReaderEnabled;
+  bool get syncWalletToTransactions => _syncWalletToTransactions;
+  bool get isSyncingWithCloud => _isSyncingWithCloud;
+  DateTime? get lastCloudSyncTime => _lastCloudSyncTime;
   List<NotificationRule> get notificationRules => _notificationRules;
   List<PendingNotification> get pendingNotifications => _pendingNotifications
       .where((n) => n.status == PendingNotificationStatus.pending)
@@ -360,6 +370,7 @@ class TransactionProvider with ChangeNotifier {
         _isOnboardingCompleted = data['isOnboardingCompleted'] as bool? ??
             (data['userName'] != null &&
                 (data['userName'] as String).trim().isNotEmpty);
+        _isGuestMode = data['isGuestMode'] as bool? ?? false;
         if (data['themeMode'] != null) {
           final m = data['themeMode'].toString();
           if (m == 'system') {
@@ -403,6 +414,12 @@ class TransactionProvider with ChangeNotifier {
                   .toList();
         } else {
           _pendingNotifications = [];
+        }
+        _syncWalletToTransactions =
+            data['syncWalletToTransactions'] as bool? ?? true;
+        if (data['lastCloudSyncTime'] != null) {
+          _lastCloudSyncTime =
+              DateTime.tryParse(data['lastCloudSyncTime'] as String);
         }
         if (data['dashboardViewMode'] != null) {
           final modeStr = data['dashboardViewMode'] as String;
@@ -856,6 +873,7 @@ class TransactionProvider with ChangeNotifier {
         'userPhone': _userPhone,
         'userGender': _userGender,
         'isOnboardingCompleted': _isOnboardingCompleted,
+        'isGuestMode': _isGuestMode,
         'dashboardViewMode': _dashboardViewMode.name,
         'hideBalanceSection': hideBalanceSection,
         'showBalanceSection': showBalanceSection,
@@ -868,6 +886,8 @@ class TransactionProvider with ChangeNotifier {
         'notificationRules': _notificationRules.map((r) => r.toJson()).toList(),
         'pendingNotifications':
             _pendingNotifications.map((n) => n.toJson()).toList(),
+        'syncWalletToTransactions': _syncWalletToTransactions,
+        'lastCloudSyncTime': _lastCloudSyncTime?.toIso8601String(),
         'activityNotifications':
             _activityNotifications.map((a) => a.toJson()).toList(),
         'budget': _budget.toJson(),
@@ -1078,8 +1098,58 @@ class TransactionProvider with ChangeNotifier {
     await saveData();
   }
 
+  Future<void> continueAsGuest({String? name}) async {
+    _isGuestMode = true;
+    if (name != null && name.trim().isNotEmpty) {
+      _userName = name.trim();
+    } else if (_userName.trim().isEmpty) {
+      _userName = 'Pengguna Tamu';
+    }
+    _isOnboardingCompleted = true;
+    notifyListeners();
+    await saveData();
+  }
+
+  Future<void> handleAuthSuccess({String? fullName}) async {
+    _isGuestMode = false;
+    final name = fullName?.trim().isNotEmpty == true
+        ? fullName!.trim()
+        : (SupabaseAuthService.userName ?? _userName);
+    if (name.isNotEmpty) {
+      _userName = name;
+    }
+    _isOnboardingCompleted = true;
+    notifyListeners();
+    await saveData();
+  }
+
   Future<void> logout() async {
     _isOnboardingCompleted = false;
+    _isGuestMode = false;
+    notifyListeners();
+    await saveData();
+  }
+
+  Future<void> deleteAccount() async {
+    if (SupabaseAuthService.isAuthenticated) {
+      try {
+        await SupabaseAuthService.deleteUserAccount();
+      } catch (e) {
+        debugPrint('[TransactionProvider] Error saat deleteUserAccount di Supabase: $e');
+      }
+    }
+    _transactions.clear();
+    for (final w in _wallets) {
+      w.balance = 0.0;
+    }
+    _budget = BudgetModel(overallMonthlyLimit: 0.0, categoryBudgets: {});
+    _pendingNotifications.clear();
+    _activityNotifications.clear();
+    _userName = '';
+    _userPhone = '';
+    _userGender = 'Pria';
+    _isOnboardingCompleted = false;
+    _isGuestMode = false;
     notifyListeners();
     await saveData();
   }
@@ -1803,6 +1873,63 @@ class TransactionProvider with ChangeNotifier {
     saveData();
   }
 
+  Future<void> setSyncWalletToTransactions(bool value) async {
+    if (_syncWalletToTransactions != value) {
+      _syncWalletToTransactions = value;
+      notifyListeners();
+      await saveData();
+    }
+  }
+
+  void applyCloudSnapshot({
+    List<WalletModel>? wallets,
+    List<CategoryModel>? categories,
+    List<TransactionModel>? transactions,
+    BudgetModel? budget,
+    String? userName,
+    String? userPhone,
+    String? userGender,
+  }) {
+    if (userName != null && userName.trim().isNotEmpty) _userName = userName.trim();
+    if (userPhone != null && userPhone.trim().isNotEmpty) _userPhone = userPhone.trim();
+    if (userGender != null && userGender.trim().isNotEmpty) _userGender = userGender.trim();
+    if (wallets != null && wallets.isNotEmpty) _wallets = wallets;
+    if (categories != null && categories.isNotEmpty) _categories = categories;
+    if (transactions != null) _transactions = transactions;
+    if (budget != null) _budget = budget;
+    _lastCloudSyncTime = DateTime.now();
+    notifyListeners();
+    saveData();
+  }
+
+  Future<bool> syncWithCloud({bool forceUpload = false}) async {
+    if (!SupabaseSyncService.canSync) return false;
+    _isSyncingWithCloud = true;
+    notifyListeners();
+
+    bool success = false;
+    try {
+      if (forceUpload) {
+        success = await SupabaseSyncService.uploadAllLocalData(this);
+      } else {
+        success = await SupabaseSyncService.pullCloudData(this);
+        if (success && _transactions.isEmpty) {
+          await SupabaseSyncService.uploadAllLocalData(this);
+        }
+      }
+      if (success) {
+        _lastCloudSyncTime = DateTime.now();
+        await saveData();
+      }
+    } catch (_) {
+      success = false;
+    } finally {
+      _isSyncingWithCloud = false;
+      notifyListeners();
+    }
+    return success;
+  }
+
   // 4.2 Business Rules Execution
   Future<TransactionModel> addTransaction({
     required String title,
@@ -1882,6 +2009,7 @@ class TransactionProvider with ChangeNotifier {
 
     notifyListeners();
     await saveData();
+    unawaited(SupabaseSyncService.syncSingleTransaction(tx));
     return tx;
   }
 
@@ -1928,23 +2056,39 @@ class TransactionProvider with ChangeNotifier {
 
     notifyListeners();
     await saveData();
+    unawaited(SupabaseSyncService.syncSingleTransaction(tx, isDelete: true));
   }
-
-  // 4.3 Wallet Updates
   Future<void> addWallet({
     required String name,
     required String type,
     double initialBalance = 0.0,
+    bool? syncToTransaction,
   }) async {
+    final shouldSync =
+        (syncToTransaction ?? _syncWalletToTransactions) && initialBalance > 0;
     final wallet = WalletModel(
       id: 'w_${DateTime.now().millisecondsSinceEpoch}',
       name: name.trim(),
       type: type,
-      balance: initialBalance,
+      balance: shouldSync ? 0.0 : initialBalance,
     );
     _wallets.add(wallet);
-    notifyListeners();
-    await saveData();
+
+    if (shouldSync) {
+      await addTransaction(
+        title: 'Saldo Awal - ${wallet.name}',
+        amount: initialBalance,
+        type: TransactionType.income,
+        categoryName: 'Lainnya',
+        categoryId: 'other_inc',
+        walletId: wallet.id,
+        note: 'Saldo awal akun ${wallet.name}',
+        date: DateTime.now(),
+      );
+    } else {
+      notifyListeners();
+      await saveData();
+    }
   }
 
   Future<void> updateWallet({
@@ -1952,16 +2096,54 @@ class TransactionProvider with ChangeNotifier {
     required String name,
     required String type,
     double? balance,
+    bool? syncToTransaction,
   }) async {
     final idx = _wallets.indexWhere((w) => w.id == id);
     if (idx == -1) return;
     _wallets[idx].name = name.trim();
     _wallets[idx].type = type;
+
     if (balance != null) {
-      _wallets[idx].balance = balance;
+      final oldBal = _wallets[idx].balance;
+      final diff = balance - oldBal;
+      final shouldSync =
+          (syncToTransaction ?? _syncWalletToTransactions) && (diff.abs() > 0.001);
+
+      if (shouldSync) {
+        if (diff > 0) {
+          await addTransaction(
+            title: 'Penyesuaian Saldo - ${_wallets[idx].name}',
+            amount: diff,
+            type: TransactionType.income,
+            categoryName: 'Lainnya',
+            categoryId: 'other_inc',
+            walletId: id,
+            note:
+                'Penyesuaian saldo ${_wallets[idx].name} (+${formatCurrency(diff)})',
+            date: DateTime.now(),
+          );
+        } else {
+          await addTransaction(
+            title: 'Penyesuaian Saldo - ${_wallets[idx].name}',
+            amount: diff.abs(),
+            type: TransactionType.expense,
+            categoryName: 'Lainnya',
+            categoryId: 'other_exp',
+            walletId: id,
+            note:
+                'Penyesuaian saldo ${_wallets[idx].name} (-${formatCurrency(diff.abs())})',
+            date: DateTime.now(),
+          );
+        }
+      } else {
+        _wallets[idx].balance = balance;
+        notifyListeners();
+        await saveData();
+      }
+    } else {
+      notifyListeners();
+      await saveData();
     }
-    notifyListeners();
-    await saveData();
   }
 
   Future<void> deleteWallet(String id) async {

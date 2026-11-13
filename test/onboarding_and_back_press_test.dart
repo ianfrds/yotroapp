@@ -26,7 +26,7 @@ void main() {
   }
 
   group('OnboardingProfileScreen Tests', () {
-    testWidgets('Onboarding renders title, inputs for name, phone, gender, and submits', (tester) async {
+    testWidgets('Onboarding renders Auth Gate and transitions to profile inputs via guest mode', (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -39,6 +39,34 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Welcome to Yotro'), findsOneWidget);
+      expect(find.text('Masuk ke Akun Anda'), findsOneWidget);
+      expect(find.text('Alamat Email'), findsOneWidget);
+      expect(find.text('Kata Sandi'), findsOneWidget);
+      expect(find.text('Lupa kata sandi?'), findsOneWidget);
+      expect(find.text('Lanjutkan dengan Google'), findsOneWidget);
+      expect(find.text('Masuk tanpa akun'), findsOneWidget);
+
+      // Tap "Lupa kata sandi?" opens sheet
+      await tester.tap(find.text('Lupa kata sandi?'));
+      await tester.pumpAndSettle();
+      expect(find.text('Lupa Kata Sandi'), findsOneWidget);
+      expect(find.text('Kirim Tautan Reset'), findsOneWidget);
+
+      // Close modal sheet
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pumpAndSettle();
+
+      // Tap tab "Daftar Baru" - forgot password button should disappear
+      await tester.tap(find.text('Daftar Baru'));
+      await tester.pumpAndSettle();
+      expect(find.text('Daftar Akun Baru'), findsOneWidget);
+      expect(find.text('Lupa kata sandi?'), findsNothing);
+
+      // Tap "Masuk tanpa akun" to enter guest mode setup
+      await tester.tap(find.text('Masuk tanpa akun'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Data Diri'), findsOneWidget);
       expect(find.text('Nama Lengkap'), findsOneWidget);
       expect(find.text('No. Telp'), findsOneWidget);
 
@@ -68,15 +96,21 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
+      // Tap "Masuk tanpa akun" from Auth Gate
+      expect(find.text('Masuk tanpa akun'), findsOneWidget);
+      await tester.tap(find.text('Masuk tanpa akun'));
+      await tester.pumpAndSettle();
+
       // Ensure no text stepper like '1. Profil' exists
       expect(find.text('1. Profil'), findsNothing);
       expect(find.text('Profil'), findsNothing);
+      expect(find.text('Data Diri'), findsOneWidget);
 
       // Enter name
       await tester.enterText(find.byType(TextField).first, 'Siti Rahma');
       await tester.pumpAndSettle();
 
-      // Tap Lanjutkan to go to Step 1 (Tema & Tampilan)
+      // Tap Lanjutkan to go to Step 2 (Tema & Tampilan)
       await tester.tap(find.text('Lanjutkan'));
       await tester.pumpAndSettle();
 
@@ -84,14 +118,14 @@ void main() {
       // Ensure no top "Lewati" TextButton in header (only 1 Lewati button at bottom)
       expect(find.text('Lewati'), findsOneWidget);
 
-      // Tap Lewati at bottom to advance to Step 2 (Atur Dompet)
+      // Tap Lewati at bottom to advance to Step 3 (Atur Dompet)
       await tester.tap(find.text('Lewati'));
       await tester.pumpAndSettle();
 
       expect(find.text('Atur Dompet & Rekening'), findsOneWidget);
       expect(find.text('Lewati'), findsOneWidget);
 
-      // Tap Lewati to go to Step 3 (Kategori)
+      // Tap Lewati to go to Step 4 (Kategori)
       await tester.tap(find.text('Lewati'));
       await tester.pumpAndSettle();
 
