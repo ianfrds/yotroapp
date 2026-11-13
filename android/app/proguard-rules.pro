@@ -1,3 +1,6 @@
+# Disable bytecode rewriting that can break JNI reflection & Flutter channels
+-dontoptimize
+
 # ML Kit Text Recognition
 -dontwarn com.google.mlkit.vision.text.chinese.**
 -dontwarn com.google.mlkit.vision.text.devanagari.**
