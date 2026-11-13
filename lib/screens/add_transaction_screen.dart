@@ -88,6 +88,21 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        final wallets = context.read<TransactionProvider>().wallets;
+        if (wallets.isNotEmpty) {
+          if (!wallets.any((w) => w.id == _selectedWalletId)) {
+            setState(() => _selectedWalletId = wallets.first.id);
+          }
+          if (_type == TransactionType.transfer) {
+            if (!wallets.any((w) => w.id == _fromWalletId)) {
+              _fromWalletId = wallets.first.id;
+            }
+            if (_toWalletId == _fromWalletId && wallets.length > 1) {
+              _toWalletId = wallets.firstWhere((w) => w.id != _fromWalletId).id;
+            }
+            setState(() {});
+          }
+        }
         if (!_isEdit) {
           _amountFocusNode.requestFocus();
           if (_amountController.text == '0') {
@@ -160,6 +175,25 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     }
 
     final provider = context.read<TransactionProvider>();
+
+    if (_type == TransactionType.transfer) {
+      final wallets = provider.wallets;
+      final effectiveFrom = wallets.any((w) => w.id == _fromWalletId)
+          ? _fromWalletId
+          : (wallets.isNotEmpty ? wallets.first.id : null);
+      final effectiveTo = wallets.any((w) => w.id == _toWalletId)
+          ? _toWalletId
+          : (wallets.length > 1 ? wallets[1].id : (wallets.isNotEmpty ? wallets.first.id : null));
+
+      if (effectiveFrom == null || effectiveTo == null || effectiveFrom == effectiveTo) {
+        AppSnackBar.show(
+          context,
+          'Dompet asal dan tujuan tidak boleh sama',
+          type: SnackBarType.danger,
+        );
+        return;
+      }
+    }
 
     if (_isEdit) {
       await provider.deleteTransaction(widget.initialTransaction!.id);
@@ -444,6 +478,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             final available = context.read<TransactionProvider>().getCategories(type);
             if (!available.any((c) => c.name == _selectedCategory) && available.isNotEmpty) {
               _selectedCategory = available.first.name;
+            }
+          } else {
+            final wallets = context.read<TransactionProvider>().wallets;
+            if (wallets.length >= 2 && _fromWalletId == _toWalletId) {
+              _toWalletId = wallets.firstWhere((w) => w.id != _fromWalletId, orElse: () => wallets.last).id;
             }
           }
         });
@@ -951,6 +990,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     final validToWalletId = wallets.any((w) => w.id == _toWalletId)
         ? _toWalletId
         : (wallets.length > 1 ? wallets[1].id : (wallets.isNotEmpty ? wallets.first.id : null));
+    final isSameTransferWallet = _type == TransactionType.transfer &&
+        validFromWalletId != null &&
+        validFromWalletId == validToWalletId;
 
     return NestedCard(
       title: 'Detail Transaksi',
@@ -1081,7 +1123,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFF8FAFC),
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                              color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFCBD5E1),
+                              color: isSameTransferWallet
+                                  ? const Color(0xFFFF6B7A).withOpacity(0.65)
+                                  : (isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFCBD5E1)),
                             ),
                           ),
                           child: DropdownButtonHideUnderline(
@@ -1101,7 +1145,16 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                               ),
                               items: wallets.map((w) => DropdownMenuItem(value: w.id, child: Text(w.name))).toList(),
                               onChanged: (v) {
-                                if (v != null) setState(() => _fromWalletId = v);
+                                if (v != null) {
+                                  setState(() => _fromWalletId = v);
+                                  if (v == validToWalletId) {
+                                    AppSnackBar.show(
+                                      context,
+                                      'Dompet asal dan tujuan tidak boleh sama',
+                                      type: SnackBarType.warning,
+                                    );
+                                  }
+                                }
                               },
                             ),
                           ),
@@ -1129,7 +1182,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFF8FAFC),
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                              color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFCBD5E1),
+                              color: isSameTransferWallet
+                                  ? const Color(0xFFFF6B7A).withOpacity(0.65)
+                                  : (isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFCBD5E1)),
                             ),
                           ),
                           child: DropdownButtonHideUnderline(
@@ -1149,7 +1204,16 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                               ),
                               items: wallets.map((w) => DropdownMenuItem(value: w.id, child: Text(w.name))).toList(),
                               onChanged: (v) {
-                                if (v != null) setState(() => _toWalletId = v);
+                                if (v != null) {
+                                  setState(() => _toWalletId = v);
+                                  if (v == validFromWalletId) {
+                                    AppSnackBar.show(
+                                      context,
+                                      'Dompet asal dan tujuan tidak boleh sama',
+                                      type: SnackBarType.warning,
+                                    );
+                                  }
+                                }
                               },
                             ),
                           ),
@@ -1159,6 +1223,35 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   ),
                 ],
               ),
+              if (isSameTransferWallet) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF6B7A).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: const Color(0xFFFF6B7A).withOpacity(0.35),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline_rounded, size: 15, color: Color(0xFFFF6B7A)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Dompet asal dan tujuan tidak boleh sama',
+                          style: GoogleFonts.manrope(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFFFF6B7A),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 14),
             ],
 

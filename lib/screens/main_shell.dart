@@ -135,34 +135,44 @@ class _MainShellState extends State<MainShell> {
 
         SystemNavigator.pop();
       },
-      child: Scaffold(
-        backgroundColor: isDark ? const Color(0xFF1C2229) : const Color(0xFFF4F5F7),
-        body: Stack(
-          children: [
-            IndexedStack(
-              index: _currentIndex,
-              children: screens,
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: BottomNavBar(
-                currentIndex: _currentIndex,
-                onIndexChanged: _onTabSelected,
-                onAddTap: () {
-                  Navigator.push(
-                    context,
-                    AddTransactionScreen.route(),
-                  ).then((_) {
-                    if (_tabControllers[_currentIndex].hasClients) {
-                      _tabControllers[_currentIndex].jumpTo(0.0);
-                    }
-                  });
-                },
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+          systemNavigationBarColor: isDark ? const Color(0xFF1C2229) : const Color(0xFFF4F5F7),
+          systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          systemNavigationBarDividerColor: Colors.transparent,
+        ),
+        child: Scaffold(
+          backgroundColor: isDark ? const Color(0xFF1C2229) : const Color(0xFFF4F5F7),
+          body: Stack(
+            children: [
+              IndexedStack(
+                index: _currentIndex,
+                children: screens,
               ),
-            ),
-          ],
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: BottomNavBar(
+                  currentIndex: _currentIndex,
+                  onIndexChanged: _onTabSelected,
+                  onAddTap: () {
+                    Navigator.push(
+                      context,
+                      AddTransactionScreen.route(),
+                    ).then((_) {
+                      if (_tabControllers[_currentIndex].hasClients) {
+                        _tabControllers[_currentIndex].jumpTo(0.0);
+                      }
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

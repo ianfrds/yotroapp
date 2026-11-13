@@ -233,7 +233,7 @@ class BudgetScreen extends StatelessWidget {
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        height: 44,
+                        height: 48,
                         padding: const EdgeInsets.symmetric(horizontal: 14),
                         decoration: BoxDecoration(
                           color: _negativeRed.withOpacity(0.15),
@@ -252,7 +252,7 @@ class BudgetScreen extends StatelessWidget {
                   ],
                   Expanded(
                     child: SizedBox(
-                      height: 44,
+                      height: 48,
                       child: ElevatedButton(
                         onPressed: selectedCategory.isEmpty
                             ? null
@@ -362,7 +362,7 @@ class BudgetScreen extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           SizedBox(
-            height: 44,
+            height: 48,
             child: ElevatedButton(
               onPressed: () async {
                 final cleanStr = controller.text.replaceAll('.', '').trim();
@@ -506,7 +506,7 @@ class BudgetScreen extends StatelessWidget {
                     const SizedBox(height: 22),
                     SizedBox(
                       width: double.infinity,
-                      height: 44,
+                      height: 48,
                       child: ElevatedButton.icon(
                         onPressed: () => _showEditOverallBudgetSheet(context, provider),
                         icon: const Icon(Icons.add_rounded, size: 16),

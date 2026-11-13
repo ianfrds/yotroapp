@@ -63,6 +63,20 @@ enum DashboardViewMode {
   }
 }
 
+enum DashboardBalanceMode {
+  monthly,
+  total;
+
+  String get label {
+    switch (this) {
+      case DashboardBalanceMode.monthly:
+        return 'Bulanan';
+      case DashboardBalanceMode.total:
+        return 'Total Saldo';
+    }
+  }
+}
+
 class TransactionProvider with ChangeNotifier {
   static const String _storageKey = 'money_tracker_pro_v2_1';
 
@@ -92,6 +106,7 @@ class TransactionProvider with ChangeNotifier {
       DateTime(DateTime.now().year, DateTime.now().month, 1);
   bool _isBalanceVisible = true;
   DashboardViewMode _dashboardViewMode = DashboardViewMode.complete;
+  DashboardBalanceMode _dashboardBalanceMode = DashboardBalanceMode.monthly;
   ThemeMode _themeMode = ThemeMode.dark;
   bool _hasNotificationPermission = false;
   bool _isDailyReminderEnabled = false;
@@ -128,6 +143,7 @@ class TransactionProvider with ChangeNotifier {
   DateTime get selectedDashboardMonth => _selectedDashboardMonth;
   bool get isBalanceVisible => _isBalanceVisible;
   DashboardViewMode get dashboardViewMode => _dashboardViewMode;
+  DashboardBalanceMode get dashboardBalanceMode => _dashboardBalanceMode;
   bool get hideBalanceSection =>
       _dashboardViewMode != DashboardViewMode.complete;
   bool get showBalanceSection =>
@@ -244,7 +260,55 @@ class TransactionProvider with ChangeNotifier {
 
   void setSelectedDashboardMonth(DateTime month) {
     _selectedDashboardMonth = DateTime(month.year, month.month, 1);
+    // Saat filter bulan dipilih, otomatis aktifkan mode bulanan
+    _dashboardBalanceMode = DashboardBalanceMode.monthly;
     notifyListeners();
+  }
+
+  void setDashboardBalanceMode(DashboardBalanceMode mode) {
+    if (_dashboardBalanceMode != mode) {
+      _dashboardBalanceMode = mode;
+      notifyListeners();
+    }
+  }
+
+  void toggleDashboardBalanceMode() {
+    _dashboardBalanceMode = _dashboardBalanceMode == DashboardBalanceMode.monthly
+        ? DashboardBalanceMode.total
+        : DashboardBalanceMode.monthly;
+    notifyListeners();
+  }
+
+  double get dashboardMonthNetBalance =>
+      dashboardMonthIncome - dashboardMonthExpense;
+
+  double get bankWalletsTotalBalance {
+    return _wallets
+        .where((w) {
+          final t = w.type.toLowerCase();
+          return t == 'bank account' || t == 'savings' || t == 'bank';
+        })
+        .fold(0.0, (sum, w) => sum + w.balance);
+  }
+
+  double get cashAndDigitalWalletsTotalBalance {
+    return _wallets
+        .where((w) {
+          final t = w.type.toLowerCase();
+          return t != 'bank account' && t != 'savings' && t != 'bank';
+        })
+        .fold(0.0, (sum, w) => sum + w.balance);
+  }
+
+  double get heroCardDisplayBalance {
+    if (_dashboardViewMode == DashboardViewMode.expenseOnly) {
+      return _dashboardBalanceMode == DashboardBalanceMode.total
+          ? totalExpense
+          : dashboardMonthExpense;
+    }
+    return _dashboardBalanceMode == DashboardBalanceMode.total
+        ? totalBalance
+        : dashboardMonthNetBalance;
   }
 
   double get dashboardMonthIncome {
@@ -1586,6 +1650,12 @@ class TransactionProvider with ChangeNotifier {
   }
 
   // Category Management CRUD
+  Future<void> setSelectedCategories(List<CategoryModel> selectedCategories) async {
+    _categories = List.from(selectedCategories);
+    notifyListeners();
+    await saveData();
+  }
+
   Future<CategoryModel> addCategory({
     required String name,
     required TransactionType type,
@@ -1764,6 +1834,9 @@ class TransactionProvider with ChangeNotifier {
     if (type == TransactionType.transfer &&
         fromWalletId != null &&
         toWalletId != null) {
+      if (fromWalletId == toWalletId) {
+        throw ArgumentError('Dompet asal dan tujuan transfer tidak boleh sama.');
+      }
       final fromW = _wallets.cast<WalletModel?>().firstWhere(
           (w) => w?.id == fromWalletId,
           orElse: () => _wallets.isNotEmpty ? _wallets.first : null);

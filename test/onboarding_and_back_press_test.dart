@@ -56,6 +56,62 @@ void main() {
       expect(provider.userPhone, '081299998888');
     });
 
+    testWidgets('Onboarding multi-step flow with carousel lines and selectable categories', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final provider = TransactionProvider();
+      await tester.pumpWidget(buildTestWidget(
+        child: const OnboardingProfileScreen(),
+        provider: provider,
+      ));
+      await tester.pumpAndSettle();
+
+      // Ensure no text stepper like '1. Profil' exists
+      expect(find.text('1. Profil'), findsNothing);
+      expect(find.text('Profil'), findsNothing);
+
+      // Enter name
+      await tester.enterText(find.byType(TextField).first, 'Siti Rahma');
+      await tester.pumpAndSettle();
+
+      // Tap Lanjutkan to go to Step 1 (Tema & Tampilan)
+      await tester.tap(find.text('Lanjutkan'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Tema & Tampilan'), findsOneWidget);
+      // Ensure no top "Lewati" TextButton in header (only 1 Lewati button at bottom)
+      expect(find.text('Lewati'), findsOneWidget);
+
+      // Tap Lewati at bottom to advance to Step 2 (Atur Dompet)
+      await tester.tap(find.text('Lewati'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Atur Dompet & Rekening'), findsOneWidget);
+      expect(find.text('Lewati'), findsOneWidget);
+
+      // Tap Lewati to go to Step 3 (Kategori)
+      await tester.tap(find.text('Lewati'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Kategori Transaksi'), findsOneWidget);
+
+      // Categories are clickable/selectable
+      // Find a category chip e.g. 'Makanan & Minuman' and tap to toggle
+      final foodChip = find.text('Makanan & Minuman');
+      expect(foodChip, findsOneWidget);
+      await tester.tap(foodChip);
+      await tester.pumpAndSettle();
+
+      // Tap Mulai Mencatat to finish
+      await tester.tap(find.text('Mulai Mencatat'));
+      await tester.pumpAndSettle();
+
+      expect(provider.isOnboardingCompleted, isTrue);
+      expect(provider.userName, 'Siti Rahma');
+    });
+
     testWidgets('TransactionProvider logout resets isOnboardingCompleted to false', (tester) async {
       final provider = TransactionProvider();
       await provider.completeOnboarding(

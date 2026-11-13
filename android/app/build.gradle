@@ -30,7 +30,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace "com.moneytracker.app"
-    compileSdk = 37
+    compileSdk = flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
 
     compileOptions {

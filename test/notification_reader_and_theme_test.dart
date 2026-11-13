@@ -157,7 +157,8 @@ void main() {
       expect(find.text('Notifikasi & Pengingat'), findsOneWidget);
       expect(find.text('Izin Notifikasi Sistem'), findsOneWidget);
       expect(find.text('Pengingat Transaksi Harian'), findsOneWidget);
-      expect(find.text('Tes Notifikasi HP'), findsOneWidget);
+      // 'Tes Notifikasi HP' disembunyikan pada perangkat HP/native
+      expect(find.text('Tes Notifikasi HP'), findsNothing);
     });
   });
 

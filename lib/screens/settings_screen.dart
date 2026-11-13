@@ -185,6 +185,36 @@ class SettingsScreen extends StatelessWidget {
                 ],
               ),
             ),
+            if (kIsWeb)
+              InkWell(
+                onTap: () => _confirmWebLogout(context, provider),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE05362).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: const Color(0xFFE05362).withOpacity(0.3),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.logout_rounded, size: 14, color: Color(0xFFE05362)),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Keluar',
+                        style: GoogleFonts.manrope(
+                          color: const Color(0xFFE05362),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
         Padding(
@@ -479,43 +509,34 @@ class SettingsScreen extends StatelessWidget {
         _buildSettingRow(
           context: context,
           icon: Icons.currency_exchange_rounded,
-          title: 'Mata Uang Acuan',
+          title: 'Mata Uang',
           subtitle: 'Format penulisan angka finansial',
-          trailing: Container(
-            height: 32,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              color: chipBg,
-              borderRadius: BorderRadius.circular(9),
-              border: Border.all(color: borderColor),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: provider.currency,
-                dropdownColor: isDark ? const Color(0xFF131A26) : Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                icon: Icon(Icons.arrow_drop_down_rounded,
-                    color: textColor, size: 18),
-                style: GoogleFonts.interTight(
-                  color: textColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+          onTap: () => _showCurrencyPickerSheet(context, provider),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                height: 30,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: chipBg,
+                  borderRadius: BorderRadius.circular(9),
+                  border: Border.all(color: borderColor),
                 ),
-                items: [
-                  DropdownMenuItem(
-                      value: 'IDR',
-                      child:
-                          Text('IDR (Rp)', style: TextStyle(color: textColor))),
-                  DropdownMenuItem(
-                      value: 'USD',
-                      child:
-                          Text('USD (\$)', style: TextStyle(color: textColor))),
-                ],
-                onChanged: (val) {
-                  if (val != null) provider.setCurrency(val);
-                },
+                child: Center(
+                  child: Text(
+                    provider.currency == 'IDR' ? '🇮🇩 IDR' : '🇺🇸 USD',
+                    style: GoogleFonts.interTight(
+                      color: textColor,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right_rounded, color: mutedColor, size: 20),
+            ],
           ),
         ),
         _buildDivider(context),
@@ -641,25 +662,27 @@ class SettingsScreen extends StatelessWidget {
           ),
           onTap: () => _showDailyReminderSheet(context, provider),
         ),
-        _buildDivider(context),
-        _buildSettingRow(
-          context: context,
-          icon: Icons.notifications_active_outlined,
-          title: 'Tes Notifikasi HP',
-          subtitle: 'Kirim notifikasi uji coba langsung ke status bar HP Anda',
-          onTap: () async {
-            await provider.sendTestPushNotification();
-            if (context.mounted) {
-              AppSnackBar.show(
-                context,
-                'Notifikasi tes berhasil dikirim ke status bar HP.',
-                type: SnackBarType.success,
-              );
-            }
-          },
-          trailing: const Icon(Icons.send_rounded,
-              size: 16, color: Color(0xFF55C7FF)),
-        ),
+        if (kIsWeb) ...[
+          _buildDivider(context),
+          _buildSettingRow(
+            context: context,
+            icon: Icons.notifications_active_outlined,
+            title: 'Tes Notifikasi HP',
+            subtitle: 'Kirim notifikasi uji coba langsung ke status bar HP Anda',
+            onTap: () async {
+              await provider.sendTestPushNotification();
+              if (context.mounted) {
+                AppSnackBar.show(
+                  context,
+                  'Notifikasi tes berhasil dikirim ke status bar HP.',
+                  type: SnackBarType.success,
+                );
+              }
+            },
+            trailing: const Icon(Icons.send_rounded,
+                size: 16, color: Color(0xFF55C7FF)),
+          ),
+        ],
       ],
     );
   }
@@ -912,42 +935,45 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
               ],
-              const SizedBox(height: 10),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF02539A),
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 48,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF02539A),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                ),
-                onPressed: () {
-                  if (isEnabled && !provider.hasNotificationPermission) {
-                    showNotificationPermissionSheet(
-                      context: context,
-                      featureTitle: 'Pengingat Transaksi Harian',
-                      onGranted: () {
-                        provider.setDailyReminderTimes(alarms);
-                        provider.toggleDailyReminder(true);
-                      },
+                  onPressed: () {
+                    if (isEnabled && !provider.hasNotificationPermission) {
+                      showNotificationPermissionSheet(
+                        context: context,
+                        featureTitle: 'Pengingat Transaksi Harian',
+                        onGranted: () {
+                          provider.setDailyReminderTimes(alarms);
+                          provider.toggleDailyReminder(true);
+                        },
+                      );
+                    } else {
+                      provider.setDailyReminderTimes(alarms);
+                      provider.toggleDailyReminder(isEnabled);
+                    }
+                    Navigator.pop(ctx);
+                    AppSnackBar.show(
+                      context,
+                      'Pengaturan pengingat harian berhasil disimpan.',
+                      type: SnackBarType.success,
                     );
-                  } else {
-                    provider.setDailyReminderTimes(alarms);
-                    provider.toggleDailyReminder(isEnabled);
-                  }
-                  Navigator.pop(ctx);
-                  AppSnackBar.show(
-                    context,
-                    'Pengaturan pengingat harian berhasil disimpan.',
-                    type: SnackBarType.success,
-                  );
-                },
-                child: Text(
-                  'Simpan Pengingat',
-                  style: GoogleFonts.manrope(
-                    color: Colors.white,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
+                  },
+                  child: Text(
+                    'Simpan Pengingat',
+                    style: GoogleFonts.manrope(
+                      color: Colors.white,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
@@ -1006,19 +1032,74 @@ class SettingsScreen extends StatelessWidget {
           trailing:
               Icon(Icons.chevron_right_rounded, color: mutedColor, size: 20),
         ),
-        _buildDivider(context),
-        _buildSettingRow(
-          context: context,
-          icon: Icons.restart_alt_rounded,
-          iconColor: _warning,
-          iconBg: _warning.withOpacity(0.14),
-          title: 'Reset ke Data Bawaan',
-          subtitle: 'Kembalikan saldo dan transaksi simulasi awal',
-          onTap: () => _showResetDefaultSheet(context, provider),
-          trailing:
-              Icon(Icons.chevron_right_rounded, color: mutedColor, size: 20),
-        ),
+        if (kIsWeb) ...[
+          _buildDivider(context),
+          _buildSettingRow(
+            context: context,
+            icon: Icons.restart_alt_rounded,
+            iconColor: _warning,
+            iconBg: _warning.withOpacity(0.14),
+            title: 'Reset ke Data Bawaan',
+            subtitle: 'Kembalikan saldo dan transaksi simulasi awal',
+            onTap: () => _showResetDefaultSheet(context, provider),
+            trailing:
+                Icon(Icons.chevron_right_rounded, color: mutedColor, size: 20),
+          ),
+          _buildDivider(context),
+          _buildSettingRow(
+            context: context,
+            icon: Icons.logout_rounded,
+            iconColor: _danger,
+            iconBg: _danger.withOpacity(0.14),
+            title: 'Keluar & Uji Onboarding (Mode Web)',
+            subtitle: 'Reset status onboarding untuk mencoba alur multi-step baru',
+            onTap: () => _confirmWebLogout(context, provider),
+            trailing: Icon(Icons.chevron_right_rounded, color: mutedColor, size: 20),
+          ),
+        ],
       ],
+    );
+  }
+
+  void _confirmWebLogout(BuildContext context, TransactionProvider provider) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF131A26),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Uji Alur Onboarding',
+          style: GoogleFonts.interTight(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          'Keluar dari sesi saat ini untuk mencoba 4 tahapan onboarding baru (Profil, Tema & Tampilan, Dompet, dan Kategori)?',
+          style: GoogleFonts.manrope(color: const Color(0xFF8EA4BE), fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Batal', style: GoogleFonts.manrope(color: const Color(0xFF8EA4BE))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE05362),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await provider.logout();
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const OnboardingProfileScreen()),
+                  (route) => false,
+                );
+              }
+            },
+            child: Text('Keluar & Uji', style: GoogleFonts.manrope(fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1180,6 +1261,195 @@ class SettingsScreen extends StatelessWidget {
       titleIcon: titleIcon,
       titleIconColor: titleIconColor,
       child: child,
+    );
+  }
+
+  void _showCurrencyPickerSheet(
+      BuildContext context, TransactionProvider provider) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final mutedColor =
+        isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B);
+    final accentColor =
+        isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A);
+
+    _showModalCardSheet(
+      context: context,
+      title: 'Mata Uang',
+      titleIcon: Icons.currency_exchange_rounded,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Pilih mata uang acuan untuk penulisan format nominal transaksi.',
+            style: GoogleFonts.manrope(
+              color: mutedColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          const SizedBox(height: 14),
+          _buildCurrencyOption(
+            context: context,
+            provider: provider,
+            currencyCode: 'IDR',
+            flag: '🇮🇩',
+            name: 'IDR - Rupiah Indonesia',
+            symbol: 'Rp',
+            example: 'Contoh: Rp 50.000',
+            isDark: isDark,
+            textColor: textColor,
+            mutedColor: mutedColor,
+            accentColor: accentColor,
+          ),
+          const SizedBox(height: 10),
+          _buildCurrencyOption(
+            context: context,
+            provider: provider,
+            currencyCode: 'USD',
+            flag: '🇺🇸',
+            name: 'USD - US Dollar',
+            symbol: '\$',
+            example: 'Contoh: \$50.00',
+            isDark: isDark,
+            textColor: textColor,
+            mutedColor: mutedColor,
+            accentColor: accentColor,
+          ),
+          const SizedBox(height: 6),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCurrencyOption({
+    required BuildContext context,
+    required TransactionProvider provider,
+    required String currencyCode,
+    required String flag,
+    required String name,
+    required String symbol,
+    required String example,
+    required bool isDark,
+    required Color textColor,
+    required Color mutedColor,
+    required Color accentColor,
+  }) {
+    final isSelected = provider.currency == currencyCode;
+
+    return InkWell(
+      onTap: () {
+        provider.setCurrency(currencyCode);
+        Navigator.pop(context);
+        AppSnackBar.show(
+          context,
+          'Mata uang diubah ke $currencyCode ($symbol).',
+          type: SnackBarType.success,
+        );
+      },
+      borderRadius: BorderRadius.circular(14),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark
+                  ? const Color(0xFF55C7FF).withOpacity(0.08)
+                  : const Color(0xFF02539A).withOpacity(0.06))
+              : (isDark
+                  ? Colors.white.withOpacity(0.03)
+                  : const Color(0xFFF8FAFC)),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected
+                ? accentColor
+                : (isDark
+                    ? Colors.white.withOpacity(0.06)
+                    : const Color(0xFFE2E8F0)),
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          children: [
+            Text(
+              flag,
+              style: const TextStyle(fontSize: 24),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        name,
+                        style: GoogleFonts.interTight(
+                          color: isSelected ? accentColor : textColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withOpacity(0.08)
+                              : const Color(0xFFE2E8F0),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          symbol,
+                          style: GoogleFonts.interTight(
+                            color: textColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    example,
+                    style: GoogleFonts.manrope(
+                      color: mutedColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isSelected ? accentColor : Colors.transparent,
+                border: Border.all(
+                  color: isSelected
+                      ? accentColor
+                      : (isDark
+                          ? const Color(0xFF677B92)
+                          : const Color(0xFF94A3B8)),
+                  width: 1.5,
+                ),
+              ),
+              child: isSelected
+                  ? Icon(
+                      Icons.check_rounded,
+                      size: 14,
+                      color: isDark ? Colors.black : Colors.white,
+                    )
+                  : null,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1363,29 +1633,32 @@ class SettingsScreen extends StatelessWidget {
                     'Kartu utama menampilkan Total Pengeluaran, tanpa kartu saldo saat ini dan sub-kartu pemasukan/pengeluaran.',
               ),
               const SizedBox(height: 14),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF02539A),
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              SizedBox(
+                height: 48,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF02539A),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                ),
-                onPressed: () {
-                  provider.setDashboardViewMode(selectedMode);
-                  Navigator.pop(ctx);
-                  AppSnackBar.show(
-                    context,
-                    'Preferensi tampilan beranda berhasil disimpan.',
-                    type: SnackBarType.success,
-                  );
-                },
-                child: Text(
-                  'Simpan Preferensi',
-                  style: GoogleFonts.manrope(
-                    color: Colors.white,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
+                  onPressed: () {
+                    provider.setDashboardViewMode(selectedMode);
+                    Navigator.pop(ctx);
+                    AppSnackBar.show(
+                      context,
+                      'Preferensi tampilan beranda berhasil disimpan.',
+                      type: SnackBarType.success,
+                    );
+                  },
+                  child: Text(
+                    'Simpan Preferensi',
+                    style: GoogleFonts.manrope(
+                      color: Colors.white,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
@@ -1596,47 +1869,55 @@ class SettingsScreen extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        side: BorderSide(
-                            color: isDark
-                                ? Colors.white.withOpacity(0.12)
-                                : const Color(0xFFCBD5E1)),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                    child: SizedBox(
+                      height: 48,
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(
+                              color: isDark
+                                  ? Colors.white.withOpacity(0.12)
+                                  : const Color(0xFFCBD5E1)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () => Navigator.pop(ctx),
+                        child: Text('Batal',
+                            style: GoogleFonts.manrope(
+                                color: mutedColor,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600)),
                       ),
-                      onPressed: () => Navigator.pop(ctx),
-                      child: Text('Batal',
-                          style: GoogleFonts.manrope(
-                              color: mutedColor, fontWeight: FontWeight.w600)),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        backgroundColor: const Color(0xFF02539A),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                    child: SizedBox(
+                      height: 48,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF02539A),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () async {
+                          final newName = nameController.text.trim();
+                          final newPhone = phoneController.text.trim();
+                          if (newName.isNotEmpty) {
+                            await provider.updateProfile(
+                              name: newName,
+                              phone: newPhone,
+                              gender: selectedGender,
+                            );
+                          }
+                          if (ctx.mounted) Navigator.pop(ctx);
+                        },
+                        child: Text('Simpan',
+                            style: GoogleFonts.manrope(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600)),
                       ),
-                      onPressed: () async {
-                        final newName = nameController.text.trim();
-                        final newPhone = phoneController.text.trim();
-                        if (newName.isNotEmpty) {
-                          await provider.updateProfile(
-                            name: newName,
-                            phone: newPhone,
-                            gender: selectedGender,
-                          );
-                        }
-                        if (ctx.mounted) Navigator.pop(ctx);
-                      },
-                      child: Text('Simpan',
-                          style: GoogleFonts.manrope(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ],
@@ -1758,41 +2039,47 @@ class SettingsScreen extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    side: BorderSide(color: borderColor),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(
-                    'Batal',
-                    style: GoogleFonts.manrope(
-                        color: mutedColor, fontWeight: FontWeight.w600),
+                child: SizedBox(
+                  height: 48,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: borderColor),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(
+                      'Batal',
+                      style: GoogleFonts.manrope(
+                          color: mutedColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600),
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 flex: 2,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    backgroundColor: const Color(0xFF02539A),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  icon: const Icon(Icons.download_rounded,
-                      color: Colors.white, size: 16),
-                  label: Text(
-                    'Unduh Berkas JSON',
-                    style: GoogleFonts.manrope(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12.5),
-                  ),
-                  onPressed: () async {
+                child: SizedBox(
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF02539A),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    icon: const Icon(Icons.download_rounded,
+                        color: Colors.white, size: 16),
+                    label: Text(
+                      'Unduh Berkas JSON',
+                      style: GoogleFonts.manrope(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13),
+                    ),
+                    onPressed: () async {
                     Navigator.pop(context);
                     final success = await BackupStorageService.exportJsonFile(
                       jsonContent: jsonStr,
@@ -1812,7 +2099,8 @@ class SettingsScreen extends StatelessWidget {
                   },
                 ),
               ),
-            ],
+            ),
+          ],
           ),
           const SizedBox(height: 8),
           TextButton.icon(
@@ -2041,81 +2329,93 @@ class SettingsScreen extends StatelessWidget {
                 ),
               const SizedBox(height: 16),
               if (validationResult == null)
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    side: BorderSide(color: borderColor),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                SizedBox(
+                  height: 48,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: borderColor),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () => Navigator.pop(ctx),
+                    child: Text('Tutup',
+                        style: GoogleFonts.manrope(
+                            color: mutedColor,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600)),
                   ),
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text('Tutup',
-                      style: GoogleFonts.manrope(
-                          color: mutedColor, fontWeight: FontWeight.w600)),
                 )
               else
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          side: const BorderSide(color: _cyan),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
+                      child: SizedBox(
+                        height: 48,
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: _cyan),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () async {
+                            final success = await provider.restoreFromJson(
+                                controller.text.trim(),
+                                merge: true);
+                            if (ctx.mounted) {
+                              Navigator.pop(ctx);
+                              AppSnackBar.show(
+                                context,
+                                success
+                                    ? 'Data berhasil digabungkan (Merge).'
+                                    : 'Gagal memulihkan data.',
+                                type: success
+                                    ? SnackBarType.success
+                                    : SnackBarType.danger,
+                              );
+                            }
+                          },
+                          child: Text('Merge Data',
+                              style: GoogleFonts.manrope(
+                                  color: _cyan,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600)),
                         ),
-                        onPressed: () async {
-                          final success = await provider.restoreFromJson(
-                              controller.text.trim(),
-                              merge: true);
-                          if (ctx.mounted) {
-                            Navigator.pop(ctx);
-                            AppSnackBar.show(
-                              context,
-                              success
-                                  ? 'Data berhasil digabungkan (Merge).'
-                                  : 'Gagal memulihkan data.',
-                              type: success
-                                  ? SnackBarType.success
-                                  : SnackBarType.danger,
-                            );
-                          }
-                        },
-                        child: Text('Merge Data',
-                            style: GoogleFonts.manrope(
-                                color: _cyan, fontWeight: FontWeight.w600)),
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          backgroundColor: const Color(0xFF02539A),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
+                      child: SizedBox(
+                        height: 48,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF02539A),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () async {
+                            final success = await provider.restoreFromJson(
+                                controller.text.trim(),
+                                merge: false);
+                            if (ctx.mounted) {
+                              Navigator.pop(ctx);
+                              AppSnackBar.show(
+                                context,
+                                success
+                                    ? 'Data berhasil ditimpa penuh (Replace).'
+                                    : 'Gagal memulihkan data.',
+                                type: success
+                                    ? SnackBarType.success
+                                    : SnackBarType.danger,
+                              );
+                            }
+                          },
+                          child: Text('Replace Data',
+                              style: GoogleFonts.manrope(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600)),
                         ),
-                        onPressed: () async {
-                          final success = await provider.restoreFromJson(
-                              controller.text.trim(),
-                              merge: false);
-                          if (ctx.mounted) {
-                            Navigator.pop(ctx);
-                            AppSnackBar.show(
-                              context,
-                              success
-                                  ? 'Data berhasil ditimpa penuh (Replace).'
-                                  : 'Gagal memulihkan data.',
-                              type: success
-                                  ? SnackBarType.success
-                                  : SnackBarType.danger,
-                            );
-                          }
-                        },
-                        child: Text('Replace Data',
-                            style: GoogleFonts.manrope(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600)),
                       ),
                     ),
                   ],
@@ -2161,54 +2461,61 @@ class SettingsScreen extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    foregroundColor: isDark ? Colors.white : const Color(0xFF0F172A),
-                    side: BorderSide(
-                      color: isDark ? Colors.white.withOpacity(0.15) : const Color(0xFFCBD5E1),
+                child: SizedBox(
+                  height: 48,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDark ? Colors.white : const Color(0xFF0F172A),
+                      side: BorderSide(
+                        color: isDark ? Colors.white.withOpacity(0.15) : const Color(0xFFCBD5E1),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(
-                    'Batalkan',
-                    style: GoogleFonts.manrope(
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
-                      fontWeight: FontWeight.w600,
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(
+                      'Batalkan',
+                      style: GoogleFonts.manrope(
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    backgroundColor: _danger,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _danger,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                  ),
-                  onPressed: () async {
-                    await provider.clearAllTransactions();
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                      AppSnackBar.show(
-                        context,
-                        'Seluruh transaksi berhasil dikosongkan.',
-                        type: SnackBarType.danger,
-                      );
-                    }
-                  },
-                  child: Text(
-                    'Hapus Semua',
-                    style: GoogleFonts.manrope(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
+                    onPressed: () async {
+                      await provider.clearAllTransactions();
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                        AppSnackBar.show(
+                          context,
+                          'Seluruh transaksi berhasil dikosongkan.',
+                          type: SnackBarType.danger,
+                        );
+                      }
+                    },
+                    child: Text(
+                      'Hapus Semua',
+                      style: GoogleFonts.manrope(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -2254,54 +2561,61 @@ class SettingsScreen extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    foregroundColor: isDark ? Colors.white : const Color(0xFF0F172A),
-                    side: BorderSide(
-                      color: isDark ? Colors.white.withOpacity(0.15) : const Color(0xFFCBD5E1),
+                child: SizedBox(
+                  height: 48,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDark ? Colors.white : const Color(0xFF0F172A),
+                      side: BorderSide(
+                        color: isDark ? Colors.white.withOpacity(0.15) : const Color(0xFFCBD5E1),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(
-                    'Batalkan',
-                    style: GoogleFonts.manrope(
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
-                      fontWeight: FontWeight.w600,
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(
+                      'Batalkan',
+                      style: GoogleFonts.manrope(
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    backgroundColor: const Color(0xFF02539A),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF02539A),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                  ),
-                  onPressed: () async {
-                    await provider.resetToDefaults();
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                      AppSnackBar.show(
-                        context,
-                        'Aplikasi berhasil direset ke data bawaan.',
-                        type: SnackBarType.success,
-                      );
-                    }
-                  },
-                  child: Text(
-                    'Reset Bawaan',
-                    style: GoogleFonts.manrope(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
+                    onPressed: () async {
+                      await provider.resetToDefaults();
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                        AppSnackBar.show(
+                          context,
+                          'Aplikasi berhasil direset ke data bawaan.',
+                          type: SnackBarType.success,
+                        );
+                      }
+                    },
+                    child: Text(
+                      'Reset Bawaan',
+                      style: GoogleFonts.manrope(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),

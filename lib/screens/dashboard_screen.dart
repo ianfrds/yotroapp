@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../models/transaction_model.dart';
 import '../models/category_model.dart';
+import '../models/wallet_model.dart';
 import '../providers/transaction_provider.dart';
 import '../widgets/nested_card.dart';
 import '../widgets/weekly_activity_chart.dart';
@@ -57,7 +58,7 @@ class DashboardScreen extends StatelessWidget {
               children: [
                 _buildHeader(context, provider),
                 const SizedBox(height: 14),
-                _buildBalancePanel(context, provider),
+                _HeroBalancePanel(provider: provider),
                 if (provider.shouldShowDailyReminder) ...[
                   const SizedBox(height: 12),
                   _buildDailyReminderCard(context, provider),
@@ -176,347 +177,6 @@ class DashboardScreen extends StatelessWidget {
           ],
         ),
       ],
-    );
-  }
-
-  Widget _buildBalancePanel(
-    BuildContext context,
-    TransactionProvider provider,
-  ) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(5, 5, 5, 10),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0C131D).withOpacity(0.92) : Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(
-          color: isDark ? Colors.white.withOpacity(.08) : const Color(0xFFE2E8F0),
-        ),
-        boxShadow: isDark
-            ? [
-                BoxShadow(
-                  color: const Color(0xFF034A8C).withOpacity(0.18),
-                  blurRadius: 32,
-                  offset: const Offset(0, 8),
-                  spreadRadius: 1,
-                ),
-              ]
-            : [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-      ),
-      child: Column(
-        children: [
-          // Inner Sapphire Radial Gradient Card ("Card inside Card")
-          Container(
-            padding: const EdgeInsets.fromLTRB(6, 10, 6, 6),
-            decoration: BoxDecoration(
-              gradient: const RadialGradient(
-                center: Alignment(0.0, 1.0),
-                radius: 1.08,
-                colors: [
-                  Color(0xFF041735),
-                  Color(0xFF001732),
-                  Color(0xFF00498C),
-                ],
-                stops: [0.0, 0.3606, 1.0],
-              ),
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: Colors.white.withOpacity(.12)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Row 1: Period Pill & Visibility Eye Toggle
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildMonthFilterPill(context, provider),
-                      IconButton(
-                        tooltip: provider.isBalanceVisible
-                            ? 'Sembunyikan nominal'
-                            : 'Tampilkan nominal',
-                        onPressed: provider.toggleBalanceVisibility,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints.tightFor(
-                          width: 32,
-                          height: 32,
-                        ),
-                        icon: Icon(
-                          provider.isBalanceVisible
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (provider.dashboardViewMode == DashboardViewMode.complete ||
-                    provider.dashboardViewMode == DashboardViewMode.expenseOnly) ...[
-                  const SizedBox(height: 10),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          provider.dashboardViewMode == DashboardViewMode.expenseOnly
-                              ? 'Total Pengeluaran'
-                              : 'Saldo saat ini',
-                          style: GoogleFonts.manrope(
-                            color: Colors.white.withOpacity(.85),
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            provider.isBalanceVisible
-                                ? provider.formatCurrency(
-                                    provider.dashboardViewMode == DashboardViewMode.expenseOnly
-                                        ? provider.dashboardMonthExpense
-                                        : provider.totalBalance,
-                                  )
-                                : 'Rp ••••••••',
-                            style: GoogleFonts.interTight(
-                              color: Colors.white,
-                              fontSize: 34,
-                              height: 1.1,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: -0.6,
-                            ),
-                          ),
-                        ),
-                        if (provider.dashboardViewMode == DashboardViewMode.expenseOnly)
-                          const SizedBox(height: 14),
-                      ],
-                    ),
-                  ),
-                ],
-                // Sub-Cards: only when NOT expenseOnly
-                if (provider.dashboardViewMode != DashboardViewMode.expenseOnly) ...[
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildSubCard(
-                          isExpense: true,
-                          label: 'Pengeluaran',
-                          value: provider.isBalanceVisible
-                              ? provider.formatCurrency(provider.dashboardMonthExpense)
-                              : 'Rp ••••••',
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: _buildSubCard(
-                          isExpense: false,
-                          label: 'Pemasukan',
-                          value: provider.isBalanceVisible
-                              ? provider.formatCurrency(provider.dashboardMonthIncome)
-                              : 'Rp ••••••',
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-          // Row 4: 4 Quick Actions with Dividers (Dompet, Budget, Analisis, Split Bill)
-          Padding(
-            padding: const EdgeInsets.only(top: 8, bottom: 2),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildQuickActionItem(
-                    context: context,
-                    svgAsset: 'assets/icon/Dompet.svg',
-                    label: 'Dompet',
-                    onTap: () {
-                      Navigator.push(context, WalletsScreen.route());
-                    },
-                  ),
-                ),
-                _buildActionDivider(context),
-                Expanded(
-                  child: _buildQuickActionItem(
-                    context: context,
-                    svgAsset: 'assets/icon/Budget.svg',
-                    label: 'Budget',
-                    onTap: () {
-                      Navigator.push(context, BudgetScreen.route());
-                    },
-                  ),
-                ),
-                _buildActionDivider(context),
-                Expanded(
-                  child: _buildQuickActionItem(
-                    context: context,
-                    svgAsset: 'assets/icon/Analisis.svg',
-                    label: 'Analisis',
-                    onTap: () {
-                      FinancialAnalysisScreen.showAsModalSheet(context);
-                    },
-                  ),
-                ),
-                _buildActionDivider(context),
-                Expanded(
-                  child: _buildQuickActionItem(
-                    context: context,
-                    svgAsset: 'assets/icon/Split Bill.svg',
-                    label: 'Split Bill',
-                    onTap: () {
-                      Navigator.push(context, SplitBillScreen.route());
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMonthFilterPill(BuildContext context, TransactionProvider provider) {
-    return AppMonthFilterPill(
-      selectedDate: provider.selectedDashboardMonth,
-      isHeroCard: true,
-      onTap: () => showAppMonthFilterSheet(
-        context: context,
-        initialDate: provider.selectedDashboardMonth,
-        onSelected: (date) => provider.setSelectedDashboardMonth(date),
-      ),
-    );
-  }
-
-  Widget _buildSubCard({
-    required bool isExpense,
-    required String label,
-    required String value,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF23374D).withOpacity(.55),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.white.withOpacity(.14)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              isExpense ? Icons.remove_rounded : Icons.add_rounded,
-              color: isExpense ? const Color(0xFFE53935) : const Color(0xFF00B074),
-              size: 16,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: GoogleFonts.manrope(
-                    color: Colors.white.withOpacity(.85),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 1),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    value,
-                    style: GoogleFonts.interTight(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionDivider(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      width: 1,
-      height: 36,
-      color: isDark ? Colors.white.withOpacity(.08) : const Color(0xFFE2E8F0),
-    );
-  }
-
-  Widget _buildQuickActionItem({
-    required BuildContext context,
-    String? svgAsset,
-    IconData? icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (svgAsset != null)
-              SvgPicture.asset(
-                svgAsset,
-                width: 36,
-                height: 36,
-                colorFilter: ColorFilter.mode(
-                  isDark ? Colors.white : const Color(0xFF0F172A),
-                  BlendMode.srcIn,
-                ),
-              )
-            else if (icon != null)
-              Icon(
-                icon,
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
-                size: 36,
-              ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: GoogleFonts.manrope(
-                color: isDark ? Colors.white.withOpacity(.8) : const Color(0xFF475569),
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -642,6 +302,783 @@ class DashboardScreen extends StatelessWidget {
                 fontSize: 11.5,
                 fontWeight: FontWeight.w700,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroBalancePanel extends StatefulWidget {
+  final TransactionProvider provider;
+
+  const _HeroBalancePanel({required this.provider});
+
+  @override
+  State<_HeroBalancePanel> createState() => _HeroBalancePanelState();
+}
+
+class _HeroBalancePanelState extends State<_HeroBalancePanel> {
+  late final PageController _pageController;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentPage =
+        widget.provider.dashboardBalanceMode == DashboardBalanceMode.total ? 1 : 0;
+    _pageController = PageController(initialPage: _currentPage);
+  }
+
+  @override
+  void didUpdateWidget(covariant _HeroBalancePanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final targetPage =
+        widget.provider.dashboardBalanceMode == DashboardBalanceMode.total ? 1 : 0;
+    if (_currentPage != targetPage) {
+      _currentPage = targetPage;
+      if (_pageController.hasClients && _pageController.page?.round() != targetPage) {
+        _pageController.animateToPage(
+          targetPage,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  double get _contentHeight {
+    switch (widget.provider.dashboardViewMode) {
+      case DashboardViewMode.complete:
+        return 116.0;
+      case DashboardViewMode.incomeExpense:
+        return 52.0;
+      case DashboardViewMode.expenseOnly:
+        return 64.0;
+    }
+  }
+
+  BoxDecoration _buildSapphireDecoration() {
+    return BoxDecoration(
+      gradient: const RadialGradient(
+        center: Alignment(0.0, 1.0),
+        radius: 1.08,
+        colors: [
+          Color(0xFF041735),
+          Color(0xFF001732),
+          Color(0xFF00498C),
+        ],
+        stops: [0.0, 0.3606, 1.0],
+      ),
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: Colors.white.withOpacity(.12)),
+    );
+  }
+
+  Widget _buildVisibilityToggle(TransactionProvider provider) {
+    return IconButton(
+      tooltip: provider.isBalanceVisible
+          ? 'Sembunyikan nominal'
+          : 'Tampilkan nominal',
+      onPressed: provider.toggleBalanceVisibility,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(
+        width: 32,
+        height: 32,
+      ),
+      icon: Icon(
+        provider.isBalanceVisible
+            ? Icons.visibility_outlined
+            : Icons.visibility_off_outlined,
+        color: Colors.white,
+        size: 20,
+      ),
+    );
+  }
+
+  Widget _buildHeroHeader(BuildContext context) {
+    final provider = widget.provider;
+    final isCompleteView =
+        provider.dashboardViewMode == DashboardViewMode.complete;
+    final date = provider.selectedDashboardMonth;
+    final monthLabel =
+        '${AppMonthFilterPill.shortMonthNames[date.month - 1]} ${date.year}';
+    final isMonthlyActive = _currentPage == 0;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Month Button (e.g. "Nov 2026")
+                  InkWell(
+                    key: const ValueKey('hero_month_button'),
+                    onTap: () {
+                      if (_currentPage != 0) {
+                        _pageController.animateToPage(
+                          0,
+                          duration: const Duration(milliseconds: 260),
+                          curve: Curves.easeOutCubic,
+                        );
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOutCubic,
+                      height: 30,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isMonthlyActive ? 10 : 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isMonthlyActive
+                            ? Colors.white
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        monthLabel,
+                        style: GoogleFonts.manrope(
+                          fontSize: 12,
+                          fontWeight: isMonthlyActive
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                          color: isMonthlyActive
+                              ? const Color(0xFF0B2244)
+                              : Colors.white.withOpacity(0.70),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (isCompleteView) ...[
+                    const SizedBox(width: 8),
+                    // Total Saldo Button
+                    InkWell(
+                      key: const ValueKey('hero_total_saldo_button'),
+                      onTap: () {
+                        if (_currentPage != 1) {
+                          _pageController.animateToPage(
+                            1,
+                            duration: const Duration(milliseconds: 260),
+                            curve: Curves.easeOutCubic,
+                          );
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOutCubic,
+                        height: 30,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: !isMonthlyActive ? 10 : 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: !isMonthlyActive
+                              ? Colors.white
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          'Total Saldo',
+                          style: GoogleFonts.manrope(
+                            fontSize: 12,
+                            fontWeight: !isMonthlyActive
+                                ? FontWeight.w600
+                                : FontWeight.w500,
+                            color: !isMonthlyActive
+                                ? const Color(0xFF0B2244)
+                                : Colors.white.withOpacity(0.70),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          _buildVisibilityToggle(provider),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMonthlyContent(BuildContext context) {
+    final provider = widget.provider;
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (provider.dashboardViewMode == DashboardViewMode.complete ||
+              provider.dashboardViewMode == DashboardViewMode.expenseOnly) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    provider.dashboardViewMode == DashboardViewMode.expenseOnly
+                        ? 'Total Pengeluaran'
+                        : 'Saldo saat ini',
+                    style: GoogleFonts.manrope(
+                      color: Colors.white.withOpacity(.85),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      provider.isBalanceVisible
+                          ? provider.formatCurrency(
+                              provider.dashboardViewMode ==
+                                      DashboardViewMode.expenseOnly
+                                  ? provider.dashboardMonthExpense
+                                  : provider.dashboardMonthNetBalance,
+                            )
+                          : 'Rp ••••••••',
+                      style: GoogleFonts.interTight(
+                        color: Colors.white,
+                        fontSize: 32,
+                        height: 1.1,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: -0.6,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          // Sub-Cards: only when NOT expenseOnly
+          if (provider.dashboardViewMode != DashboardViewMode.expenseOnly) ...[
+            if (provider.dashboardViewMode == DashboardViewMode.complete)
+              const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildSubCard(
+                    isExpense: true,
+                    label: 'Pengeluaran',
+                    value: provider.isBalanceVisible
+                        ? provider.formatCurrency(provider.dashboardMonthExpense)
+                        : 'Rp ••••••',
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: _buildSubCard(
+                    isExpense: false,
+                    label: 'Pemasukan',
+                    value: provider.isBalanceVisible
+                        ? provider.formatCurrency(provider.dashboardMonthIncome)
+                        : 'Rp ••••••',
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTotalContent(BuildContext context) {
+    final provider = widget.provider;
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Total Saldo',
+                  style: GoogleFonts.manrope(
+                    color: Colors.white.withOpacity(.85),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    provider.isBalanceVisible
+                        ? provider.formatCurrency(provider.totalBalance)
+                        : 'Rp ••••••••',
+                    style: GoogleFonts.interTight(
+                      color: Colors.white,
+                      fontSize: 32,
+                      height: 1.1,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: -0.6,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          _buildWalletsSection(context, provider),
+        ],
+      ),
+    );
+  }
+
+  IconData _getWalletIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'bank account':
+        return Icons.account_balance_rounded;
+      case 'cash':
+        return Icons.payments_rounded;
+      case 'e-wallet':
+        return Icons.phone_android_rounded;
+      case 'savings':
+        return Icons.savings_rounded;
+      default:
+        return Icons.credit_card_rounded;
+    }
+  }
+
+  Color _getWalletColor(String type) {
+    switch (type.toLowerCase()) {
+      case 'bank account':
+        return const Color(0xFF02539A);
+      case 'cash':
+      case 'e-wallet':
+        return const Color(0xFF00B074);
+      case 'savings':
+        return const Color(0xFFF59E0B);
+      default:
+        return const Color(0xFF8B5CF6);
+    }
+  }
+
+  Widget _buildWalletCard({
+    required WalletModel wallet,
+    required TransactionProvider provider,
+    double? width,
+    VoidCallback? onTap,
+  }) {
+    return _buildSubCard(
+      isExpense: false,
+      customIcon: _getWalletIcon(wallet.type),
+      customIconColor: _getWalletColor(wallet.type),
+      label: wallet.name,
+      value: provider.isBalanceVisible
+          ? provider.formatCurrency(wallet.balance)
+          : 'Rp ••••••',
+      width: width,
+      onTap: onTap,
+    );
+  }
+
+  Widget _buildWalletsSection(BuildContext context, TransactionProvider provider) {
+    final wallets = provider.wallets;
+    if (wallets.isEmpty) {
+      return _buildSubCard(
+        isExpense: false,
+        customIcon: Icons.account_balance_wallet_outlined,
+        customIconColor: const Color(0xFF02539A),
+        label: 'Belum Ada Akun',
+        value: 'Tambah Dompet',
+        onTap: () {
+          Navigator.push(context, WalletsScreen.route());
+        },
+      );
+    }
+
+    if (wallets.length <= 2) {
+      return Row(
+        children: [
+          for (int i = 0; i < wallets.length; i++) ...[
+            if (i > 0) const SizedBox(width: 6),
+            Expanded(
+              child: _buildWalletCard(
+                wallet: wallets[i],
+                provider: provider,
+                onTap: () {
+                  Navigator.push(context, WalletsScreen.route());
+                },
+              ),
+            ),
+          ],
+        ],
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = constraints.maxWidth > 420
+            ? 180.0
+            : (constraints.maxWidth - 52).clamp(120.0, 300.0) / 2;
+
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          clipBehavior: Clip.none,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (int i = 0; i < wallets.length; i++) ...[
+                if (i > 0) const SizedBox(width: 6),
+                _buildWalletCard(
+                  wallet: wallets[i],
+                  provider: provider,
+                  width: cardWidth,
+                  onTap: () {
+                    Navigator.push(context, WalletsScreen.route());
+                  },
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPaginationDots() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(2, (index) {
+        final isActive = _currentPage == index;
+        return GestureDetector(
+          key: ValueKey('hero_pagination_dot_$index'),
+          onTap: () {
+            _pageController.animateToPage(
+              index,
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+            );
+          },
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2.5, vertical: 1),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              width: isActive ? 22.0 : 6.0,
+              height: 4.5,
+              decoration: BoxDecoration(
+                color: isActive ? Colors.white : Colors.white.withOpacity(0.32),
+                borderRadius: BorderRadius.circular(2.5),
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildSubCard({
+    required bool isExpense,
+    required String label,
+    required String value,
+    IconData? customIcon,
+    Color? customIconColor,
+    VoidCallback? onTap,
+    double? width,
+  }) {
+    final cardContent = Container(
+      width: width,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF23374D).withOpacity(.55),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.white.withOpacity(.14)),
+      ),
+      child: Row(
+        mainAxisSize: width != null ? MainAxisSize.max : MainAxisSize.min,
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              customIcon ??
+                  (isExpense ? Icons.remove_rounded : Icons.add_rounded),
+              color: customIconColor ??
+                  (isExpense
+                      ? const Color(0xFFE53935)
+                      : const Color(0xFF00B074)),
+              size: 16,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.manrope(
+                    color: Colors.white.withOpacity(.85),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    style: GoogleFonts.interTight(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(15),
+        child: cardContent,
+      );
+    }
+
+    return cardContent;
+  }
+
+  Widget _buildActionDivider(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: 1,
+      height: 36,
+      color: isDark ? Colors.white.withOpacity(.08) : const Color(0xFFE2E8F0),
+    );
+  }
+
+  Widget _buildQuickActionItem({
+    required BuildContext context,
+    String? svgAsset,
+    IconData? icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (svgAsset != null)
+              SvgPicture.asset(
+                svgAsset,
+                width: 36,
+                height: 36,
+                colorFilter: ColorFilter.mode(
+                  isDark ? Colors.white : const Color(0xFF0F172A),
+                  BlendMode.srcIn,
+                ),
+              )
+            else if (icon != null)
+              Icon(
+                icon,
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                size: 36,
+              ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: GoogleFonts.manrope(
+                color: isDark
+                    ? Colors.white.withOpacity(.8)
+                    : const Color(0xFF475569),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isCompleteView =
+        widget.provider.dashboardViewMode == DashboardViewMode.complete;
+    final isExpenseOnly =
+        widget.provider.dashboardViewMode == DashboardViewMode.expenseOnly;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(5, 5, 5, 8),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0C131D).withOpacity(0.92) : Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(.08) : const Color(0xFFE2E8F0),
+        ),
+        boxShadow: isDark
+            ? [
+                BoxShadow(
+                  color: const Color(0xFF034A8C).withOpacity(0.18),
+                  blurRadius: 32,
+                  offset: const Offset(0, 8),
+                  spreadRadius: 1,
+                ),
+              ]
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+      ),
+      child: Column(
+        children: [
+          // Stationary Sapphire Hero Container
+          Container(
+            padding: EdgeInsets.fromLTRB(
+              6,
+              7,
+              6,
+              isExpenseOnly ? 10 : 7,
+            ),
+            decoration: _buildSapphireDecoration(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Stationary Hero Header (Month Label & Total Saldo Switcher)
+                _buildHeroHeader(context),
+                SizedBox(height: isExpenseOnly ? 12 : 6),
+                // Inner Content slides horizontally
+                SizedBox(
+                  height: _contentHeight,
+                  child: PageView(
+                    controller: _pageController,
+                    onPageChanged: (index) {
+                      setState(() {
+                        _currentPage = index;
+                      });
+                      widget.provider.setDashboardBalanceMode(
+                        index == 0
+                            ? DashboardBalanceMode.monthly
+                            : DashboardBalanceMode.total,
+                      );
+                    },
+                    physics: isCompleteView
+                        ? const BouncingScrollPhysics()
+                        : const NeverScrollableScrollPhysics(),
+                    children: isCompleteView
+                        ? [
+                            _buildMonthlyContent(context),
+                            _buildTotalContent(context),
+                          ]
+                        : [
+                            _buildMonthlyContent(context),
+                          ],
+                  ),
+                ),
+                if (isCompleteView) ...[
+                  const SizedBox(height: 7),
+                  _buildPaginationDots(),
+                  const SizedBox(height: 1),
+                ] else if (isExpenseOnly) ...[
+                  const SizedBox(height: 6),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          // Row 4: 4 Quick Actions with Dividers (Dompet, Budget, Analisis, Split Bill)
+          Padding(
+            padding: const EdgeInsets.only(top: 2, bottom: 2),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildQuickActionItem(
+                    context: context,
+                    svgAsset: 'assets/icon/Dompet.svg',
+                    label: 'Dompet',
+                    onTap: () {
+                      Navigator.push(context, WalletsScreen.route());
+                    },
+                  ),
+                ),
+                _buildActionDivider(context),
+                Expanded(
+                  child: _buildQuickActionItem(
+                    context: context,
+                    svgAsset: 'assets/icon/Budget.svg',
+                    label: 'Budget',
+                    onTap: () {
+                      Navigator.push(context, BudgetScreen.route());
+                    },
+                  ),
+                ),
+                _buildActionDivider(context),
+                Expanded(
+                  child: _buildQuickActionItem(
+                    context: context,
+                    svgAsset: 'assets/icon/Analisis.svg',
+                    label: 'Analisis',
+                    onTap: () {
+                      FinancialAnalysisScreen.showAsModalSheet(context);
+                    },
+                  ),
+                ),
+                _buildActionDivider(context),
+                Expanded(
+                  child: _buildQuickActionItem(
+                    context: context,
+                    svgAsset: 'assets/icon/Split Bill.svg',
+                    label: 'Split Bill',
+                    onTap: () {
+                      Navigator.push(context, SplitBillScreen.route());
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
         ],

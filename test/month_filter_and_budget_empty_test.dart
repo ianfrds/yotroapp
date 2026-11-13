@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:money_tracker/models/budget_model.dart';
 import 'package:money_tracker/providers/transaction_provider.dart';
 import 'package:money_tracker/screens/budget_screen.dart';
-import 'package:money_tracker/screens/dashboard_screen.dart';
+import 'package:money_tracker/widgets/month_filter_sheet.dart';
 
 Widget buildTestApp(Widget child, TransactionProvider provider) {
   return ChangeNotifierProvider<TransactionProvider>.value(
@@ -25,13 +25,34 @@ void main() {
   });
 
   group('Month Filter Bottom Sheet Tests', () {
-    testWidgets('Dashboard month filter pill opens bottom sheet and updates selected month', (tester) async {
+    testWidgets('AppMonthFilterPill opens bottom sheet and updates selected month', (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
       final provider = TransactionProvider();
-      await tester.pumpWidget(buildTestApp(const DashboardScreen(), provider));
+      await tester.pumpWidget(buildTestApp(
+        Scaffold(
+          body: Center(
+            child: Builder(
+              builder: (context) => Consumer<TransactionProvider>(
+                builder: (context, prov, _) => AppMonthFilterPill(
+                  selectedDate: prov.selectedDashboardMonth,
+                  isHeroCard: true,
+                  onTap: () {
+                    showAppMonthFilterSheet(
+                      context: context,
+                      initialDate: prov.selectedDashboardMonth,
+                      onSelected: (date) => prov.setSelectedDashboardMonth(date),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+        provider,
+      ));
       await tester.pumpAndSettle();
 
       // Find the month filter pill in the hero card

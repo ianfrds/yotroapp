@@ -133,7 +133,8 @@ money-tracker/
 │   ├── month_filter_and_budget_empty_test.dart # Test filter bulanan beranda & empty state budget
 │   ├── transactions_filter_unified_test.dart   # Test filter waktu lengkap riwayat transaksi
 │   ├── voice_recording_sheet_test.dart         # Test circular spectrum, standby, preview web, simulator & autofill form
-│   └── financial_analysis_ux_test.dart         # Test UX bahasa awam analisis keuangan & panduan bantuan
+│   ├── financial_analysis_ux_test.dart         # Test UX bahasa awam analisis keuangan & panduan bantuan
+│   └── transfer_validation_and_settings_test.dart # Test validasi transfer dompet beda & penyembunyian reset data bawaan di mobile
 ├── design.md                       # Spesifikasi sistem desain & token visual
 ├── AGENTS.md                       # Aturan wajib agent & auto-sync context.md
 ├── GEMINI.md                       # Aturan hierarki workspace Gemini / Antigravity
@@ -610,6 +611,77 @@ money-tracker/
 - **Simulator Chips:** Disediakan tombol simulasi cepat 1 item dan 4 item khusus di Web Runner (`kIsWeb`) atau fallback; disembunyikan total saat aplikasi berjalan sebagai APK di ponsel.
 - **Tombol Tes Spektrum Web-Only:** Action chip `Tes gerak spektrum` hadir murni pada `kIsWeb`. Mode uji memutar pola 4 detik (silent ring → attack/fluktuasi suara → release) tanpa mengisi transkrip atau merutekan transaksi; klik ulang menghentikan timer dan mengembalikan energi ke nol.
 - **API Speech Modern:** Konfigurasi locale `id_ID`, `listenFor`, dan `pauseFor` menggunakan `SpeechListenOptions` agar bebas API deprecated pada `speech_to_text 7.5.0`.
+
+### 3.21 Multi-Step Onboarding Flow Pertama Kali Pasang (`lib/screens/onboarding_profile_screen.dart`)
+- **Arsitektur 4 Tahap Berurutan (Sequential Onboarding Steps):**
+  - **Step 1: Identitas & Data Diri (Wajib):** Input Nama Lengkap (validasi wajib diisi), Nomor Telepon (opsional), dan Jenis Kelamin (Pria/Wanita). Dilengkapi tombol "Lanjutkan" (masuk Step 2) dan tombol teks cepat "Mulai Mencatat" (selesaikan langsung dengan default).
+  - **Step 2: Tema & Preferensi Tampilan Dashboard (Opsional / Bisa Dilewati):**
+    - Pilihan Mode Tampilan: Sistem, Terang, Gelap.
+    - Pilihan Tampilan Beranda: Tampilan Lengkap (`complete`), Pemasukan & Pengeluaran (`incomeExpense`), atau Pengeluaran Saja (`expenseOnly`).
+    - Tombol "Lanjutkan" atau "Lewati".
+  - **Step 3: Atur Dompet / Rekening (Opsional / Bisa Dilewati):**
+    - Menampilkan daftar dompet aktif pengguna.
+    - Tombol "+ Tambah Dompet Baru" membuka bottom sheet modal untuk menginput nama dompet, tipe (Bank, E-Wallet, Cash), dan saldo awal opsional.
+    - Tombol "Lanjutkan" atau "Lewati".
+  - **Step 4: Atur Kategori Transaksi (Opsional / Bisa Dilewati):**
+    - Tab Pengeluaran dan Pemasukan menampilkan chip kategori aktif.
+    - Tombol "+ Tambah Kategori" terintegrasi langsung dengan `EditCategoryScreen.showAsModalSheet` untuk menambah kategori baru secara instan.
+    - Tombol utama penyelesaian: **"Mulai Mencatat"**.
+- **Indikator Progres Responsif Bebas Overflow:** Indikator 4 pill progres (`Profil`, `Tampilan`, `Dompet`, `Kategori`) dibungkus dalam `FittedBox(fit: BoxFit.scaleDown)` dengan padding proporsional, menjamin zero RenderFlex overflow pada seluruh resolusi layar (termasuk layar sempit <= 360px).
+
+### 3.22 Status Bar & Notification Bar Adaptif Mode Terang (`lib/main.dart` & `lib/screens/main_shell.dart`)
+- **Penyelesaian Isu Status Bar HP Tidak Terlihat di Light Mode:**
+  - Sebelumnya, pada Light Mode, ikon notification/status bar bawaan smartphone (jam, baterai, sinyal) tidak terlihat karena tetap berwarna putih di atas latar belakang aplikasi yang terang.
+  - Membungkus `MaterialApp.builder` dan root `Scaffold` di `main_shell.dart` dengan `AnnotatedRegion<SystemUiOverlayStyle>` dan panggilan dinamis `SystemChrome.setSystemUIOverlayStyle`.
+  - Mengatur `statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark` (Android) dan `statusBarBrightness: isDark ? Brightness.dark : Brightness.light` (iOS) secara global, menjamin ikon status bar selalu kontras tajam (hitam di mode terang, putih di mode gelap).
+
+### 3.23 Tombol Logout Khusus Web Runner untuk Pengujian Onboarding (`lib/screens/settings_screen.dart`)
+- Menambahkan tombol Logout khusus saat aplikasi berjalan di web (`if (kIsWeb)`) pada kartu profil dan Danger Zone di `SettingsScreen`.
+- Tombol ini membuka dialog konfirmasi dan memanggil `provider.logout()` (mereset `isOnboardingCompleted = false`) serta menavigasi ke `OnboardingProfileScreen`, memungkinkan pengujian alur 4 tahap onboarding berulang kali di browser `localhost:8080`.
+
+### 3.24 Penyempurnaan Tombol Total Saldo, Sub-Card Likuiditas, & Modal Mata Uang
+- **Tombol "Total Saldo" Minimalis Anti-Slop (`lib/screens/dashboard_screen.dart`):**
+  - Ikon dompet dihapus total; tombol menggunakan murni tipografi `Text('Total Saldo')`.
+  - Mode default / inaktif (versi Bulanan): Berupa text button transparan tanpa border atau container latar (`color: Colors.transparent`), teks putih teredam (`Colors.white.withOpacity(0.70)`), sehingga tidak mencolok di samping filter bulan.
+  - Mode aktif (versi Total Saldo): Berubah menjadi kapsul solid putih (`color: Colors.white`) dengan teks sapphire gelap (`#0B2244`, `FontWeight.w600`).
+  - Visibilitas Terbatas: Hanya ditampilkan pada mode beranda **Complete View** (`dashboardViewMode == DashboardViewMode.complete`). Otomatis disembunyikan total pada mode `incomeExpense` dan `expenseOnly`.
+- **Sub-Card Likuiditas Finansial Mode Total Saldo (Opsi 1):**
+  - Menggantikan sub-card lama ("Pengeluaran total" & "Pemasukan total") saat mode Total Saldo aktif.
+  - **Sub-card Kiri — "Bank & Rekening":** Menampilkan total agregat seluruh dompet bertipe `Bank Account` dan `Savings` via getter `provider.bankWalletsTotalBalance`. Ikon vektor `Icons.account_balance_rounded`. Mengetuk sub-card membuka layar `WalletsScreen`.
+  - **Sub-card Kanan — "Kas & E-Wallet":** Menampilkan total agregat dompet tunai dan digital via getter `provider.cashAndDigitalWalletsTotalBalance`. Ikon vektor `Icons.account_balance_wallet_rounded`. Mengetuk sub-card membuka layar `WalletsScreen`.
+- **Pengaturan "Mata Uang" dengan Modal Bottom Sheet (`lib/screens/settings_screen.dart`):**
+  - Judul diubah dari "Mata Uang Acuan" menjadi **"Mata Uang"**.
+  - Trailing widget menampilkan chip bendera negara (`🇮🇩 IDR` / `🇺🇸 USD`) disertai chevron `>`.
+  - Mengetuk baris pengaturan membuka sheet modal `_showCurrencyPickerSheet` dengan pilihan 🇮🇩 IDR (Rupiah Indonesia - Rp) dan 🇺🇸 USD (US Dollar - $). Pilihan langsung tersimpan dan menampilkan konfirmasi snackbar.
+
+### 3.25 Hero Card Horizontal Slide, Stationary Header [Nov 2026] vs [Total Saldo], Dynamic Wallet Sub-Cards, & Snug Fit Spacing (`lib/screens/dashboard_screen.dart`)
+- **Stationary Top Header (Label Bulan & Total Saldo Tidak Ikut Tergeser)**:
+  - Header navigasi kartu hero (`_buildHeroHeader`) diposisikan **stasioner penuh di luar `PageView`**, tepat di bagian atas kontainer safir.
+  - Tombol kiri menampilkan bulan kalender berjalan (misal `Nov 2026`) dan tombol `Total Saldo`.
+  - Saat pengguna menggeser (*swipe*) kartu atau mengetuk tombol, **header tidak ikut bergeser**. Tombol aktif murni beralih status secara halus di tempatnya (`Nov 2026` aktif kapsul putih saat Bulanan; `Total Saldo` aktif kapsul putih saat Total Saldo).
+  - Yang meluncur/bergeser secara fisik ke kiri dan kanan murni **hanya konten saldo dan sub-card finansial**:
+    - **Halaman 0 (Bulanan)**: "Saldo saat ini", nominal saldo terformat utuh, dan sub-card Pengeluaran & Pemasukan.
+    - **Halaman 1 (Total Saldo)**: "Total Saldo", nominal total agregat utuh, dan sub-card per dompet (*wallets*).
+- **Sub-Card Dinamis Per-Dompet dengan Scroll Horizontal & Intipan Kartu ke-3 (`_buildWalletsSection`)**:
+  - Pada slide Total Saldo (Halaman 1), sub-card agregat statis digantikan dengan kartu individual per dompet aktif pengguna (`provider.wallets`).
+  - **Kondisi <= 2 Dompet**: Ditampilkan dalam layout `Row` standar dengan pembungkus `Expanded` yang membagi lebar secara seimbang.
+  - **Kondisi > 2 Dompet**: Ditampilkan dalam `SingleChildScrollView(scrollDirection: Axis.horizontal, physics: BouncingScrollPhysics())` menggunakan `LayoutBuilder`:
+    - Lebar kartu dihitung presisi: `cardWidth = (constraints.maxWidth - 52).clamp(120.0, 300.0) / 2`.
+    - Menampilkan 2 kartu penuh di layar, dan **kartu ke-3 diintipkan selebar ~40px** dari tepi kanan kontainer, memberi petunjuk visual instan kepada pengguna bahwa deretan dompet dapat digulir horizontal.
+    - Setiap kartu dompet menampilkan ikon vektor spesifik tipe dompet (`Bank Account`, `Cash`, `E-Wallet`, `Savings`), nama akun, saldo terformat (mendukung masking privasi), dan aksi tap menuju `WalletsScreen.route()`.
+- **Penyempurnaan Spasi Vertikal Antara Saldo dan Sub-Card & Zero-Clipping Height**:
+  - Menambah jarak vertikal antara teks nominal saldo ("Saldo saat ini" / "Total Saldo") dengan sub-card dari `6px` menjadi `10px` (`SizedBox(height: 10)`), memberikan breathing room yang proporsional dan tidak mepet.
+  - Menyesuaikan tinggi `_contentHeight` pada seluruh mode tampilan agar sub-card tidak lagi terpotong garis batas bawahnya:
+    - **Complete View**: Disesuaikan dari `104.0px` menjadi `116.0px` (memuat saldo + gap 10px + sub-card dompet/arus kas secara utuh, plus `SizedBox(height: 7)` sebelum pagination dots).
+    - **Pemasukan & Pengeluaran (`incomeExpense`)**: Disesuaikan dari `44.0px` menjadi `52.0px` (memuat sub-card 47px dengan margin vertikal bersih, zero clipping).
+    - **Pengeluaran Saja (`expenseOnly`)**: Disesuaikan dari `58.0px` menjadi `64.0px` (memuat label Total Pengeluaran + nominal 32px utuh tanpa terpotong), disertai penambahan gap atas dari header menjadi `12px` (`SizedBox(height: isExpenseOnly ? 12 : 6)`), gap bawah PageView `6px`, dan padding bawah kontainer safir `10px` (`isExpenseOnly ? 10 : 7`). Total penambahan ruang lega vertikal sebesar +21px menghilangkan kesan terlalu mepet pada tampilan pengeluaran saja secara tuntas.
+  - Seluruh konten dibungkus dalam `SingleChildScrollView(physics: const NeverScrollableScrollPhysics())` guna menjamin zero RenderFlex overflow pada variasi font sistem dan resolusi layar apapun.
+- **Standarisasi Universal Ketinggian Tombol Bottom Sheet (48px Height Standard)**:
+  - Seluruh tombol aksi primer (`ElevatedButton`) dan sekunder (`OutlinedButton`) pada modal bottom sheet di seluruh aplikasi distandarisasi ke ketinggian **48px** (`SizedBox(height: 48, ...)`):
+    - `SettingsScreen`: Sheet Preferensi Tampilan (`Simpan Preferensi`), Pengingat Harian (`Simpan Pengingat`), Ubah Profil (`Batal` & `Simpan`), Ekspor Data (`Batal` & `Unduh Berkas JSON`), Impor Data (`Merge Data` & `Replace Data`), Hapus Semua Transaksi (`Batalkan` & `Hapus Semua`), Reset Data Bawaan (`Batalkan` & `Reset Bawaan`).
+    - `WalletsScreen`: Sheet Tambah/Edit Dompet (`Simpan Dompet` & tombol hapus), Konfirmasi Hapus Dompet (`Batal` & `Hapus Dompet`).
+    - `BudgetScreen`: Sheet Edit Anggaran Kategori (`Simpan Anggaran`), Edit Total Anggaran Bulanan (`Simpan Perubahan`), Kartu Kosong (`Atur Anggaran Bulanan`).
+  - Menghilangkan tombol-tombol kerdil yang sebelumnya hanya berukuran 38-44px, memberikan touch target ergonomis dan visual premium anti-slop.
 
 ---
 
@@ -1205,6 +1277,93 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
       - Tombol aksi utama (*primary CTA*) Sapphire Fin-tech (`#02539A`) dengan ikon panah halus (`Icons.arrow_forward_rounded`), tanpa emoji dekoratif.
     - Responsivitas & Keyboard: `autofocus: false` mencegah keyboard menyembul otomatis, `SingleChildScrollView` + `IntrinsicHeight` menjamin tampilan rapi tanpa overflow pada semua resolusi perangkat.
   - **Verifikasi & Build**: Seluruh 119 unit & widget tests lulus 100%, Flutter Web release dan Android Release APK berhasil dikompilasi.
+- [x] Fitur Onboarding Multi-Tahap, Status Bar Adaptif Light Mode, & Web Logout Test:
+  - **Status Bar & Notification Bar Adaptif Mode Terang (`main.dart` & `main_shell.dart`)**: Membungkus root widget dengan `AnnotatedRegion<SystemUiOverlayStyle>` dan panggilan dinamis `SystemChrome.setSystemUIOverlayStyle` (`statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark`), mengatasi notification bar sistem Android/iOS tidak terlihat pada Light Mode.
+  - **Alur Onboarding 4 Tahap Berurutan (`OnboardingProfileScreen`)**:
+    - *Step 1: Identitas & Data Diri (Wajib)*: Nama Lengkap (validasi wajib diisi), Nomor Telepon (opsional), dan Jenis Kelamin (Pria/Wanita). Tersedia tombol "Lanjutkan" dan "Mulai Mencatat".
+    - *Step 2: Mode Tampilan & Preferensi Dashboard (Bisa Dilewati)*: Pilihan Mode Tema (Sistem, Terang, Gelap) & Preferensi Tampilan Beranda (Lengkap, Pemasukan & Pengeluaran, Pengeluaran Saja).
+    - *Step 3: Atur Dompet (Bisa Dilewati)*: Melihat daftar dompet & modal instan "+ Tambah Dompet Baru" (nama, tipe Bank/E-Wallet/Cash, saldo awal).
+    - *Step 4: Atur Kategori (Bisa Dilewati)*: Tab Pengeluaran & Pemasukan, tombol "+ Tambah Kategori" terintegrasi `EditCategoryScreen.showAsModalSheet`, dan tombol akhir "Mulai Mencatat".
+    - *Indikator Progres Responsif*: Dibungkus dengan `FittedBox` scale-down sehingga bebas RenderFlex overflow pada seluruh resolusi layar (termasuk layar sempit <= 360px).
+  - **Tombol Logout Khusus Web (`SettingsScreen`)**: Tombol logout hadir khusus pada platform web (`kIsWeb`) di kartu profil dan danger zone untuk mereset onboarding dan memudahkan pengujian alur 4 tahap onboarding di browser.
+  - **Refinement Antarmuka Onboarding `/antislop-ui` (`OnboardingProfileScreen`)**:
+    - *Pembersihan Struktur Container Ganda*: Menghilangkan kontainer ganda (*inner card* di dalam *bottom sheet*) yang sebelumnya memakan padding horizontal berlebih (34px); form kini langsung terintegrasi pada permukaan bottom sheet tunggal yang lega, bersih, dan sesuai wireframe asli.
+    - *Disiplin Radius & Surface Hierarchy (R-11)*: Mengganti radius ekstrem 25px (pill shape) pada input text field, tombol aksi utama, dan kartu gender menjadi radius konsisten `14px` (`BorderRadius.circular(14)`), selaras dengan desain sistem aplikasi fintech modern.
+    - *Elevasi Bersih Tanpa Bayangan Mengambang (R-12)*: Menghilangkan drop-shadow blur 24px berlebih pada bottom sheet, kedalaman permukaan dipertegas lewat kontras warna matte `#0C131D` dan border hairline stroke 1px.
+    - *Indikator Progres Tahap Terstruktur*: Mengadopsi penomoran jelas `['1. Profil', '2. Tampilan', '3. Dompet', '4. Kategori']` dengan warna aktif biru safir `#02539A` dan border halus, bebas RenderFlex overflow via `FittedBox`.
+    - *Hierarki Tombol Aksi & Ikon Bermakna (R-08)*: Mengganti ikon panah generik pada tombol akhir "Mulai Mencatat" dengan ikon checklist `Icons.check_rounded` yang menandakan penyelesaian alur.
+  - **Verifikasi & Build**: Seluruh **120 tests (119 passed, 1 skipped)** lulus 100%, Flutter Web release aktif di port 8080.
+- [x] Redesain Stepper Carousel, Pembersihan Tombol Lewati Atas, & Seleksi Kategori Onboarding:
+  - **Garis Indikator Carousel (`OnboardingProfileScreen`)**: Mengganti teks stepper verbal (`1. Profil`, `2. Tampilan`, dll.) dengan 4 garis/dash carousel horizontal beranimasi halus (`AnimatedContainer` lebar 24px saat aktif, 8px saat non-aktif, tinggi 3.5px, radius 2px) di bawah logo "Welcome to Yotro".
+  - **Penghapusan Tombol Lewati di Header**: Menghilangkan tombol text "Lewati" dari baris atas header seluruh tahapan onboarding. Tombol "Lewati" dipusatkan secara eksklusif pada baris tombol aksi navigasi di bagian bawah.
+  - **Kategori Interaktif & Dapat Dipilih (Tahap 4)**:
+    - Chip kategori pada Tahap 4 dapat diklik/di-toggle untuk memilih kategori yang dibutuhkan pengguna (dilengkapi ikon centang `check_rounded` dan sapphire stroke saat aktif).
+    - Menjaga validasi minimal 1 kategori terpilih serta tombol `+ Tambah Kategori Baru` terintegrasi.
+    - Menyimpan daftar kategori yang dipilih via `TransactionProvider.setSelectedCategories(...)` saat menyelesaikan alur onboarding.
+  - **Stabilitas Layout Tanpa Intrinsic Height Conflict**:
+    - Menghapus `IntrinsicHeight` pada root scroll view yang sebelumnya memicu `RenderShrinkWrappingViewport` error, digantikan dengan `ConstrainedBox(minHeight: (constraints.maxHeight - 180).clamp(0.0, double.infinity))`.
+    - Membungkus seluruh tombol navigasi dengan `FittedBox(fit: BoxFit.scaleDown)` dan padding horizontal 8px untuk mencegah RenderFlex horizontal overflow pada resolusi perangkat sempit.
+  - **Verifikasi & Build**:
+    - Seluruh **120 tests** lulus 100% (`flutter test`).
+    - Flutter Web release dan Android Release APK dikompilasi ulang.
+- [x] Spacing & Posisi Hero Brand Onboarding:
+  - Menggeser posisi logo dan teks "Welcome to Yotro" lebih ke bawah via `padding: const EdgeInsets.only(top: 40)` pada `SafeArea` dan memperbesar hero container menjadi `height: 235.0` (logo 48x48, title 17px).
+  - Memberi jarak lega (`const SizedBox(height: 18)`) antara teks judul "Welcome to Yotro" dan garis stepper carousel agar proporsional dan tidak saling menempel.
+- [x] Penyembunyian Menu Tes Notifikasi HP pada Perangkat Mobile (`SettingsScreen`):
+  - Mengisolasi menu pengembang "Tes Notifikasi HP" dengan `if (kIsWeb)`, sehingga otomatis disembunyikan sepenuhnya saat aplikasi diinstal/dijalankan pada perangkat HP (Android/iOS).
+- [x] Build APK Android Terkompresi (`--split-per-abi` ARM64-v8a):
+  - Mengompilasi build biner ramping terkompresi khusus arsitektur smartphone Android modern (`ARM64-v8a`), memangkas ukuran biner menjadi 37.4 MB (dibandingkan fat APK universal >70 MB).
+  - Menyiapkan persistensi environment JDK 17 di `~/.jdk17` dan Android SDK Platform 34/35/36/37 di `~/.android-sdk`.
+  - Berkas APK siap diunduh di [yotro-app.apk](file:///Users/ianfrds/_My%20Files/AI%20Vibecoding/money-tracker/yotro-app.apk) dan [build/web/yotro-app.apk](file:///Users/ianfrds/_My%20Files/AI%20Vibecoding/money-tracker/build/web/yotro-app.apk), atau via web server lokal di `http://192.168.111.7:8080/yotro-app.apk`.
+- [x] Fitur Toggle "Total Saldo" vs "Saldo Saat Ini Versi Bulanan" di Hero Card Beranda:
+  - **Dua Perspektif Saldo Terintegrasi (`TransactionProvider` & `DashboardScreen`)**:
+    - **Mode Bulanan (Default)**: Kartu menampilkan saldo bersih murni versi bulan yang sedang aktif (`dashboardMonthNetBalance` = Pemasukan Bulan Ini - Pengeluaran Bulan Ini). Angka saldo dan sub-kartu (Pengeluaran & Pemasukan) 100% konsisten dengan filter bulan yang dipilih.
+    - **Mode Total Saldo**: Menekan tombol pill kapsul `Total Saldo` di samping filter bulan mengalihkan kartu hero ke versi akumulasi saldo seluruh dompet selama ini (`totalBalance` / Net Worth riil). Sub-kartu otomatis menampilkan total akumulasi pengeluaran dan pemasukan sepanjang masa (`totalExpense` & `totalIncome`).
+    - **Navigasi Kembali Instan**: Mengetuk filter bulan atau tombol `Total Saldo` langsung mengembalikan kartu ke versi bulanan bulan bersangkutan.
+  - **Desain & Responsivitas Anti-Slop**:
+    - Baris atas hero card dibungkus dengan `Expanded` dan `FittedBox(fit: BoxFit.scaleDown)` terukur sehingga bebas RenderFlex overflow pada seluruh resolusi layar (termasuk layar sempit <= 340px).
+    - Tombol `Total Saldo` beranimasi halus (`AnimatedContainer` 200ms) dengan aksen sapphire/navy dan ikon vektor murni `account_balance_wallet_rounded`.
+  - **Verifikasi & Build**:
+    - Ditambahkan test suite `test/dashboard_balance_mode_test.dart` menguji logika kalkulasi, toggle hero card, dan reset otomatis.
+    - Seluruh **122 tests (121 passed, 1 skipped)** lulus 100% (`flutter test`).
+- [x] Penyempurnaan Tombol Total Saldo, Sub-Card Likuiditas Finansial & Modal Mata Uang (`plan_dashboard_and_currency_polish.md`):
+  - **Tombol "Total Saldo" Minimalis (`DashboardScreen`)**:
+    - Menghapus icon dompet agar tampilan bersih.
+    - Default/inactive: Text button transparan tanpa border/container (`color: Colors.transparent`), teks putih teredam 70% (`w500`).
+    - Active: Kapsul solid putih (`color: Colors.white`) dengan teks sapphire gelap (`#0B2244`, `w600`).
+    - Visibilitas: Hanya tampil saat `dashboardViewMode == DashboardViewMode.complete`. Disembunyikan total di mode `incomeExpense` & `expenseOnly`.
+  - **Sub-Card Likuiditas Finansial (Opsi 1 Terpilih)**:
+    - Saat Total Saldo aktif: Menampilkan "Bank & Rekening" (saldo agregat bank/savings via `provider.bankWalletsTotalBalance`) dan "Kas & E-Wallet" (saldo agregat tunai/digital via `provider.cashAndDigitalWalletsTotalBalance`).
+    - Dilengkapi aksi `onTap` yang langsung membuka layar `WalletsScreen` (`WalletsScreen.route()`).
+  - **Pengaturan "Mata Uang" Modern (`SettingsScreen`)**:
+    - Judul disederhanakan menjadi "Mata Uang".
+    - Trailing chip menampilkan bendera negara: `🇮🇩 IDR` atau `🇺🇸 USD` dengan icon chevron.
+    - Mengetuk baris membuka sheet modal `_showCurrencyPickerSheet` dengan pilihan bendera 🇮🇩 IDR (Rupiah Indonesia - Rp) dan 🇺🇸 USD (US Dollar - $).
+  - **Verifikasi & Build**:
+    - Test suite `test/dashboard_balance_mode_test.dart` diperbarui untuk menguji sub-cards Opsi 1, kalkulasi bank vs kas, dan visibilitas mode.
+    - Seluruh **124 tests (123 passed, 1 skipped)** lulus 100% (`flutter test`).
+    - Build Flutter Web release diperbarui (`flutter build web --release --no-tree-shake-icons`).
+- [x] Hero Card Stationary Header [Nov 2026] vs [Total Saldo] & Zero-Clipping Layout (`plan_hero_card_nav_and_spacing.md`):
+  - **Stationary Top Header**: Header `_buildHeroHeader` (menampilkan label bulan dinamis misal `Nov 2026` dan tombol `Total Saldo` serta toggle mata) dipindahkan ke luar PageView sehingga stasioner penuh dan tidak ikut tergeser saat swipe. Tombol aktif bergantian di tempatnya (`Nov 2026` vs `Total Saldo`).
+  - **Zero-Clipping Content Slide**: Konten yang meluncur saat swipe murni hanya nilai saldo dan sub-card finansial. Masalah teks nominal terpotong di bagian atas teratasi tuntas (tinggi 120px untuk Complete, 58px untuk IncomeExpense, 100px untuk ExpenseOnly) dan jarak pagination dots tetap rapat dan proporsional.
+  - **Verifikasi & Build**: Test suite `test/dashboard_balance_mode_test.dart` dan `test/month_filter_and_budget_empty_test.dart` serta seluruh 125 tests lulus 100%. Flutter Web release & APK diperbarui.
+- [x] Sub-Card Per-Dompet Dinamis & Optimasi Snug Fit Height Hero Card (`lib/screens/dashboard_screen.dart`):
+  - **Dinamis Per-Dompet di Slide Total Saldo**: Sub-card menampilkan seluruh dompet aktif pengguna (`provider.wallets`). Jika <= 2 dompet, ditampilkan via `Row` dengan pembagian seimbang; jika > 2 dompet, ditampilkan via `SingleChildScrollView(scrollDirection: Axis.horizontal)` dengan lebar kartu terukur (`(constraints.maxWidth - 52) / 2`) sehingga 2 kartu tampil utuh dan kartu ke-3 mengintip ~40px di kanan untuk memberi tahu pengguna kartu bisa di-scroll.
+  - **Spasi Vertikal Rapi & Zero-Clipping Ketinggian**: Jarak antara nominal saldo ("Saldo saat ini" / "Total Saldo") dengan sub-card ditingkatkan dari `6px` ke `10px` (`SizedBox(height: 10)`). Ketinggian PageView kartu hero disesuaikan lega: `116.0px` (Complete), `52.0px` (Pemasukan & Pengeluaran), dan `64.0px` (Pengeluaran Saja). Khusus mode Pengeluaran Saja, ditambahkan padding atas `12px`, jarak bawah `6px`, dan padding kontainer `10px` (+21px ruang lega vertikal total) sehingga tidak mepet lagi. Tepi bawah kartu dan pagination dots (`SizedBox(height: 7)`) tampil utuh tanpa terpotong.
+  - **Standarisasi Tombol Modal Bottom Sheet (48px Height)**: Seluruh tombol primer (`ElevatedButton`) dan sekunder (`OutlinedButton`) pada modal sheet di `SettingsScreen`, `WalletsScreen`, dan `BudgetScreen` dinaikkan ketinggiannya menjadi `48px` standar universal.
+  - **Verifikasi & Build**: Ditambahkan test suite `test/dashboard_balance_mode_test.dart` mencakup 6 uji coba terperinci. Seluruh **127 tests** lulus 100% (`flutter test`). Flutter Web release & APK diperbarui.
+- [x] Validasi Transfer Dompet Berbeda & Penyembunyian Reset Data Bawaan di Mobile:
+  - **Validasi Transfer Antar-Dompet (`AddTransactionScreen` & `TransactionProvider`)**:
+    - Dompet asal (`fromWalletId`) dan dompet tujuan (`toWalletId`) divalidasi wajib berbeda.
+    - Pada UI: dropdown container diberi aksen garis merah peringatan (`#FF6B7A`), banner alert merah muncul di bawah baris dompet ("Dompet asal dan tujuan tidak boleh sama"), serta snackbar warning otomatis muncul saat user memilih dompet yang sama.
+    - Pada aksi Simpan: `_save()` memblokir penyimpanan dengan snackbar danger jika dompet sama.
+    - Pada layer Provider: `TransactionProvider.addTransaction()` melempar `ArgumentError` bila transaksi bertipe transfer memiliki `fromWalletId == toWalletId`.
+  - **Penyembunyian Opsi "Reset ke Data Bawaan" pada Aplikasi Terinstal (`SettingsScreen`)**:
+    - Menu "Reset ke Data Bawaan" dibungkus ke dalam gate `if (kIsWeb) ...` sehingga otomatis **tidak ada** ketika aplikasi dibuild dan diinstal pada perangkat mobile (Android/iOS), menjaga keamanan data riil pengguna agar tidak terhapus/tertimpa data simulasi awal secara tidak sengaja.
+  - **Verifikasi & Build**:
+    - Ditambahkan test suite `test/transfer_validation_and_settings_test.dart`.
+    - Seluruh **130 tests** lulus 100% (`flutter test`).
+    - Flutter Web release dan Android Split Release APK (`arm64-v8a`) dikompilasi ulang.
 - [x] File handover AI context di `context.md`.
 - [x] Aturan otomatisasi workspace agent di `AGENTS.md` dan `GEMINI.md` (auto-sync `context.md`).
 
