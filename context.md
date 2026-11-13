@@ -1364,6 +1364,9 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
     - Ditambahkan test suite `test/transfer_validation_and_settings_test.dart`.
     - Seluruh **130 tests** lulus 100% (`flutter test`).
     - Flutter Web release dan Android Split Release APK (`arm64-v8a`) dikompilasi ulang.
+- [x] Perbaikan CI/CD GitHub Actions (`.github/workflows/build-apk.yml`):
+  - Mengatasi error `Missing YOTRO_KEYSTORE_BASE64` yang membatalkan workflow saat user melakukan `git push`.
+  - Menambahkan mekanisme fallback cerdas: jika GitHub Secrets belum dikonfigurasi di repositori GitHub, runner CI akan secara otomatis membuat self-signed release keystore sementara sehingga pipeline build APK terkompresi (`--split-per-abi`) dan Web release tetap berhasil 100%. Jika secrets tersedia, runner tetap memakai kunci rilis produksi resmi.
 - [x] File handover AI context di `context.md`.
 - [x] Aturan otomatisasi workspace agent di `AGENTS.md` dan `GEMINI.md` (auto-sync `context.md`).
 
