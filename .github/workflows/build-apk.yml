@@ -3,6 +3,7 @@ name: Build Yotro Safe Release
 on:
   push:
     branches: ["main", "master"]
+    tags: ["v*"]
   pull_request:
     branches: ["main", "master"]
   workflow_dispatch:
@@ -11,6 +12,8 @@ jobs:
   build:
     name: Build signed APK and Web
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
@@ -28,13 +31,10 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Set up Android SDK Platform 37 & licenses
+      - name: Set up Android SDK Platform & licenses
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-37.0" "platforms;android-35" "platforms;android-34" "cmake;3.22.1" || true
-          if [ -d "$ANDROID_HOME/platforms/android-37.0" ] && [ ! -d "$ANDROID_HOME/platforms/android-37" ]; then
-            sudo ln -s "$ANDROID_HOME/platforms/android-37.0" "$ANDROID_HOME/platforms/android-37"
-          fi
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "platforms;android-34" "cmake;3.22.1" || true
 
       - name: Restore release signing key
         env:
@@ -84,13 +84,23 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Extract app version
+        id: get_version
+        run: |
+          APP_VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f1 | tr -d '[:space:]')
+          echo "APP_VERSION=$APP_VERSION" >> $GITHUB_ENV
+          echo "Target Release Version: v$APP_VERSION"
+
       - name: Publish to GitHub Releases
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ env.APP_VERSION }}
+          name: Yotro v${{ env.APP_VERSION }}
           files: |
             build/app/outputs/flutter-apk/yotro-app.apk
             build/app/outputs/flutter-apk/*.apk
           generate_release_notes: true
           draft: false
           prerelease: false
+          make_latest: "true"

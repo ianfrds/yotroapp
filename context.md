@@ -1542,7 +1542,7 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
   - **In-Place Update Guarantee:** Pembaruan aplikasi via APK terverifikasi tidak menghapus sesi login Supabase maupun data lokal (`/data/data/io.supabase.yotro/...`).
   - **Modal Dialog Update (`AppUpdateDialog`):** Dialog dark matte sapphire dengan catatan rilis ringkas dan progress bar animasi unduhan.
   - **Menu Catatan Rilis (Changelog):** Hadir pada kartu "Tentang Aplikasi" di `SettingsScreen`, menampilkan modal bottom sheet (`_showChangelogSheet`) dengan riwayat versi lengkap (`ChangelogData` di `lib/models/changelog_model.dart`).
-  - **Workflow GitHub Actions (`build-apk.yml`):** Ditambahkan build copy ke `yotro-app.apk` dan rilis otomatis via `softprops/action-gh-release@v2`.
+  - **Workflow GitHub Actions (`build-apk.yml`):** Memperbaiki CI runner: mengembalikan `compileSdk = flutter.compileSdkVersion` di `build.gradle`, mendaftarkan izin `contents: write`, dan menambahkan ekstraksi versi `pubspec.yaml` otomatis sehingga setiap push ke branch `main` atau tag `v*` otomatis mempublikasikan rilis biner `yotro-app.apk` ke GitHub Releases.
 - [x] Sinkronisasi Versi Aplikasi (Pubspec, Runtime PackageInfo, & Settings UI):
   - Memperbarui versi master di `pubspec.yaml` dari `1.0.6+7` menjadi `2.0.0+8` sehingga Android Package Manager secara resmi mengenali `versionName: 2.0.0` dan `versionCode: 2008`.
   - Mengubah tampilan versi pada menu "Tentang Aplikasi" di `SettingsScreen` dari hardcoded text menjadi `FutureBuilder<String>` dinamis via `AppUpdateService.getCurrentVersion()`.
@@ -1552,6 +1552,13 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
   - Penambahan method `_handleExistingUserAuthSuccess()` di `OnboardingProfileScreen`: otomatis menarik data transaksi, dompet, dan profil dari Supabase via `pullCloudData()`, menandai onboarding selesai, dan langsung melakukan routing ke `MainShell` (Beranda).
   - Pengecekan cerdas `hasExistingUserData()` di `SupabaseSyncService`: membedakan pendaftar Google baru dengan pengguna Google yang sudah memiliki akun/data.
   - Penyempurnaan `SplashScreen`: mendeteksi sesi Supabase aktif yang belum sinkron lokal dan mengarahkan langsung ke Beranda.
+- [x] Perbaikan CI/CD GitHub Actions & AGP Compatibility (`.github/workflows/build-apk.yml`, `android/settings.gradle`, `android/gradle/wrapper/gradle-wrapper.properties`, `pubspec.yaml`):
+  - Mengatasi error crash `line 13: ApplicationExtension.getDefaultConfig()` di runner GitHub Actions yang dipicu ketidakcocokan AGP 8.11.1 canary dengan Flutter Gradle Plugin.
+  - Mengatasi error metadata AAR `checkReleaseAarMetadata` yang menuntut AGP >= 8.9.1 untuk dependensi `androidx.browser`, `androidx.activity`, dan `androidx.core`.
+  - Mengatasi dependensi `permission_handler` yang sempat menarik `permission_handler_android: 14.1.1` (memerlukan platform experimental SDK 37) dengan menstabilkannya ke `permission_handler: 11.3.1` (menggunakan compileSdk 34 standar).
+  - Menyelaraskan konfigurasi Android Gradle: AGP `8.9.1`, Kotlin `2.1.0`, Gradle `8.11.1` (`gradle-8.11.1-all.zip`), dan `compileSdk = flutter.compileSdkVersion`.
+  - Menambahkan `make_latest: "true"` pada GitHub Actions release step agar setiap release tag atau push ke `main` otomatis menjadi target rilis `latest` di GitHub API (`https://api.github.com/repos/ianfrds/yotroapp/releases/latest`).
+  - Hasil uji: kompilasi lokal (`flutter build apk --release --split-per-abi`) sukses 100% (30.1MB armv7, 36.5MB arm64, 38.7MB x86_64) dan 155 unit & widget test lulus 100%.
 - [x] Verifikasi & Pengujian: Seluruh **155 tests** lulus 100% (`flutter test`). Flutter Web release dan Android Release APK (`yotro-app.apk`) berhasil dikompilasi ulang.
 - [x] File handover AI context di `context.md`.
 - [x] Aturan otomatisasi workspace agent di `AGENTS.md` dan `GEMINI.md` (auto-sync `context.md`).
