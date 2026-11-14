@@ -55,10 +55,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       Future.delayed(widget.splashDuration, () async {
         if (!mounted) return;
         final provider = context.read<TransactionProvider>();
-        if (!provider.isOnboardingCompleted && SupabaseAuthService.isAuthenticated) {
+        if (SupabaseAuthService.isAuthenticated) {
           try {
             final isExisting = await SupabaseSyncService.hasExistingUserData();
-            if (isExisting) {
+            if (isExisting || provider.isOnboardingCompleted) {
               await SupabaseSyncService.pullCloudData(provider);
               final name = SupabaseAuthService.userName ?? provider.userName;
               await provider.completeOnboarding(

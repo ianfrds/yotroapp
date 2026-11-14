@@ -101,6 +101,9 @@ class SettingsScreen extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   child: _buildAboutSystem(context, isDark),
                 ),
+                const SizedBox(height: 18),
+                _buildLogoutSection(context, provider, isDark),
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -1641,80 +1644,53 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
           ] else ...[
-            Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 42,
-                    child: ElevatedButton.icon(
-                      onPressed: provider.isSyncingWithCloud
-                          ? null
-                          : () async {
-                              final ok = await provider.syncWithCloud();
-                              if (context.mounted) {
-                                AppSnackBar.show(
-                                  context,
-                                  ok
-                                      ? 'Data berhasil disinkronkan ke Cloud'
-                                      : 'Gagal sinkronisasi data cloud',
-                                  type: ok
-                                      ? SnackBarType.success
-                                      : SnackBarType.danger,
-                                );
-                              }
-                            },
-                      icon: provider.isSyncingWithCloud
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.sync_rounded, size: 16),
-                      label: Text(
-                        provider.isSyncingWithCloud
-                            ? 'Menyinkronkan...'
-                            : 'Sinkronkan Sekarang',
-                        style: GoogleFonts.manrope(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+            SizedBox(
+              height: 44,
+              child: ElevatedButton.icon(
+                onPressed: provider.isSyncingWithCloud
+                    ? null
+                    : () async {
+                        final ok = await provider.syncWithCloud();
+                        if (context.mounted) {
+                          AppSnackBar.show(
+                            context,
+                            ok
+                                ? 'Data berhasil disinkronkan ke Cloud'
+                                : 'Gagal sinkronisasi data cloud',
+                            type: ok
+                                ? SnackBarType.success
+                                : SnackBarType.danger,
+                          );
+                        }
+                      },
+                icon: provider.isSyncingWithCloud
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
                         ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF02539A),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
+                      )
+                    : const Icon(Icons.sync_rounded, size: 16),
+                label: Text(
+                  provider.isSyncingWithCloud
+                      ? 'Menyinkronkan...'
+                      : 'Sinkronkan Sekarang',
+                  style: GoogleFonts.manrope(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  height: 42,
-                  child: OutlinedButton(
-                    onPressed: () => _showConfirmSignOutSheet(context, provider),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _danger,
-                      side: BorderSide(color: _danger.withOpacity(0.3)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: Text(
-                      'Keluar',
-                      style: GoogleFonts.manrope(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF02539A),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-              ],
+              ),
             ),
             const SizedBox(height: 12),
             Container(
@@ -2193,24 +2169,57 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  void _showConfirmSignOutSheet(
+  Widget _buildLogoutSection(
+      BuildContext context, TransactionProvider provider, bool isDark) {
+    return SizedBox(
+      width: double.infinity,
+      height: 48,
+      child: OutlinedButton.icon(
+        onPressed: () => _showLogoutConfirmSheet(context, provider),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFFEF4444),
+          side: BorderSide(
+            color: const Color(0xFFEF4444).withOpacity(isDark ? 0.35 : 0.5),
+            width: 1.2,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          backgroundColor: isDark
+              ? const Color(0xFFEF4444).withOpacity(0.06)
+              : const Color(0xFFFEF2F2),
+        ),
+        icon: const Icon(Icons.logout_rounded, size: 20),
+        label: Text(
+          'Keluar dari Akun',
+          style: GoogleFonts.manrope(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.2,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showLogoutConfirmSheet(
       BuildContext context, TransactionProvider provider) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     _showModalCardSheet(
       context: context,
-      title: 'Keluar dari Akun Cloud',
+      title: 'Keluar dari Akun?',
       titleIcon: Icons.logout_rounded,
-      titleIconColor: _danger,
+      titleIconColor: const Color(0xFFEF4444),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Apakah Anda yakin ingin keluar dari akun cloud?\nData lokal di perangkat ini tetap aman dan tidak akan terhapus.',
+            'Apakah Anda yakin ingin keluar dari akun ini?\nAnda akan kembali ke halaman awal/login.',
             style: GoogleFonts.manrope(
               color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-              fontSize: 12.5,
-              height: 1.4,
+              fontSize: 13,
+              height: 1.45,
             ),
           ),
           const SizedBox(height: 20),
@@ -2228,7 +2237,10 @@ class SettingsScreen extends StatelessWidget {
                     ),
                     child: Text(
                       'Batal',
-                      style: GoogleFonts.manrope(fontWeight: FontWeight.w600),
+                      style: GoogleFonts.manrope(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ),
@@ -2240,17 +2252,28 @@ class SettingsScreen extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: () async {
                       Navigator.pop(context);
-                      await SupabaseAuthService.signOut();
+                      if (SupabaseAuthService.isAuthenticated) {
+                        try {
+                          await SupabaseAuthService.signOut();
+                        } catch (e) {
+                          debugPrint('[SettingsScreen] Sign out error: $e');
+                        }
+                      }
+                      await provider.logout();
                       if (context.mounted) {
-                        AppSnackBar.show(
-                          context,
-                          'Berhasil keluar dari akun cloud.',
-                          type: SnackBarType.info,
+                        Navigator.of(context).pushAndRemoveUntil(
+                          PageRouteBuilder(
+                            pageBuilder: (_, __, ___) => const OnboardingProfileScreen(),
+                            transitionsBuilder: (_, animation, __, child) =>
+                                FadeTransition(opacity: animation, child: child),
+                            transitionDuration: const Duration(milliseconds: 300),
+                          ),
+                          (route) => false,
                         );
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _danger,
+                      backgroundColor: const Color(0xFFEF4444),
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -2258,8 +2281,11 @@ class SettingsScreen extends StatelessWidget {
                       elevation: 0,
                     ),
                     child: Text(
-                      'Keluar',
-                      style: GoogleFonts.manrope(fontWeight: FontWeight.w600),
+                      'Ya, Keluar',
+                      style: GoogleFonts.manrope(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ),

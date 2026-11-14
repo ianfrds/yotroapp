@@ -78,7 +78,10 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.release
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // Recovery releases favor runtime stability over APK size. The
+            // previous minimized build passed CI but crashed on device startup.
+            minifyEnabled false
+            shrinkResources false
         }
     }
 }

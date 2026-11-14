@@ -538,6 +538,27 @@ class TransactionProvider with ChangeNotifier {
     }
   }
 
+  /// Pull-to-refresh: reloads data and pulls cloud snapshot if connected
+  Future<void> refreshData() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      if (SupabaseAuthService.isAuthenticated) {
+        await SupabaseSyncService.pullCloudData(this);
+      } else {
+        await loadData();
+      }
+      // Brief smooth delay for natural skeleton perception
+      await Future.delayed(const Duration(milliseconds: 300));
+    } catch (e) {
+      debugPrint('[TransactionProvider] Error saat refreshData: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   void _startReminderPeriodicTimer() {
     _reminderTimer?.cancel();
     _reminderTimer = Timer.periodic(const Duration(seconds: 30), (timer) {

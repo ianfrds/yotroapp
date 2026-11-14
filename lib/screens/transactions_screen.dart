@@ -10,6 +10,7 @@ import '../widgets/modal_card_sheet.dart';
 import '../widgets/nested_card.dart';
 import '../widgets/transaction_tile.dart';
 import '../widgets/ambient_top_glow.dart';
+import '../widgets/app_skeleton.dart';
 import 'add_transaction_screen.dart';
 
 class TransactionsScreen extends StatefulWidget {
@@ -989,9 +990,14 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           if (isDark) const AmbientTopGlow(),
           SafeArea(
             bottom: false,
-            child: ListView(
-          controller: widget.scrollController,
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
+            child: RefreshIndicator(
+              onRefresh: () => provider.refreshData(),
+              color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+              backgroundColor: isDark ? const Color(0xFF131A26) : Colors.white,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                controller: widget.scrollController,
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
           children: [
             // Top App Bar
             Row(
@@ -1329,77 +1335,80 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             NestedCard(
               title: 'Daftar Transaksi',
               innerPadding: EdgeInsets.zero,
-              child: filtered.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 42),
-                      child: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.receipt_long_outlined,
-                              color: textMuted,
-                              size: 32,
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              'Tidak ada transaksi yang cocok.',
-                              style: GoogleFonts.manrope(
-                                color: textMuted,
-                                fontSize: 12.5,
-                              ),
-                            ),
-                            if (hasActiveFilter) ...[
-                              const SizedBox(height: 12),
-                              InkWell(
-                                onTap: () {
-                                  setState(() {
-                                    _selectedType = 'ALL';
-                                    _selectedWallet = 'ALL';
-                                    _resetTimeFilter();
-                                    _searchController.clear();
-                                  });
-                                },
-                                borderRadius: BorderRadius.circular(10),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 7,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isDark ? const Color(0xFF1C2432) : const Color(0xFFF1F5F9),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: borderColor,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'Reset Semua Filter',
-                                    style: GoogleFonts.manrope(
-                                      color: const Color(0xFF55C7FF),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+              child: provider.isLoading
+                  ? const SkeletonTransactionList(count: 6)
+                  : (filtered.isEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 42),
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.receipt_long_outlined,
+                                  color: textMuted,
+                                  size: 32,
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'Tidak ada transaksi yang cocok.',
+                                  style: GoogleFonts.manrope(
+                                    color: textMuted,
+                                    fontSize: 12.5,
                                   ),
                                 ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    )
-                  : _buildGroupedTransactionList(
-                      context: context,
-                      filtered: filtered,
-                      isDark: isDark,
-                      textMuted: textMuted,
-                    ),
+                                if (hasActiveFilter) ...[
+                                  const SizedBox(height: 12),
+                                  InkWell(
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedType = 'ALL';
+                                        _selectedWallet = 'ALL';
+                                        _resetTimeFilter();
+                                        _searchController.clear();
+                                      });
+                                    },
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 7,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isDark ? const Color(0xFF1C2432) : const Color(0xFFF1F5F9),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: borderColor,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        'Reset Semua Filter',
+                                        style: GoogleFonts.manrope(
+                                          color: const Color(0xFF55C7FF),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        )
+                      : _buildGroupedTransactionList(
+                          context: context,
+                          filtered: filtered,
+                          isDark: isDark,
+                          textMuted: textMuted,
+                        )),
             ),
           ],
         ),
       ),
-    ],
-  ),
+    ),
+  ],
+),
 );
   }
 

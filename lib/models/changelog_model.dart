@@ -17,7 +17,7 @@ class ChangelogItem {
 }
 
 class ChangelogData {
-  static const String currentVersion = '2.0.4';
+  static const String currentVersion = '2.0.5';
 
   static ChangelogItem? getRelease(String tagOrVersion) {
     final clean =
@@ -30,10 +30,23 @@ class ChangelogData {
 
   static const List<ChangelogItem> history = [
     ChangelogItem(
+      version: '2.0.5',
+      date: '14 November 2026',
+      title: 'Pemulihan Stabilitas Android',
+      isCurrent: true,
+      features: [
+        'Pembaruan aplikasi menggunakan APK universal yang diuji langsung sebelum diterbitkan.',
+      ],
+      improvements: [
+        'Menonaktifkan pemangkasan kode Android pada rilis untuk mencegah aplikasi berhenti saat dibuka.',
+        'Pemeriksaan versi terbaru tetap berjalan otomatis saat aplikasi dibuka.',
+      ],
+    ),
+    ChangelogItem(
       version: '2.0.4',
       date: '13 November 2026',
       title: 'Pembaruan Android Lebih Aman',
-      isCurrent: true,
+      isCurrent: false,
       features: [
         'Pembaruan Android kini diterbitkan melalui rilis resmi dengan kunci aplikasi yang konsisten.',
       ],

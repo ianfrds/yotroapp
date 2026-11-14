@@ -55,25 +55,23 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
     }
     _authSub = SupabaseAuthService.onAuthStateChange?.listen((event) async {
       if (!mounted) return;
-      if (event.session != null) {
+      if (event.session != null && !_isHandlingSuccess) {
         final cloudName = SupabaseAuthService.userName;
         if (cloudName != null && cloudName.isNotEmpty && _nameController.text.trim().isEmpty) {
           _nameController.text = cloudName;
         }
-        if (_currentStep == 0 && !_isHandlingSuccess) {
-          final isExisting = await SupabaseSyncService.hasExistingUserData();
-          if (isExisting && mounted) {
-            await _handleExistingUserAuthSuccess();
-          } else if (mounted) {
-            setState(() {
-              _currentStep = 1;
-            });
-          }
-        } else {
-          setState(() {});
+
+        final isExisting = await SupabaseSyncService.hasExistingUserData();
+        if (isExisting && mounted) {
+          await _handleExistingUserAuthSuccess();
+        } else if (_currentStep == 0 && mounted) {
+          setState(() {
+            _isAuthLoading = false;
+            _currentStep = 1;
+          });
         }
       } else {
-        setState(() {});
+        if (mounted) setState(() {});
       }
     });
   }
@@ -156,22 +154,38 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
       );
 
       // 4. Langsung navigasi ke Beranda (MainShell) tanpa setup ulang
-      if (Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      } else {
-        Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (_, __, ___) => const MainShell(),
-            transitionsBuilder: (_, animation, __, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
-            transitionDuration: const Duration(milliseconds: 300),
-          ),
-        );
-      }
+      Navigator.of(context).pushAndRemoveUntil(
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => const MainShell(),
+          transitionsBuilder: (_, animation, __, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 300),
+        ),
+        (route) => false,
+      );
     } catch (e) {
       debugPrint('[Onboarding] Error saat handleExistingUserAuthSuccess: $e');
-      if (mounted) setState(() => _currentStep = 1);
+      if (mounted) {
+        final name = SupabaseAuthService.userName ?? provider.userName;
+        await provider.completeOnboarding(
+          name: name,
+          phone: provider.userPhone,
+          gender: provider.userGender,
+        );
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            PageRouteBuilder(
+              pageBuilder: (_, __, ___) => const MainShell(),
+              transitionsBuilder: (_, animation, __, child) {
+                return FadeTransition(opacity: animation, child: child);
+              },
+              transitionDuration: const Duration(milliseconds: 300),
+            ),
+            (route) => false,
+          );
+        }
+      }
     } finally {
       if (mounted) setState(() => _isAuthLoading = false);
     }
@@ -182,7 +196,7 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
     try {
       await SupabaseAuthService.signInWithGoogle();
       final name = SupabaseAuthService.userName;
-      if (name != null && name.isNotEmpty) {
+      if (name != null && name.isNotEmpty && _nameController.text.trim().isEmpty) {
         _nameController.text = name;
       }
       if (mounted) {
@@ -191,14 +205,16 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
           await _handleExistingUserAuthSuccess();
           return;
         }
-        AppSnackBar.show(
-          context,
-          'Berhasil menghubungkan akun Google. Lengkapi data awal Anda.',
-          type: SnackBarType.success,
-        );
-        setState(() {
-          _currentStep = 1;
-        });
+        if (SupabaseAuthService.isAuthenticated) {
+          AppSnackBar.show(
+            context,
+            'Berhasil menghubungkan akun Google. Lengkapi data awal Anda.',
+            type: SnackBarType.success,
+          );
+          setState(() {
+            _currentStep = 1;
+          });
+        }
       }
     } catch (e) {
       if (mounted) {

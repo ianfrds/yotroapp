@@ -1,34 +1,27 @@
-name: Build Yotro Safe Release
+name: CI Code Quality & Tests
 
 on:
   push:
     branches: ["main", "master"]
-    tags: ["v*"]
   pull_request:
     branches: ["main", "master"]
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build signed APK
+  test:
+    name: Run Flutter Tests
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Extract and validate app version
+      - name: Read app version
         run: |
           APP_VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f1 | tr -d '[:space:]')
-          echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
-          echo "Target app version: v$APP_VERSION"
-
-          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "v$APP_VERSION" ]; then
-            echo "Release tag $GITHUB_REF_NAME does not match pubspec version v$APP_VERSION."
-            exit 1
-          fi
+          echo "App version: v$APP_VERSION"
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
@@ -42,72 +35,8 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Set up Android SDK Platform & licenses
-        run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "platforms;android-34" "build-tools;36.0.0" "cmake;3.22.1" || true
-
-      - name: Restore release signing key
-        env:
-          YOTRO_KEYSTORE_BASE64: ${{ secrets.YOTRO_KEYSTORE_BASE64 }}
-          YOTRO_STORE_PASSWORD: ${{ secrets.YOTRO_STORE_PASSWORD }}
-          YOTRO_KEY_PASSWORD: ${{ secrets.YOTRO_KEY_PASSWORD }}
-          YOTRO_KEY_ALIAS: ${{ secrets.YOTRO_KEY_ALIAS }}
-        run: |
-          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
-            if [ -z "$YOTRO_KEYSTORE_BASE64" ] || [ -z "$YOTRO_STORE_PASSWORD" ] || [ -z "$YOTRO_KEY_PASSWORD" ] || [ -z "$YOTRO_KEY_ALIAS" ]; then
-              echo "Tagged releases require all four production signing secrets."
-              exit 1
-            fi
-
-            echo "Restoring production release keystore from GitHub Secrets..."
-            echo "$YOTRO_KEYSTORE_BASE64" | base64 --decode > android/yotro-release-key.jks
-            printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=../yotro-release-key.jks\n' \
-              "$YOTRO_STORE_PASSWORD" "$YOTRO_KEY_PASSWORD" "$YOTRO_KEY_ALIAS" \
-              > android/key.properties
-          else
-            echo "Generating an ephemeral key for non-release CI validation..."
-            keytool -genkeypair -v -keystore android/yotro-release-key.jks \
-              -storepass yotroci123 -alias yotro -keypass yotroci123 \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Yotro CI, OU=Mobile, O=Yotro, L=Jakarta, ST=Jakarta, C=ID"
-            printf 'storePassword=yotroci123\nkeyPassword=yotroci123\nkeyAlias=yotro\nstoreFile=../yotro-release-key.jks\n' \
-              > android/key.properties
-          fi
-
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Run tests
+      - name: Run unit & widget tests
         run: flutter test
-
-      - name: Build safe release APK
-        run: |
-          # Build universal APK (contains all ABIs: arm64-v8a, armeabi-v7a, x86_64) to prevent force close on any device
-          flutter build apk --release --no-tree-shake-icons --android-skip-build-dependency-validation
-          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/yotro-app.apk
-
-      - name: Upload release artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: yotro-safe-release
-          path: build/app/outputs/flutter-apk/yotro-app.apk
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Publish to GitHub Releases
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: Yotro v${{ env.APP_VERSION }}
-          files: build/app/outputs/flutter-apk/yotro-app.apk
-          generate_release_notes: false
-          body: |
-            ### Catatan Pembaruan Yotro v${{ env.APP_VERSION }}
-            • Pembaruan performa dan efisiensi aplikasi yang lebih optimal.
-            • Penyempurnaan tampilan tombol dan antarmuka pengguna.
-            • Peningkatan stabilitas pencatatan keuangan dan sinkronisasi data.
-          draft: false
-          prerelease: false
-          make_latest: "true"

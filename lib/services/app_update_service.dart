@@ -34,13 +34,18 @@ class AppUpdateService {
   /// Compare two semantic version strings (e.g. "2.0.1" vs "2.0.0")
   static bool isNewerVersion(String latest, String current) {
     try {
-      final cleanLatest = latest.replaceAll(RegExp(r'^[vV]'), '').split('+').first.trim();
-      final cleanCurrent = current.replaceAll(RegExp(r'^[vV]'), '').split('+').first.trim();
+      final cleanLatest =
+          latest.replaceAll(RegExp(r'^[vV]'), '').split('+').first.trim();
+      final cleanCurrent =
+          current.replaceAll(RegExp(r'^[vV]'), '').split('+').first.trim();
 
-      final latestParts = cleanLatest.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-      final currentParts = cleanCurrent.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+      final latestParts =
+          cleanLatest.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+      final currentParts =
+          cleanCurrent.split('.').map((e) => int.tryParse(e) ?? 0).toList();
 
-      final maxParts = math.max(3, math.max(latestParts.length, currentParts.length));
+      final maxParts =
+          math.max(3, math.max(latestParts.length, currentParts.length));
       while (latestParts.length < maxParts) {
         latestParts.add(0);
       }
@@ -58,66 +63,129 @@ class AppUpdateService {
     }
   }
 
-  /// Fetch latest release from GitHub Releases API
+  /// Fetch latest release from either GitHub Releases API or version.json manifest
   static Future<ReleaseInfo?> getLatestRelease() async {
     if (kIsWeb) return null;
 
+    ReleaseInfo? releaseFromManifest;
+    ReleaseInfo? releaseFromApi;
+
     try {
-      final url = Uri.parse('https://api.github.com/repos/$owner/$repo/releases/latest');
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 10);
-
-      final request = await client.getUrl(url);
-      request.headers.set('Accept', 'application/vnd.github.v3+json');
-      request.headers.set('User-Agent', 'YotroApp-Updater');
-
-      final response = await request.close();
-      if (response.statusCode != 200) {
-        debugPrint('[AppUpdateService] GitHub API status: ${response.statusCode}');
-        return null;
-      }
-
-      final body = await response.transform(utf8.decoder).join();
-      final data = jsonDecode(body) as Map<String, dynamic>;
-
-      final tagName = data['tag_name'] as String? ?? '';
-      final releaseNotes = data['body'] as String? ?? 'Pembaruan aplikasi Yotro.';
-      final assets = data['assets'] as List<dynamic>? ?? [];
-
-      String? apkUrl;
-      int? apkSize;
-
-      // Find APK asset
-      for (final asset in assets) {
-        final name = (asset['name'] as String? ?? '').toLowerCase();
-        if (name.endsWith('.apk')) {
-          apkUrl = asset['browser_download_url'] as String?;
-          apkSize = asset['size'] as int?;
-          // Prioritize arm64 or main yotro-app.apk
-          if (name.contains('arm64') || name == 'yotro-app.apk') {
-            break;
-          }
-        }
-      }
-
-      if (apkUrl == null) {
-        // Fallback to release tag direct download
-        apkUrl = 'https://github.com/$owner/$repo/releases/download/$tagName/yotro-app.apk';
-      }
-
-      final version = tagName.replaceAll(RegExp(r'^[vV]'), '').trim();
-
-      return ReleaseInfo(
-        tagName: tagName,
-        version: version,
-        body: releaseNotes,
-        apkUrl: apkUrl,
-        apkSize: apkSize,
-      );
+      releaseFromManifest = await _fetchFromRawManifest();
     } catch (e) {
-      debugPrint('[AppUpdateService] Gagal memeriksa rilis: $e');
+      debugPrint('[AppUpdateService] Gagal memeriksa manifest version.json: $e');
+    }
+
+    try {
+      releaseFromApi = await _fetchFromGitHubReleases();
+    } catch (e) {
+      debugPrint('[AppUpdateService] Gagal memeriksa GitHub Releases: $e');
+    }
+
+    if (releaseFromApi == null) return releaseFromManifest;
+    if (releaseFromManifest == null) return releaseFromApi;
+
+    if (isNewerVersion(releaseFromManifest.version, releaseFromApi.version)) {
+      return releaseFromManifest;
+    }
+    return releaseFromApi;
+  }
+
+  /// Fetch release metadata from raw version.json manifest in main branch
+  static Future<ReleaseInfo?> _fetchFromRawManifest() async {
+    final url = Uri.parse(
+        'https://raw.githubusercontent.com/$owner/$repo/main/version.json');
+    final client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 10);
+
+    final request = await client.getUrl(url);
+    request.headers.set('User-Agent', 'YotroApp-Updater');
+
+    final response = await request.close();
+    if (response.statusCode != 200) {
       return null;
     }
+
+    final body = await response.transform(utf8.decoder).join();
+    final data = jsonDecode(body) as Map<String, dynamic>;
+
+    final version = (data['version'] as String? ?? '').trim();
+    if (version.isEmpty) return null;
+
+    final releaseNotes =
+        data['release_notes'] as String? ?? 'Pembaruan aplikasi Yotro.';
+    final apkUrl = data['download_url'] as String? ??
+        'https://github.com/$owner/$repo/releases/download/v$version/yotro-app.apk';
+    final apkSize = data['apk_size'] as int?;
+
+    return ReleaseInfo(
+      tagName: 'v$version',
+      version: version,
+      body: releaseNotes,
+      apkUrl: apkUrl,
+      apkSize: apkSize,
+    );
+  }
+
+  /// Fetch latest release from GitHub Releases API
+  static Future<ReleaseInfo?> _fetchFromGitHubReleases() async {
+    final url = Uri.parse(
+        'https://api.github.com/repos/$owner/$repo/releases/latest');
+    final client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 10);
+
+    final request = await client.getUrl(url);
+    request.headers.set('Accept', 'application/vnd.github.v3+json');
+    request.headers.set('User-Agent', 'YotroApp-Updater');
+
+    final response = await request.close();
+    if (response.statusCode != 200) {
+      debugPrint('[AppUpdateService] GitHub API status: ${response.statusCode}');
+      return null;
+    }
+
+    final body = await response.transform(utf8.decoder).join();
+    final data = jsonDecode(body) as Map<String, dynamic>;
+
+    final tagName = data['tag_name'] as String? ?? '';
+    final releaseNotes =
+        data['body'] as String? ?? 'Pembaruan aplikasi Yotro.';
+    final assets = data['assets'] as List<dynamic>? ?? [];
+
+    String? apkUrl;
+    int? apkSize;
+
+    Map<String, dynamic>? selectedAsset;
+    for (final rawAsset in assets) {
+      final asset = rawAsset as Map<String, dynamic>;
+      final name = (asset['name'] as String? ?? '').toLowerCase();
+      if (name == 'yotro-app.apk') {
+        selectedAsset = asset;
+        break;
+      }
+      if (selectedAsset == null && name.endsWith('.apk')) {
+        selectedAsset = asset;
+      }
+    }
+    if (selectedAsset != null) {
+      apkUrl = selectedAsset['browser_download_url'] as String?;
+      apkSize = selectedAsset['size'] as int?;
+    }
+
+    if (apkUrl == null) {
+      apkUrl =
+          'https://github.com/$owner/$repo/releases/download/$tagName/yotro-app.apk';
+    }
+
+    final version = tagName.replaceAll(RegExp(r'^[vV]'), '').trim();
+
+    return ReleaseInfo(
+      tagName: tagName,
+      version: version,
+      body: releaseNotes,
+      apkUrl: apkUrl,
+      apkSize: apkSize,
+    );
   }
 
   /// Get current running version
@@ -125,7 +193,9 @@ class AppUpdateService {
     if (kIsWeb) return ChangelogData.currentVersion;
     try {
       final packageInfo = await PackageInfo.fromPlatform();
-      return packageInfo.version.isNotEmpty ? packageInfo.version : ChangelogData.currentVersion;
+      return packageInfo.version.isNotEmpty
+          ? packageInfo.version
+          : ChangelogData.currentVersion;
     } catch (_) {
       return ChangelogData.currentVersion;
     }
@@ -154,7 +224,6 @@ class AppUpdateService {
       if (!context.mounted) return;
 
       if (latest != null && isNewerVersion(latest.version, currentVersion)) {
-        // Show update dialog
         showDialog(
           context: context,
           barrierDismissible: false,
@@ -183,7 +252,7 @@ class AppUpdateService {
     }
   }
 
-  /// Download APK with real-time stream progress and launch package installer
+  /// Download APK with redirect support and launch package installer
   static Future<void> downloadAndInstall({
     required String apkUrl,
     required Function(int received, int total) onProgress,
@@ -191,11 +260,33 @@ class AppUpdateService {
     final client = HttpClient();
     client.connectionTimeout = const Duration(seconds: 30);
 
-    final request = await client.getUrl(Uri.parse(apkUrl));
-    final response = await request.close();
+    Uri targetUri = Uri.parse(apkUrl);
+    HttpClientResponse? response;
+    int redirects = 0;
 
-    if (response.statusCode != 200) {
-      throw Exception('Server mengembalikan kode status ${response.statusCode}');
+    while (redirects < 5) {
+      final request = await client.getUrl(targetUri);
+      request.followRedirects = false;
+      request.headers.set('User-Agent', 'YotroApp-Updater');
+      response = await request.close();
+
+      if ((response.statusCode == 301 ||
+              response.statusCode == 302 ||
+              response.statusCode == 303 ||
+              response.statusCode == 307 ||
+              response.statusCode == 308) &&
+          response.headers.value(HttpHeaders.locationHeader) != null) {
+        final loc = response.headers.value(HttpHeaders.locationHeader)!;
+        targetUri = targetUri.resolve(loc);
+        redirects++;
+        continue;
+      }
+      break;
+    }
+
+    if (response == null || response.statusCode != 200) {
+      throw Exception(
+          'Server mengembalikan kode status ${response?.statusCode ?? 'null'}');
     }
 
     final total = response.contentLength;
@@ -217,7 +308,6 @@ class AppUpdateService {
 
     await sink.close();
 
-    // Trigger Android package installer via FileProvider
     final result = await OpenFilex.open(
       file.path,
       type: 'application/vnd.android.package-archive',

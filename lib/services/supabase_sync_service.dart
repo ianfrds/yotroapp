@@ -109,7 +109,21 @@ class SupabaseSyncService {
     if (user == null) return false;
 
     try {
-      // 1. Check if user already has wallets in Supabase
+      // 1. Check profile in Supabase
+      final profileRes = await _client!
+          .from('profiles')
+          .select('id, name, phone')
+          .eq('id', user.id)
+          .maybeSingle();
+      if (profileRes != null) {
+        final name = (profileRes['name'] as String?)?.trim() ?? '';
+        final phone = (profileRes['phone'] as String?)?.trim() ?? '';
+        if (name.isNotEmpty || phone.isNotEmpty) {
+          return true;
+        }
+      }
+
+      // 2. Check if user already has wallets in Supabase
       final walletRes = await _client!
           .from('wallets')
           .select('id')
@@ -117,7 +131,7 @@ class SupabaseSyncService {
           .limit(1);
       if ((walletRes as List).isNotEmpty) return true;
 
-      // 2. Check if user already has transactions
+      // 3. Check if user already has transactions
       final txRes = await _client!
           .from('transactions')
           .select('id')
@@ -125,7 +139,7 @@ class SupabaseSyncService {
           .limit(1);
       if ((txRes as List).isNotEmpty) return true;
 
-      // 3. Check if user has categories
+      // 4. Check if user has categories
       final catRes = await _client!
           .from('categories')
           .select('id')
@@ -133,27 +147,21 @@ class SupabaseSyncService {
           .limit(1);
       if ((catRes as List).isNotEmpty) return true;
 
-      // 4. Check profile for phone or customized name
-      final profileRes = await _client!
-          .from('profiles')
-          .select('name, phone')
-          .eq('id', user.id)
-          .maybeSingle();
-      if (profileRes != null) {
-        final phone = (profileRes['phone'] as String?)?.trim() ?? '';
-        final name = (profileRes['name'] as String?)?.trim() ?? '';
-        if (phone.isNotEmpty || (name.isNotEmpty && !name.contains('@'))) {
+      // 5. Check auth metadata: returning user who has signed in before
+      final lastSignIn = user.lastSignInAt;
+      final createdAt = user.createdAt;
+      if (lastSignIn != null && lastSignIn.isNotEmpty && createdAt.isNotEmpty) {
+        if (lastSignIn != createdAt) {
           return true;
         }
       }
 
-      // 5. Check if user account was created earlier in the past (> 1 minute ago)
-      final createdAtStr = user.createdAt;
-      if (createdAtStr.isNotEmpty) {
-        final createdAt = DateTime.tryParse(createdAtStr);
-        if (createdAt != null) {
-          final diff = DateTime.now().toUtc().difference(createdAt.toUtc());
-          if (diff.inMinutes >= 1) {
+      // 6. Check if user account was created in the past (> 30 seconds ago)
+      if (createdAt.isNotEmpty) {
+        final createdDateTime = DateTime.tryParse(createdAt);
+        if (createdDateTime != null) {
+          final diff = DateTime.now().toUtc().difference(createdDateTime.toUtc());
+          if (diff.inSeconds >= 30) {
             return true;
           }
         }

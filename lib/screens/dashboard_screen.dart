@@ -16,6 +16,7 @@ import '../widgets/spending_calendar_card.dart';
 import '../widgets/transaction_tile.dart';
 import '../widgets/app_snackbar.dart';
 import '../widgets/ambient_top_glow.dart';
+import '../widgets/app_skeleton.dart';
 import '../widgets/month_filter_sheet.dart';
 import 'add_transaction_screen.dart';
 import 'budget_screen.dart';
@@ -52,51 +53,63 @@ class DashboardScreen extends StatelessWidget {
           if (isDark) const AmbientTopGlow(),
           SafeArea(
             bottom: false,
-            child: ListView(
-              controller: scrollController,
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 124),
-              children: [
-                _buildHeader(context, provider),
-                const SizedBox(height: 14),
-                _HeroBalancePanel(provider: provider),
-                if (provider.shouldShowDailyReminder) ...[
+            child: RefreshIndicator(
+              onRefresh: () => provider.refreshData(),
+              color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+              backgroundColor: isDark ? const Color(0xFF131A26) : Colors.white,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 124),
+                children: [
+                  _buildHeader(context, provider),
+                  const SizedBox(height: 14),
+                  provider.isLoading
+                      ? const SkeletonHeroCard()
+                      : _HeroBalancePanel(provider: provider),
+                  if (provider.shouldShowDailyReminder && !provider.isLoading) ...[
+                    const SizedBox(height: 12),
+                    _buildDailyReminderCard(context, provider),
+                  ],
                   const SizedBox(height: 12),
-                  _buildDailyReminderCard(context, provider),
+                  NestedCard(
+                    title: 'Transaksi Terbaru',
+                    action: 'Lihat semua',
+                    onActionTap: () => onNavigateTab?.call(1),
+                    child: provider.isLoading
+                        ? const SkeletonTransactionList(count: 3)
+                        : _buildTransactions(context, provider, transactions),
+                  ),
+                  if (!provider.isLoading) ...[
+                    Builder(
+                      builder: (ctx) {
+                        final now = DateTime.now();
+                        final startOfWeek = DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1));
+                        final endOfWeek = startOfWeek.add(const Duration(days: 7));
+                        final hasTxThisWeek = provider.transactions.any(
+                          (t) => (t.type == TransactionType.income || t.type == TransactionType.expense) &&
+                                 !t.timestamp.isBefore(startOfWeek) &&
+                                 t.timestamp.isBefore(endOfWeek),
+                        );
+                        if (!hasTxThisWeek) return const SizedBox.shrink();
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(height: 12),
+                            WeeklyActivityChart(
+                              isDualBar: true,
+                              title: 'Aktivitas Transaksi',
+                              onDetailTap: () => FinancialAnalysisScreen.showAsModalSheet(context),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    const SpendingCalendarCard(),
+                  ],
                 ],
-                const SizedBox(height: 12),
-                NestedCard(
-                  title: 'Transaksi Terbaru',
-                  action: 'Lihat semua',
-                  onActionTap: () => onNavigateTab?.call(1),
-                  child: _buildTransactions(context, provider, transactions),
-                ),
-                Builder(
-                  builder: (ctx) {
-                    final now = DateTime.now();
-                    final startOfWeek = DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1));
-                    final endOfWeek = startOfWeek.add(const Duration(days: 7));
-                    final hasTxThisWeek = provider.transactions.any(
-                      (t) => (t.type == TransactionType.income || t.type == TransactionType.expense) &&
-                             !t.timestamp.isBefore(startOfWeek) &&
-                             t.timestamp.isBefore(endOfWeek),
-                    );
-                    if (!hasTxThisWeek) return const SizedBox.shrink();
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SizedBox(height: 12),
-                        WeeklyActivityChart(
-                          isDualBar: true,
-                          title: 'Aktivitas Transaksi',
-                          onDetailTap: () => FinancialAnalysisScreen.showAsModalSheet(context),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-                const SizedBox(height: 12),
-                const SpendingCalendarCard(),
-              ],
+              ),
             ),
           ),
         ],
