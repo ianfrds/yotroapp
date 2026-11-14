@@ -21,6 +21,12 @@
 -keep class io.flutter.plugin.** { *; }
 -keep class io.flutter.embedding.** { *; }
 
+# Flutter's Play Store deferred-component implementation is bundled in the
+# Android embedding, but a standalone APK does not ship the optional Play Core
+# runtime. These references are unreachable when deferred components are not
+# configured, so R8 may safely ignore their absent classes.
+-dontwarn com.google.android.play.core.**
+
 # JNI & Core Plugins
 -keep class com.github.dart_lang.jni.** { *; }
 -keep class com.github.dart_lang.jni_flutter.** { *; }
