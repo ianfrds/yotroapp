@@ -145,10 +145,10 @@ class _ReceiptAdjustmentSheetState extends State<ReceiptAdjustmentSheet> {
                         color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFE2E8F0),
                       ),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.receipt_long_rounded,
                       size: 20,
-                      color: _cyan,
+                      color: isDark ? _cyan : _accentSapphire,
                     ),
                   ),
                   const SizedBox(width: 10),

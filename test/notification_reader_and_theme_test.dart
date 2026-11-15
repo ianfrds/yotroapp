@@ -29,14 +29,17 @@ void main() {
       SharedPreferences.setMockInitialValues({});
     });
 
-    test('Default theme is dark mode', () {
+    test('Default theme is system mode', () {
       final provider = TransactionProvider();
-      expect(provider.themeMode, equals(ThemeMode.dark));
-      expect(provider.isDarkMode, isTrue);
+      expect(provider.themeMode, equals(ThemeMode.system));
     });
 
     test('Toggle theme mode switches between dark and light', () {
       final provider = TransactionProvider();
+      provider.setThemeMode(ThemeMode.dark);
+      expect(provider.themeMode, equals(ThemeMode.dark));
+      expect(provider.isDarkMode, isTrue);
+
       provider.toggleThemeMode();
       expect(provider.themeMode, equals(ThemeMode.light));
       expect(provider.isDarkMode, isFalse);
@@ -48,15 +51,18 @@ void main() {
 
     test('ThemeMode switches and provides correct mode states', () {
       final provider = TransactionProvider();
-      expect(provider.themeMode, equals(ThemeMode.dark));
-      expect(provider.isDarkMode, isTrue);
+      expect(provider.themeMode, equals(ThemeMode.system));
 
       provider.setThemeMode(ThemeMode.light);
       expect(provider.themeMode, equals(ThemeMode.light));
       expect(provider.isDarkMode, isFalse);
+
+      provider.setThemeMode(ThemeMode.dark);
+      expect(provider.themeMode, equals(ThemeMode.dark));
+      expect(provider.isDarkMode, isTrue);
     });
 
-    testWidgets('Settings screen contains Mode Tampilan option with 3 choices: Sistem, Terang, Gelap', (tester) async {
+    testWidgets('Settings screen contains Mode Tampilan option with 3 choices: Sistem, Light Mode, Dark Mode', (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -66,22 +72,55 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Mode Tampilan'), findsOneWidget);
-      expect(find.text('Mode Gelap'), findsWidgets);
+      expect(find.text('Sistem'), findsWidgets);
 
       // Tap Mode Tampilan to open sheet
       await tester.tap(find.text('Mode Tampilan'));
       await tester.pumpAndSettle();
 
       // Verify the 3 theme mode options are shown
-      expect(find.text('Sistem'), findsOneWidget);
-      expect(find.text('Mode Terang'), findsOneWidget);
-      expect(find.text('Mode Gelap'), findsWidgets);
+      expect(find.text('Sistem'), findsWidgets);
+      expect(find.text('Light Mode'), findsOneWidget);
+      expect(find.text('Dark Mode'), findsOneWidget);
 
-      // Tap 'Mode Terang'
-      await tester.tap(find.text('Mode Terang'));
+      // Tap 'Light Mode'
+      await tester.tap(find.text('Light Mode'));
       await tester.pumpAndSettle();
 
       expect(provider.themeMode, equals(ThemeMode.light));
+    });
+
+    testWidgets('Dashboard hero card uses light radial gradient in Light Mode', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final provider = TransactionProvider();
+      provider.setThemeMode(ThemeMode.light);
+
+      await tester.pumpWidget(ChangeNotifierProvider<TransactionProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          theme: ThemeData.light(),
+          darkTheme: ThemeData.dark(),
+          themeMode: ThemeMode.light,
+          home: const Scaffold(body: DashboardScreen()),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      final containers = tester.widgetList<Container>(find.byType(Container));
+      final hasLightGradient = containers.any((c) {
+        final dec = c.decoration;
+        if (dec is BoxDecoration && dec.gradient is RadialGradient) {
+          final grad = dec.gradient as RadialGradient;
+          return grad.colors.contains(const Color(0xFF659CF3)) &&
+                 grad.colors.contains(const Color(0xFF5D92D0)) &&
+                 grad.colors.contains(const Color(0xFF0071D7));
+        }
+        return false;
+      });
+      expect(hasLightGradient, isTrue);
     });
   });
 
@@ -95,7 +134,7 @@ void main() {
       expect(provider.hasNotificationPermission, isFalse);
       expect(provider.isDailyReminderEnabled, isFalse);
       expect(provider.dailyReminderTime, equals('18:00'));
-      expect(provider.dailyReminderTimes, containsAll(['18:00', '19:00']));
+      expect(provider.dailyReminderTimes, containsAll(['18:00', '21:00']));
     });
 
     test('Cannot enable daily reminder without notification permission', () async {

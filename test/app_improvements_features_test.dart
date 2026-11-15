@@ -101,12 +101,12 @@ void main() {
       await tester.tap(find.text('Mode Tampilan'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Sistem'), findsOneWidget);
-      expect(find.text('Mode Terang'), findsOneWidget);
-      expect(find.text('Mode Gelap'), findsWidgets);
+      expect(find.text('Sistem'), findsWidgets);
+      expect(find.text('Light Mode'), findsOneWidget);
+      expect(find.text('Dark Mode'), findsOneWidget);
 
-      // Select Sistem
-      await tester.tap(find.text('Sistem'));
+      // Select Sistem from bottom sheet
+      await tester.tap(find.widgetWithText(InkWell, 'Sistem').last);
       await tester.pumpAndSettle();
       expect(provider.themeMode, equals(ThemeMode.system));
     });

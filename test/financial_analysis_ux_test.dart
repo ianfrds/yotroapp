@@ -82,13 +82,20 @@ void main() {
       expect(find.text('Sangat Baik'), findsWidgets);
       expect(find.text('Catatan & Saran Keuangan'), findsOneWidget);
 
-      // Verify Card 2: Alur Pemasukan & Pengeluaran (Curve Chart)
-      expect(find.text('Alur Pemasukan & Pengeluaran'), findsOneWidget);
-
-      // Verify Card 3: Pemasukan vs Pengeluaran (Donut Chart)
+      // Verify Card 2: Pemasukan vs Pengeluaran (Donut Chart) is above Alur Pemasukan & Pengeluaran
       expect(find.text('Pemasukan vs Pengeluaran'), findsOneWidget);
       expect(find.text('Arus Kas Bersih'), findsOneWidget);
       expect(find.text('Pengeluaran Terbanyak'), findsOneWidget);
+      expect(find.text('Rasio Arus Kas'), findsNothing);
+
+      // Verify Card 3: Alur Pemasukan & Pengeluaran (Curve Chart) is below Pemasukan vs Pengeluaran
+      expect(find.text('Alur Pemasukan & Pengeluaran'), findsOneWidget);
+      final donutY = tester.getTopLeft(find.text('Pemasukan vs Pengeluaran')).dy;
+      final curveY = tester.getTopLeft(find.text('Alur Pemasukan & Pengeluaran')).dy;
+      expect(donutY < curveY, isTrue);
+
+      // Verify total transactions indicator below the chart
+      expect(find.text('Total Transaksi Bulan Ini'), findsOneWidget);
 
       // Verify Card 4: Target & Anggaran Belanja (Budget = 0 CTA)
       await tester.scrollUntilVisible(find.text('Target & Anggaran Belanja'), 200);

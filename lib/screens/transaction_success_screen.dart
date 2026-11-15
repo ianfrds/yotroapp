@@ -129,7 +129,7 @@ class _TransactionSuccessScreenState extends State<TransactionSuccessScreen>
         prefix = '+ ';
         break;
       case TransactionType.transfer:
-        amountColor = const Color(0xFF55C7FF);
+        amountColor = isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A);
         prefix = '';
         break;
     }
@@ -215,7 +215,7 @@ class _TransactionSuccessScreenState extends State<TransactionSuccessScreen>
                                           Icon(
                                             Icons.receipt_long_rounded,
                                             size: 17,
-                                            color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF0F172A),
+                                            color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                                           ),
                                           const SizedBox(width: 8),
                                           Text(

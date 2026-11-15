@@ -369,7 +369,7 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
                         value: 'edit',
                         child: Row(
                           children: [
-                            const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF55C7FF)),
+                            Icon(Icons.edit_outlined, size: 18, color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A)),
                             const SizedBox(width: 10),
                             Text(
                               'Ubah Budget',
@@ -449,7 +449,7 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
                                           _isOverall
                                               ? Icons.account_balance_wallet_rounded
                                               : Icons.label_rounded,
-                                          color: const Color(0xFF55C7FF),
+                                          color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                                           size: 22,
                                         ),
                                 ),
@@ -629,7 +629,7 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
                             child: Text(
                               'Lihat Semua',
                               style: GoogleFonts.manrope(
-                                color: const Color(0xFF55C7FF),
+                                color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
                               ),

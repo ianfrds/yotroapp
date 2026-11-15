@@ -539,7 +539,7 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                         child: Text(
                           'Total Item: Rp ${ThousandsSeparatorInputFormatter.formatNumber(subtotal.round().toString())}',
                           style: GoogleFonts.interTight(
-                            color: _cyan,
+                            color: isDark ? _cyan : const Color(0xFF02539A),
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -577,7 +577,7 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                     child: Text(
                       selectedMembers.length == _members.length ? 'Hapus Semua' : 'Pilih Semua',
                       style: GoogleFonts.manrope(
-                        color: _cyan,
+                        color: isDark ? _cyan : const Color(0xFF02539A),
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
@@ -967,7 +967,7 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
               title: 'Split Bill',
               actionWidget: IconButton(
                 onPressed: _copySummary,
-                icon: Icon(Icons.share_outlined, color: isDark ? _cyan : const Color(0xFF0284C7), size: 20),
+                icon: Icon(Icons.share_outlined, color: isDark ? _cyan : const Color(0xFF02539A), size: 20),
                 tooltip: 'Salin Ringkasan Tagihan',
               ),
             ),
@@ -1039,7 +1039,7 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: isDark ? _cyan : const Color(0xFF0284C7)),
+                          borderSide: BorderSide(color: isDark ? _cyan : const Color(0xFF02539A)),
                         ),
                       ),
                     ),
@@ -1175,7 +1175,7 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                         Expanded(
                           child: Row(
                             children: [
-                              Icon(Icons.receipt_rounded, size: 16, color: isDark ? _cyan : const Color(0xFF0284C7)),
+                              Icon(Icons.receipt_rounded, size: 16, color: isDark ? _cyan : const Color(0xFF02539A)),
                               const SizedBox(width: 8),
                               Text(
                                 'Pajak',
@@ -1204,10 +1204,13 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                         ),
                         Transform.scale(
                           scale: 0.8,
-                          child: Switch(
+                          child: Switch.adaptive(
                             value: _isTaxEnabled,
                             onChanged: (val) => setState(() => _isTaxEnabled = val),
-                            activeColor: _bluePrimary,
+                            activeThumbColor: Colors.white,
+                            activeTrackColor: const Color(0xFF02539A),
+                            inactiveThumbColor: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF94A3B8),
+                            inactiveTrackColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
                           ),
                         ),
                       ],
@@ -1283,7 +1286,7 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                                   child: Text(
                                     '+${provider.formatCurrency(_serviceAmount)}',
                                     style: GoogleFonts.interTight(
-                                      color: isDark ? _cyan : const Color(0xFF0284C7),
+                                      color: isDark ? _cyan : const Color(0xFF02539A),
                                       fontSize: 11.5,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -1296,10 +1299,13 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                         ),
                         Transform.scale(
                           scale: 0.8,
-                          child: Switch(
+                          child: Switch.adaptive(
                             value: _isServiceEnabled,
                             onChanged: (val) => setState(() => _isServiceEnabled = val),
-                            activeColor: _bluePrimary,
+                            activeThumbColor: Colors.white,
+                            activeTrackColor: const Color(0xFF02539A),
+                            inactiveThumbColor: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF94A3B8),
+                            inactiveTrackColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
                           ),
                         ),
                       ],
@@ -1356,12 +1362,12 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.add_rounded, size: 15, color: isDark ? _cyan : const Color(0xFF0284C7)),
+                        Icon(Icons.add_rounded, size: 15, color: isDark ? _cyan : const Color(0xFF02539A)),
                         const SizedBox(width: 4),
                         Text(
                           'Tambah Item',
                           style: GoogleFonts.manrope(
-                            color: isDark ? _cyan : const Color(0xFF0284C7),
+                            color: isDark ? _cyan : const Color(0xFF02539A),
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1509,12 +1515,12 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.person_add_alt_1_rounded, size: 14, color: isDark ? _cyan : const Color(0xFF0284C7)),
+                      Icon(Icons.person_add_alt_1_rounded, size: 14, color: isDark ? _cyan : const Color(0xFF02539A)),
                       const SizedBox(width: 4),
                       Text(
                         'Tambah',
                         style: GoogleFonts.manrope(
-                          color: isDark ? _cyan : const Color(0xFF0284C7),
+                          color: isDark ? _cyan : const Color(0xFF02539A),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -1671,7 +1677,7 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                             child: Text(
                               provider.formatCurrency(_myShare),
                               style: GoogleFonts.interTight(
-                                color: isDark ? _cyan : const Color(0xFF0066FF),
+                                color: isDark ? _cyan : const Color(0xFF02539A),
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: -0.4,
@@ -1830,7 +1836,7 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                 ? Icon(
                     Icons.person_rounded,
                     size: 18,
-                    color: isDark ? _cyan : const Color(0xFF0284C7),
+                    color: isDark ? _cyan : const Color(0xFF02539A),
                   )
                 : Text(
                     index <= 9 ? '$index' : '#',

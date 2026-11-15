@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -110,11 +111,11 @@ class TransactionProvider with ChangeNotifier {
   bool _isBalanceVisible = true;
   DashboardViewMode _dashboardViewMode = DashboardViewMode.complete;
   DashboardBalanceMode _dashboardBalanceMode = DashboardBalanceMode.monthly;
-  ThemeMode _themeMode = ThemeMode.dark;
+  ThemeMode _themeMode = ThemeMode.system;
   bool _hasNotificationPermission = false;
   bool _isDailyReminderEnabled = false;
   String _dailyReminderTime = '18:00';
-  List<String> _dailyReminderTimes = ['18:00', '19:00'];
+  List<String> _dailyReminderTimes = ['18:00', '21:00'];
   bool _isNotificationReaderEnabled = true;
   List<NotificationRule> _notificationRules = NotificationRule.defaultRules;
   List<PendingNotification> _pendingNotifications = [];
@@ -225,11 +226,35 @@ class TransactionProvider with ChangeNotifier {
     _themeMode = mode;
     notifyListeners();
     saveData();
+    applySystemOverlayStyle();
+  }
+
+  void applySystemOverlayStyle() {
+    final bool isDark;
+    if (_themeMode == ThemeMode.dark) {
+      isDark = true;
+    } else if (_themeMode == ThemeMode.light) {
+      isDark = false;
+    } else {
+      isDark = WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+          Brightness.dark;
+    }
+
+    final overlayStyle = SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+      statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+      systemNavigationBarColor:
+          isDark ? const Color(0xFF1C2229) : const Color(0xFFF4F5F7),
+      systemNavigationBarIconBrightness:
+          isDark ? Brightness.light : Brightness.dark,
+      systemNavigationBarDividerColor: Colors.transparent,
+    );
+    SystemChrome.setSystemUIOverlayStyle(overlayStyle);
   }
 
   void toggleThemeMode() {
-    setThemeMode(
-        _themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark);
+    setThemeMode(isDarkMode ? ThemeMode.light : ThemeMode.dark);
   }
 
   void setUserName(String name) {
@@ -392,7 +417,7 @@ class TransactionProvider with ChangeNotifier {
         } else if (data['dailyReminderTime'] != null) {
           _dailyReminderTimes = [data['dailyReminderTime'] as String];
         } else {
-          _dailyReminderTimes = ['18:00', '19:00'];
+          _dailyReminderTimes = ['18:00', '21:00'];
         }
         _dailyReminderTime = _dailyReminderTimes.isNotEmpty
             ? _dailyReminderTimes.first
@@ -1100,11 +1125,13 @@ class TransactionProvider with ChangeNotifier {
   Future<void> completeOnboarding({
     required String name,
     required String phone,
-    required String gender,
+    String gender = '',
   }) async {
     _userName = name.trim().isEmpty ? 'Pengguna Yotro' : name.trim();
     _userPhone = phone.trim();
-    _userGender = gender.trim().isEmpty ? 'Pria' : gender.trim();
+    if (gender.trim().isNotEmpty) {
+      _userGender = gender.trim();
+    }
     _isOnboardingCompleted = true;
     notifyListeners();
     await saveData();
@@ -1117,11 +1144,13 @@ class TransactionProvider with ChangeNotifier {
   Future<void> updateProfile({
     required String name,
     required String phone,
-    required String gender,
+    String gender = '',
   }) async {
     _userName = name.trim().isEmpty ? 'Pengguna Yotro' : name.trim();
     _userPhone = phone.trim();
-    _userGender = gender.trim().isEmpty ? 'Pria' : gender.trim();
+    if (gender.trim().isNotEmpty) {
+      _userGender = gender.trim();
+    }
     notifyListeners();
     await saveData();
   }
@@ -1209,10 +1238,11 @@ class TransactionProvider with ChangeNotifier {
     _currency = 'IDR';
     _userName = 'John Doe';
     _dashboardViewMode = DashboardViewMode.complete;
-    _themeMode = ThemeMode.dark;
+    _themeMode = ThemeMode.system;
     _hasNotificationPermission = false;
     _isDailyReminderEnabled = false;
-    _dailyReminderTime = '20:00';
+    _dailyReminderTime = '18:00';
+    _dailyReminderTimes = ['18:00', '21:00'];
     _isNotificationReaderEnabled = true;
     _notificationRules = NotificationRule.defaultRules;
     _pendingNotifications = [];
@@ -1237,7 +1267,7 @@ class TransactionProvider with ChangeNotifier {
       if (_hasNotificationPermission && !_isDailyReminderEnabled) {
         _isDailyReminderEnabled = true;
         if (_dailyReminderTimes.isEmpty) {
-          _dailyReminderTimes = ['18:00', '19:00'];
+          _dailyReminderTimes = ['18:00', '21:00'];
         }
         await _rescheduleDailyReminder();
       }
@@ -1249,7 +1279,7 @@ class TransactionProvider with ChangeNotifier {
       if (!_isDailyReminderEnabled) {
         _isDailyReminderEnabled = true;
         if (_dailyReminderTimes.isEmpty) {
-          _dailyReminderTimes = ['18:00', '19:00'];
+          _dailyReminderTimes = ['18:00', '21:00'];
         }
         await _rescheduleDailyReminder();
       }

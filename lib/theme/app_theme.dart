@@ -93,6 +93,26 @@ class AppTheme {
         behavior: SnackBarBehavior.floating,
         elevation: 6,
       ),
+      switchTheme: SwitchThemeData(
+        thumbColor: MaterialStateProperty.resolveWith<Color>((states) {
+          if (states.contains(MaterialState.selected)) {
+            return Colors.white;
+          }
+          return const Color(0xFF8EA4BE);
+        }),
+        trackColor: MaterialStateProperty.resolveWith<Color>((states) {
+          if (states.contains(MaterialState.selected)) {
+            return const Color(0xFF02539A);
+          }
+          return const Color(0xFF1E293B);
+        }),
+        trackOutlineColor: MaterialStateProperty.resolveWith<Color>((states) {
+          if (states.contains(MaterialState.selected)) {
+            return Colors.transparent;
+          }
+          return const Color(0xFF334155);
+        }),
+      ),
     );
   }
 
@@ -189,6 +209,26 @@ class AppTheme {
         ),
         behavior: SnackBarBehavior.floating,
         elevation: 6,
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: MaterialStateProperty.resolveWith<Color>((states) {
+          if (states.contains(MaterialState.selected)) {
+            return Colors.white;
+          }
+          return const Color(0xFF94A3B8);
+        }),
+        trackColor: MaterialStateProperty.resolveWith<Color>((states) {
+          if (states.contains(MaterialState.selected)) {
+            return const Color(0xFF02539A);
+          }
+          return const Color(0xFFE2E8F0);
+        }),
+        trackOutlineColor: MaterialStateProperty.resolveWith<Color>((states) {
+          if (states.contains(MaterialState.selected)) {
+            return Colors.transparent;
+          }
+          return const Color(0xFFCBD5E1);
+        }),
       ),
     );
   }

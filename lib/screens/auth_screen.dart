@@ -920,22 +920,11 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildCleanGoogleIcon() {
-    return Container(
+    return Image.asset(
+      'assets/images/google_logo.png',
       width: 20,
       height: 20,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.white,
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        'G',
-        style: GoogleFonts.interTight(
-          fontSize: 13,
-          fontWeight: FontWeight.w900,
-          color: const Color(0xFF4285F4),
-        ),
-      ),
+      fit: BoxFit.contain,
     );
   }
 }

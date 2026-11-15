@@ -96,14 +96,15 @@ void main() {
   });
 
   group('SplashScreen & Rebranding to Yotro Tests', () {
-    testWidgets('SplashScreen displays Yotro branding and emblem', (tester) async {
+    testWidgets('SplashScreen displays Yotro branding and emblem without slop copy', (tester) async {
       await tester.pumpWidget(const MaterialApp(home: SplashScreen(autoNavigate: false)));
       await tester.pump();
       expect(find.text('Yotro'), findsOneWidget);
       expect(find.byType(Image), findsOneWidget);
       final imageWidget = tester.widget<Image>(find.byType(Image));
       expect((imageWidget.image as AssetImage).assetName, 'assets/images/logo_splash.png');
-      expect(find.text('Personal Finance & Wealth Tracker'), findsOneWidget);
+      expect(find.text('Personal Finance & Wealth Tracker'), findsNothing);
+      expect(find.textContaining('100% Offline & Privat'), findsNothing);
     });
   });
 }

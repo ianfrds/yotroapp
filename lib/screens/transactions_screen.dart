@@ -673,7 +673,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           child: Text(
             'Dipilih: ${selectedDate.day} ${_monthNames[selectedDate.month - 1]} ${selectedDate.year}',
             style: GoogleFonts.interTight(
-              color: const Color(0xFF55C7FF),
+              color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
@@ -1033,7 +1033,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       child: Text(
                         'Reset Filter',
                         style: GoogleFonts.manrope(
-                          color: const Color(0xFF55C7FF),
+                          color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -1069,7 +1069,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                     ),
                     child: Icon(
                       _isSearchOpen ? Icons.close_rounded : Icons.search_rounded,
-                      color: _isSearchOpen ? const Color(0xFF55C7FF) : textMuted,
+                      color: _isSearchOpen ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A)) : textMuted,
                       size: 19,
                     ),
                   ),
@@ -1151,7 +1151,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: _hasActiveTimeFilter
-                        ? const Color(0xFF55C7FF).withOpacity(0.5)
+                        ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A)).withOpacity(0.5)
                         : borderColor,
                   ),
                 ),
@@ -1164,7 +1164,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                               ? Icons.event_available_rounded
                               : Icons.calendar_month_outlined,
                       color: _hasActiveTimeFilter
-                          ? const Color(0xFF55C7FF)
+                          ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A))
                           : textMuted,
                       size: 17,
                     ),
@@ -1222,7 +1222,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: _selectedType != 'ALL'
-                            ? const Color(0xFF55C7FF).withOpacity(0.5)
+                            ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A)).withOpacity(0.5)
                             : borderColor,
                       ),
                     ),
@@ -1281,7 +1281,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: _selectedWallet != 'ALL'
-                            ? const Color(0xFF55C7FF).withOpacity(0.5)
+                            ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A)).withOpacity(0.5)
                             : borderColor,
                       ),
                     ),
@@ -1384,7 +1384,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                       child: Text(
                                         'Reset Semua Filter',
                                         style: GoogleFonts.manrope(
-                                          color: const Color(0xFF55C7FF),
+                                          color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                                           fontSize: 12,
                                           fontWeight: FontWeight.w600,
                                         ),

@@ -166,6 +166,7 @@ class _CircularSpectrumPainter extends CustomPainter {
     // Standby movement: the geometry stays perfectly circular while a narrow
     // highlight travels over the outline. This runs whenever recording is on.
     if (isListening) {
+      final highlightBase = isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A);
       final standbyPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.45
@@ -174,10 +175,10 @@ class _CircularSpectrumPainter extends CustomPainter {
         ..shader = SweepGradient(
           colors: [
             Colors.transparent,
-            const Color(0x0055C7FF),
-            const Color(0xFF55C7FF).withValues(alpha: .72),
-            Colors.white.withValues(alpha: .92),
-            const Color(0x0055C7FF),
+            highlightBase.withValues(alpha: 0),
+            highlightBase.withValues(alpha: .72),
+            (isDark ? Colors.white : const Color(0xFF02539A)).withValues(alpha: .92),
+            highlightBase.withValues(alpha: 0),
             Colors.transparent,
           ],
           stops: const [0, .58, .78, .84, .9, 1],

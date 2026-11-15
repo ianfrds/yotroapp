@@ -107,7 +107,7 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
         children: [
           _buildHelpGuideItem(
             icon: Icons.insights_rounded,
-            iconColor: const Color(0xFF55C7FF),
+            iconColor: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
             title: 'Skor Keuangan (0 - 100)',
             description:
                 'Menilai seberapa sehat dompet Anda dari perbandingan uang masuk, belanja, dan sisa simpanan. Skor 65 ke atas menandakan kondisi keuangan aman dan stabil.',
@@ -409,19 +409,23 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
     FinancialHealthMetrics metrics,
     bool isDark,
   ) {
+    final effectiveStatusColor = (!isDark && metrics.statusColor.value == 0xFF55C7FF)
+        ? const Color(0xFF02539A)
+        : metrics.statusColor;
+
     return NestedCard(
       title: 'Kesehatan Keuangan',
       actionWidget: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: metrics.statusColor.withOpacity(0.16),
+          color: effectiveStatusColor.withOpacity(0.16),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: metrics.statusColor.withOpacity(0.35)),
+          border: Border.all(color: effectiveStatusColor.withOpacity(0.35)),
         ),
         child: Text(
           metrics.status,
           style: GoogleFonts.manrope(
-            color: metrics.statusColor,
+            color: effectiveStatusColor,
             fontSize: 11.5,
             fontWeight: FontWeight.w600,
           ),
@@ -445,7 +449,7 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
                     size: const Size(250, 136),
                     painter: _HalfCircularHealthPainter(
                       score: metrics.score,
-                      statusColor: metrics.statusColor,
+                      statusColor: effectiveStatusColor,
                       trackColor: isDark
                           ? const Color(0xFF232D3B)
                           : const Color(0xFFE2E8F0),
@@ -485,17 +489,17 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2.5),
                           decoration: BoxDecoration(
-                            color: metrics.statusColor.withOpacity(0.12),
+                            color: effectiveStatusColor.withOpacity(0.12),
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                              color: metrics.statusColor.withOpacity(0.3),
+                              color: effectiveStatusColor.withOpacity(0.3),
                               width: 1,
                             ),
                           ),
                           child: Text(
                             metrics.status,
                             style: GoogleFonts.manrope(
-                              color: metrics.statusColor,
+                              color: effectiveStatusColor,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
@@ -565,12 +569,12 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.only(top: 1),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 1),
                     child: Icon(
                       Icons.lightbulb_outline_rounded,
                       size: 16,
-                      color: Color(0xFF55C7FF),
+                      color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                     ),
                   ),
                   const SizedBox(width: 9),
@@ -612,7 +616,7 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
     final zones = [
       _HealthZoneData('Kurang', '<50', const Color(0xFFFF6B7A), score < 50),
       _HealthZoneData('Waspada', '50-64', const Color(0xFFFFC857), score >= 50 && score < 65),
-      _HealthZoneData('Aman', '65-79', const Color(0xFF55C7FF), score >= 65 && score < 80),
+      _HealthZoneData('Aman', '65-79', isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A), score >= 65 && score < 80),
       _HealthZoneData('Sangat Baik', '80-100', const Color(0xFF39D98A), score >= 80),
     ];
 
@@ -814,7 +818,6 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
 
     return NestedCard(
       title: 'Alur Pemasukan & Pengeluaran',
-      action: '${metrics.txCount} Transaksi',
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -858,8 +861,8 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
                       Container(
                         width: 7,
                         height: 7,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF55C7FF),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -910,7 +913,7 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
                     Text(
                       'Masuk: ${_formatCompactAmount(selectedIncome)}  |  Keluar: ${_formatCompactAmount(selectedExpense)}',
                       style: GoogleFonts.interTight(
-                        color: const Color(0xFF55C7FF),
+                        color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
@@ -972,7 +975,7 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
                         color: isSelected
                             ? (isDark
                                 ? const Color(0xFF55C7FF).withOpacity(0.18)
-                                : const Color(0xFF0F172A).withOpacity(0.1))
+                                : const Color(0xFF02539A).withOpacity(0.12))
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(4),
                       ),
@@ -982,7 +985,7 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.manrope(
                           color: isSelected
-                              ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF0F172A))
+                              ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A))
                               : (isDark ? const Color(0xFF65788F) : const Color(0xFF94A3B8)),
                           fontSize: 9,
                           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
@@ -992,6 +995,50 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
                   ),
                 );
               }),
+            ),
+            const SizedBox(height: 12),
+
+            // Total Transaksi Indicator
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFE2E8F0),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.receipt_long_rounded,
+                    size: 14,
+                    color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Total Transaksi Bulan Ini',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.manrope(
+                        color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${metrics.txCount} Transaksi',
+                    style: GoogleFonts.interTight(
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -1013,11 +1060,10 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
     final expenseShare = totalFlow > 0 ? (expense / totalFlow) : 0.5;
 
     final values = totalFlow > 0 ? [income, expense] : <double>[];
-    final colors = [const Color(0xFF39D98A), const Color(0xFF55C7FF)];
+    final colors = [const Color(0xFF39D98A), isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A)];
 
     return NestedCard(
       title: 'Pemasukan vs Pengeluaran',
-      action: 'Rasio Arus Kas',
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -1216,12 +1262,12 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
                         color: _selectedDonutIndex == 1
-                            ? const Color(0xFF55C7FF).withOpacity(isDark ? 0.14 : 0.08)
+                            ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A)).withOpacity(isDark ? 0.14 : 0.08)
                             : (isDark ? Colors.white.withOpacity(0.025) : const Color(0xFFF8FAFC)),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                           color: _selectedDonutIndex == 1
-                              ? const Color(0xFF55C7FF).withOpacity(0.5)
+                              ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A)).withOpacity(0.5)
                               : (isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFE2E8F0)),
                         ),
                       ),
@@ -1233,8 +1279,8 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
                               Container(
                                 width: 7,
                                 height: 7,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF55C7FF),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -1266,7 +1312,7 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
                           Text(
                             '${(expenseShare * 100).round()}% total flow',
                             style: GoogleFonts.manrope(
-                              color: const Color(0xFF55C7FF),
+                              color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                               fontSize: 9.5,
                               fontWeight: FontWeight.w500,
                             ),
@@ -1306,7 +1352,7 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
                               orElse: () => null,
                             )?.icon ?? Icons.category_rounded,
                         size: 16,
-                        color: const Color(0xFF55C7FF),
+                        color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -1352,7 +1398,7 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
                         Text(
                           '${(metrics.topCategoryPct * 100).round()}% total belanja',
                           style: GoogleFonts.manrope(
-                            color: const Color(0xFF55C7FF),
+                            color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                             fontSize: 10.5,
                             fontWeight: FontWeight.w500,
                           ),
@@ -1505,9 +1551,9 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
                 color: const Color(0xFF02539A).withOpacity(0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.track_changes_rounded,
-                color: Color(0xFF55C7FF),
+                color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                 size: 20,
               ),
             ),
@@ -1651,9 +1697,9 @@ class _FinancialAnalysisScreenState extends State<FinancialAnalysisScreen> {
         : [
             _buildFinancialHealthCard(provider, healthMetrics, isDark),
             const SizedBox(height: 12),
-            _buildCashFlowCurveCard(provider, healthMetrics, isDark),
-            const SizedBox(height: 12),
             _buildCashFlowDonutCard(provider, healthMetrics, isDark),
+            const SizedBox(height: 12),
+            _buildCashFlowCurveCard(provider, healthMetrics, isDark),
             const SizedBox(height: 12),
             _buildBudgetGuidanceCard(context, provider, healthMetrics, isDark),
           ];
@@ -1914,12 +1960,12 @@ class _CashFlowCurvePainter extends CustomPainter {
       chartHeight: chartHeight,
     );
 
-    // 3. Draw Expense Curve (Cyan)
+    // 3. Draw Expense Curve (Cyan / Sapphire)
     _drawCurve(
       canvas: canvas,
       size: size,
       offsets: expOffsets,
-      lineColor: const Color(0xFF55C7FF),
+      lineColor: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
       topPadding: topPadding,
       chartHeight: chartHeight,
     );
@@ -1968,7 +2014,7 @@ class _CashFlowCurvePainter extends CustomPainter {
         expPt,
         6.0,
         Paint()
-          ..color = const Color(0xFF55C7FF)
+          ..color = isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 3.0,
       );

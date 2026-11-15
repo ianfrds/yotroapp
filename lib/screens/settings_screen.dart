@@ -186,16 +186,25 @@ class SettingsScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    [
-                      if (provider.userPhone.isNotEmpty) provider.userPhone,
-                      if (provider.userGender.isNotEmpty) provider.userGender,
-                    ].where((s) => s.trim().isNotEmpty).join(' · '),
-                    style: GoogleFonts.manrope(
-                      color: mutedColor,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  Builder(
+                    builder: (_) {
+                      final cloudEmail = SupabaseAuthService.userEmail;
+                      final subtitleItems = [
+                        if (cloudEmail != null && cloudEmail.trim().isNotEmpty) cloudEmail.trim(),
+                        if (provider.userPhone.trim().isNotEmpty) provider.userPhone.trim(),
+                      ];
+                      final subtitle = subtitleItems.isNotEmpty
+                          ? subtitleItems.join(' · ')
+                          : (provider.isGuestMode ? 'Mode Tamu (100% Lokal)' : 'Personal Account');
+                      return Text(
+                        subtitle,
+                        style: GoogleFonts.manrope(
+                          color: mutedColor,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -318,9 +327,9 @@ class SettingsScreen extends StatelessWidget {
       case ThemeMode.system:
         return 'Sistem';
       case ThemeMode.light:
-        return 'Mode Terang';
+        return 'Light Mode';
       case ThemeMode.dark:
-        return 'Mode Gelap';
+        return 'Dark Mode';
     }
   }
 
@@ -350,7 +359,6 @@ class SettingsScreen extends StatelessWidget {
             required ThemeMode mode,
             required String title,
             required IconData icon,
-            required String description,
           }) {
             final isSelected = provider.themeMode == mode;
 
@@ -363,7 +371,7 @@ class SettingsScreen extends StatelessWidget {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
                 margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? (isDark
@@ -403,26 +411,13 @@ class SettingsScreen extends StatelessWidget {
                       ),
                     ),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: GoogleFonts.interTight(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white : const Color(0xFF0F172A),
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            description,
-                            style: GoogleFonts.manrope(
-                              fontSize: 11.5,
-                              color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        title,
+                        style: GoogleFonts.interTight(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -460,19 +455,16 @@ class SettingsScreen extends StatelessWidget {
                 mode: ThemeMode.system,
                 title: 'Sistem',
                 icon: Icons.brightness_auto_rounded,
-                description: 'Menyesuaikan tema otomatis dengan sistem perangkat',
               ),
               buildOption(
                 mode: ThemeMode.light,
-                title: 'Mode Terang',
+                title: 'Light Mode',
                 icon: Icons.light_mode_rounded,
-                description: 'Tampilan bersih, cerah, dan kontras tinggi',
               ),
               buildOption(
                 mode: ThemeMode.dark,
-                title: 'Mode Gelap',
+                title: 'Dark Mode',
                 icon: Icons.dark_mode_rounded,
-                description: 'Tampilan gelap matte elegan dan hemat baterai',
               ),
               const SizedBox(height: 6),
             ],
@@ -694,8 +686,8 @@ class SettingsScreen extends StatelessWidget {
                 );
               }
             },
-            trailing: const Icon(Icons.send_rounded,
-                size: 16, color: Color(0xFF55C7FF)),
+            trailing: Icon(Icons.send_rounded,
+                size: 16, color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A)),
           ),
         ],
       ],
@@ -716,7 +708,7 @@ class SettingsScreen extends StatelessWidget {
     final List<String> alarms = List<String>.from(
       provider.dailyReminderTimes.isNotEmpty
           ? provider.dailyReminderTimes
-          : ['18:00', '19:00'],
+          : ['18:00', '21:00'],
     );
 
     _showModalCardSheet(
@@ -778,7 +770,10 @@ class SettingsScreen extends StatelessWidget {
                     ),
                     Switch.adaptive(
                       value: isEnabled,
-                      activeColor: const Color(0xFF55C7FF),
+                      activeThumbColor: Colors.white,
+                      activeTrackColor: const Color(0xFF02539A),
+                      inactiveThumbColor: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF94A3B8),
+                      inactiveTrackColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
                       onChanged: (val) {
                         setSheetState(() {
                           isEnabled = val;
@@ -808,7 +803,7 @@ class SettingsScreen extends StatelessWidget {
                     InkWell(
                       onTap: () async {
                         final picked = await showTimePicker(
-                          context: context,
+                           context: context,
                           initialTime: const TimeOfDay(hour: 20, minute: 0),
                         );
                         if (picked != null) {
@@ -829,13 +824,13 @@ class SettingsScreen extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.add_rounded,
-                                size: 14, color: Color(0xFF55C7FF)),
+                            Icon(Icons.add_rounded,
+                                size: 14, color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A)),
                             const SizedBox(width: 2),
                             Text(
                               'Tambah Jam',
                               style: GoogleFonts.manrope(
-                                color: const Color(0xFF55C7FF),
+                                color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -887,13 +882,13 @@ class SettingsScreen extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF55C7FF).withOpacity(0.12),
+                                  color: (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A)).withOpacity(0.12),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.schedule_rounded,
                                   size: 15,
-                                  color: Color(0xFF55C7FF),
+                                  color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -1629,8 +1624,13 @@ class SettingsScreen extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.g_mobiledata_rounded, size: 24),
-                    const SizedBox(width: 4),
+                    Image.asset(
+                      'assets/images/google_logo.png',
+                      width: 18,
+                      height: 18,
+                      fit: BoxFit.contain,
+                    ),
+                    const SizedBox(width: 8),
                     Text(
                       'Masuk dengan Google',
                       style: GoogleFonts.manrope(
@@ -2509,7 +2509,7 @@ class SettingsScreen extends StatelessWidget {
     final mutedColor =
         isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B);
     final accentColor =
-        isDark ? const Color(0xFF55C7FF) : const Color(0xFF0F172A);
+        isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A);
 
     DashboardViewMode selectedMode = provider.dashboardViewMode;
 
@@ -2542,7 +2542,7 @@ class SettingsScreen extends StatelessWidget {
                   color: isSelected
                       ? (isDark
                           ? const Color(0xFF55C7FF).withOpacity(0.08)
-                          : const Color(0xFF0F172A).withOpacity(0.05))
+                          : const Color(0xFF02539A).withOpacity(0.06))
                       : (isDark
                           ? Colors.white.withOpacity(0.03)
                           : const Color(0xFFF8FAFC)),
@@ -2551,7 +2551,7 @@ class SettingsScreen extends StatelessWidget {
                     color: isSelected
                         ? (isDark
                             ? const Color(0xFF55C7FF)
-                            : const Color(0xFF0F172A))
+                            : const Color(0xFF02539A))
                         : (isDark
                             ? Colors.white.withOpacity(0.06)
                             : const Color(0xFFE2E8F0)),
@@ -2598,7 +2598,7 @@ class SettingsScreen extends StatelessWidget {
                                     color: isSelected
                                         ? (isDark
                                             ? const Color(0xFF55C7FF)
-                                            : const Color(0xFF0F172A))
+                                            : const Color(0xFF02539A))
                                         : textColor,
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
@@ -2722,8 +2722,6 @@ class SettingsScreen extends StatelessWidget {
       BuildContext context, TransactionProvider provider) {
     final nameController = TextEditingController(text: provider.userName);
     final phoneController = TextEditingController(text: provider.userPhone);
-    String selectedGender =
-        provider.userGender.isNotEmpty ? provider.userGender : 'Pria';
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
@@ -2820,100 +2818,6 @@ class SettingsScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-              Text(
-                'Jenis Kelamin',
-                style: GoogleFonts.manrope(
-                    color: mutedColor,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 6),
-              Container(
-                height: 40,
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  color: fieldBg,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: fieldBorder),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: () => setState(() => selectedGender = 'Pria'),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: selectedGender == 'Pria'
-                                ? (isDark
-                                    ? const Color(0xFF0B2244)
-                                    : Colors.white)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
-                            border: selectedGender == 'Pria'
-                                ? Border.all(
-                                    color: const Color(0xFF55C7FF)
-                                        .withOpacity(0.4))
-                                : null,
-                          ),
-                          child: Text(
-                            'Pria',
-                            style: GoogleFonts.manrope(
-                              color: selectedGender == 'Pria'
-                                  ? (isDark
-                                      ? Colors.white
-                                      : const Color(0xFF0F172A))
-                                  : mutedColor,
-                              fontSize: 12,
-                              fontWeight: selectedGender == 'Pria'
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: InkWell(
-                        onTap: () => setState(() => selectedGender = 'Wanita'),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: selectedGender == 'Wanita'
-                                ? (isDark
-                                    ? const Color(0xFF0B2244)
-                                    : Colors.white)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
-                            border: selectedGender == 'Wanita'
-                                ? Border.all(
-                                    color: const Color(0xFF55C7FF)
-                                        .withOpacity(0.4))
-                                : null,
-                          ),
-                          child: Text(
-                            'Wanita',
-                            style: GoogleFonts.manrope(
-                              color: selectedGender == 'Wanita'
-                                  ? (isDark
-                                      ? Colors.white
-                                      : const Color(0xFF0F172A))
-                                  : mutedColor,
-                              fontSize: 12,
-                              fontWeight: selectedGender == 'Wanita'
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
               const SizedBox(height: 20),
               Row(
                 children: [
@@ -2956,7 +2860,6 @@ class SettingsScreen extends StatelessWidget {
                             await provider.updateProfile(
                               name: newName,
                               phone: newPhone,
-                              gender: selectedGender,
                             );
                           }
                           if (ctx.mounted) Navigator.pop(ctx);
@@ -3034,7 +2937,7 @@ class SettingsScreen extends StatelessWidget {
                       Text(
                         '${provider.transactions.length}',
                         style: GoogleFonts.interTight(
-                          color: const Color(0xFF55C7FF),
+                          color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
                         ),
@@ -3243,7 +3146,7 @@ class SettingsScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: pickedFileName != null
-                          ? const Color(0xFF55C7FF)
+                          ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A))
                           : borderColor,
                     ),
                   ),
@@ -3252,13 +3155,13 @@ class SettingsScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(7),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF55C7FF).withOpacity(0.12),
+                          color: (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A)).withOpacity(0.12),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.upload_file_rounded,
                           size: 16,
-                          color: Color(0xFF55C7FF),
+                          color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                         ),
                       ),
                       const SizedBox(width: 10),

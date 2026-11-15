@@ -143,7 +143,7 @@ class NotificationsCenterScreen extends StatelessWidget {
     final iconColor = isIncome
         ? const Color(0xFF10B981)
         : isTransfer
-            ? const Color(0xFF55C7FF)
+            ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A))
             : const Color(0xFFFF6B7A);
     final iconData = isIncome
         ? Icons.arrow_downward_rounded

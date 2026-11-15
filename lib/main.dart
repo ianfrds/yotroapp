@@ -45,7 +45,14 @@ class YotroApp extends StatelessWidget {
             navigatorObservers: [routeObserver],
             home: const SplashScreen(),
             builder: (context, child) {
-              final isDark = Theme.of(context).brightness == Brightness.dark;
+              final bool isDark;
+              if (provider.themeMode == ThemeMode.dark) {
+                isDark = true;
+              } else if (provider.themeMode == ThemeMode.light) {
+                isDark = false;
+              } else {
+                isDark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+              }
               final overlayStyle = SystemUiOverlayStyle(
                 statusBarColor: Colors.transparent,
                 statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,

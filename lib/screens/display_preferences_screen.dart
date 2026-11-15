@@ -97,7 +97,7 @@ class DisplayPreferencesScreen extends StatelessWidget {
     required _PreviewType previewType,
   }) {
     final isSelected = provider.dashboardViewMode == mode;
-    final accentColor = isDark ? const Color(0xFF55C7FF) : const Color(0xFF0F172A);
+    final accentColor = isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A);
 
     return InkWell(
       onTap: () => provider.setDashboardViewMode(mode),
@@ -109,12 +109,12 @@ class DisplayPreferencesScreen extends StatelessWidget {
           color: isSelected
               ? (isDark
                   ? const Color(0xFF55C7FF).withOpacity(0.08)
-                  : const Color(0xFF0F172A).withOpacity(0.05))
+                  : const Color(0xFF02539A).withOpacity(0.06))
               : (isDark ? Colors.white.withOpacity(0.03) : Colors.white),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected
-                ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF0F172A))
+                ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A))
                 : (isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFE2E8F0)),
             width: isSelected ? 1.5 : 1.0,
           ),
@@ -134,7 +134,7 @@ class DisplayPreferencesScreen extends StatelessWidget {
                         title,
                         style: GoogleFonts.interTight(
                           color: isSelected
-                              ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF0F172A))
+                              ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A))
                               : (isDark ? Colors.white : const Color(0xFF0F172A)),
                           fontSize: 14.5,
                           fontWeight: FontWeight.w600,
@@ -240,7 +240,7 @@ class DisplayPreferencesScreen extends StatelessWidget {
               decoration: BoxDecoration(color: podBg, borderRadius: BorderRadius.circular(4)),
               alignment: Alignment.centerLeft,
               padding: const EdgeInsets.symmetric(horizontal: 6),
-              child: Container(width: 40, height: 6, decoration: BoxDecoration(color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF0F172A), borderRadius: BorderRadius.circular(3))),
+              child: Container(width: 40, height: 6, decoration: BoxDecoration(color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A), borderRadius: BorderRadius.circular(3))),
             )
           else
             Row(

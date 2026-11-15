@@ -35,7 +35,7 @@ money-tracker/
 │   └── key.properties.example      # Template konfigurasi signing; key asli wajib private/diabaikan Git
 ├── assets/
 │   ├── icon/                       # Quick action vector SVGs (Analisis.svg, Budget.svg, Dompet.svg, Split Bill.svg)
-│   └── images/                     # Master assets (app_icon.png, logo.png, logo_splash.png, onboarding_bg.png, onboarding_bg.jpg)
+│   └── images/                     # Master assets (app_icon.png, google_logo.png, logo.png, logo_splash.png, onboarding_bg.png, onboarding_bg.jpg)
 ├── web/
 │   ├── favicon.png                 # Official brand 32x32 favicon
 │   ├── icons/                      # Web icons (192x192, 512x512 maskable)
@@ -100,7 +100,7 @@ money-tracker/
 │   ├── screens/
 │   │   ├── splash_screen.dart      # Layar Splash Screen beranimasi dengan logo Yotro & navigasi kondisional auth/main
 │   │   ├── auth_screen.dart        # Layar Autentikasi Multi-Opsi (Daftar Email + Nama + Password, Masuk Email, Google OAuth, & Mode Tamu 100% Offline)
-│   │   ├── onboarding_profile_screen.dart # Layar Baru Onboarding Data Pengguna Pertama Kali (Nama, No Telp, Gender & trigger izin notifikasi native)
+│   │   ├── onboarding_profile_screen.dart # Layar Onboarding Data Pengguna Pertama Kali (Nama Lengkap & No Telp esensial, bebas gender, serta trigger izin notifikasi native)
 │   │   ├── main_shell.dart         # Scaffold utama dengan IndexedStack, Floating Dock, dan PopScope (double back exit / return to Beranda)
 │   │   ├── dashboard_screen.dart   # Layar Beranda (Hero Card dengan AppMonthFilterPill, Quick Action, Transaksi, bell navigates to NotificationsCenterScreen)
 │   │   ├── notifications_center_screen.dart # Layar Pusat Notifikasi Mandiri (Aktivitas transaksi, status pengingat harian, tanpa kartu persetujuan usang)
@@ -135,8 +135,9 @@ money-tracker/
 │       ├── balance_card.dart       # Kartu metrik finansial
 │       ├── category_chip.dart      # Chip pemilihan kategori
 │       └── receipt_adjustment_sheet.dart # Modal sheet penyesuaian/persetujuan hasil scan OCR struk
-├── test/                           # Unit & Widget test suite (166 tests passed)
+├── test/                           # Unit & Widget test suite (170 tests passed)
 │   ├── wallet_reconciliation_test.dart # Test rekonsiliasi mandiri saldo dompet, transfer multi-dompet & proteksi snapshot cloud
+│   ├── light_mode_sapphire_accent_test.dart # Test adaptasi aksen sapphire (#02539A) di mode terang vs cyan (#55C7FF) di mode gelap
 │   ├── app_improvements_features_test.dart # Test verifikasi 6 fitur peningkatan antarmuka & opsi tema
 │   ├── receipt_parser_test.dart    # Test unit mesin ekstraksi & heuristik OCR struk
 │   ├── add_transaction_ocr_action_bar_test.dart # Test widget 3-button bottom bar & receipt adjustment sheet single-line button
@@ -175,7 +176,9 @@ money-tracker/
   - Jarak spasi vertikal antar-kartu di beranda dipadatkan menjadi `12px` (`const SizedBox(height: 12)`), menggantikan jarak longgar 20px sebelumnya agar antarmuka beranda padat, kohesif, dan rapi.
 - **Hero Sapphire Balance Panel (Card Inside Card Layout):**
   - **Outer Container:** Dark matte slate (`#0C131D`), `borderRadius: 26px`, border `1px rgba(255, 255, 255, 0.08)`, padding super tipis `fromLTRB(5, 5, 5, 10)` menyelubungi kartu dalam tanpa drop-shadow berlebih (zero-slop).
-  - **Inner Sapphire Gradient Card:** Mengambang dengan padding tipis `fromLTRB(6, 10, 6, 6)`, sudut membulat penuh (`22px`), border `1px rgba(255, 255, 255, 0.12)`, dan gradien radial presisi: `radial-gradient(95.69% 108.33% at 50% 100%, #041735 0%, #001732 36.06%, #00498C 100%)`.
+  - **Inner Sapphire Gradient Card:** Mengambang dengan padding tipis `fromLTRB(6, 10, 6, 6)`, sudut membulat penuh (`22px`), border `1px rgba(255, 255, 255, 0.12)` (atau `0.25` di mode terang), dan gradien radial presisi:
+    - **Dark Mode:** `radial-gradient(95.69% 108.33% at 50% 100%, #041735 0%, #001732 36.06%, #00498C 100%)`.
+    - **Light Mode:** `radial-gradient(95.69% 108.33% at 50% 100%, #659CF3 0%, #5D92D0 36.06%, #0071D7 100%)`.
   - Dropdown pill periode (`September ▼`) di kiri atas, ikon mata toggle di kanan atas (inset 6px).
   - **Kondisi Saldo & Preferensi Tampilan Beranda (`dashboardViewMode`):**
     - **1. Preferensi Tampilan (`DashboardViewMode` — dikontrol dari Profil & Pengaturan > "Preferensi Tampilan"):**
@@ -652,7 +655,7 @@ money-tracker/
 
 ### 3.21 Multi-Step Onboarding Flow Pertama Kali Pasang (`lib/screens/onboarding_profile_screen.dart`)
 - **Arsitektur 4 Tahap Berurutan (Sequential Onboarding Steps):**
-  - **Step 1: Identitas & Data Diri (Wajib):** Input Nama Lengkap (validasi wajib diisi), Nomor Telepon (opsional), dan Jenis Kelamin (Pria/Wanita). Dilengkapi tombol "Lanjutkan" (masuk Step 2) dan tombol teks cepat "Mulai Mencatat" (selesaikan langsung dengan default).
+  - **Step 1: Identitas & Data Diri (Wajib):** Input Nama Lengkap (validasi wajib diisi) dan Nomor Telepon (opsional). Input jenis kelamin telah dieliminasi sepenuhnya agar minim friksi. Dilengkapi tombol "Lanjutkan" (masuk Step 2) dan tombol teks cepat "Mulai Mencatat" (selesaikan langsung dengan default).
   - **Step 2: Tema & Preferensi Tampilan Dashboard (Opsional / Bisa Dilewati):**
     - Pilihan Mode Tampilan: Sistem, Terang, Gelap.
     - Pilihan Tampilan Beranda: Tampilan Lengkap (`complete`), Pemasukan & Pengeluaran (`incomeExpense`), atau Pengeluaran Saja (`expenseOnly`).
@@ -782,6 +785,86 @@ money-tracker/
   - Push/PR branch `main` serta `workflow_dispatch` menjalankan tes dan build validasi dengan keystore sementara; artifact CI tidak boleh didistribusikan sebagai pembaruan produksi.
   - Workflow tidak merespons tag dan tidak memiliki izin menulis GitHub Release. APK produksi dibangun dengan keystore produksi, diuji langsung di perangkat, lalu diunggah manual ke GitHub Release UI sebagai `yotro-app.apk`.
   - Release harus non-draft, non-prerelease, ditandai latest, dan memakai tag `vX.Y.Z` yang cocok dengan versi semantik di `pubspec.yaml` agar OTA mendeteksinya.
+
+### 3.28 Token Warna Aksen Mode Terang: Safir (#02539A) vs Cyan (#55C7FF) di Seluruh Layar
+- **Rasionalitas Kontras Tinggi (WCAG AAA & Anti-Slop):**
+  - Teks, ikon, dan indikator yang menggunakan warna cyan cerah `#55C7FF` (atau `#0284C7` / `#0066FF`) di atas kanvas terang (`#F4F5F7` / `#FFFFFF`) memiliki rasio kontras sangat rendah (<2:1), menyebabkan teks pudar dan sulit dibaca.
+  - Seluruh elemen aksen tersebut di Mode Terang (*Light Mode*) kini dialihkan secara konsisten ke warna biru safir pekat **`#02539A`** (`Color(0xFF02539A)`), menghasilkan rasio kontras >7:1 (lulus WCAG AAA) dengan tetap mempertahankan identitas brand Yotro yang elegan.
+  - Pada Mode Gelap (*Dark Mode*), warna cyan cerah **`#55C7FF`** tetap dipertahankan untuk kontras tajam di atas kanvas malam pekat `#1C2229` / `#0C131D`.
+- **Gradien Kartu Hero Saldo Mode Terang (`lib/screens/dashboard_screen.dart`):**
+  - Pada Mode Terang, kartu hero saldo Beranda menggunakan gradien radial khusus:
+    $$\text{radial-gradient}(95.69\%\ 108.33\%\ \text{at}\ 50\%\ 100\%,\ \#659CF3\ 0\%,\ \#5D92D0\ 36.06\%,\ \#0071D7\ 100\%)$$
+  - Dilengkapi sub-cards frosted glass adaptif (`Colors.white.withOpacity(.20)` dan border `Colors.white.withOpacity(.28)`) sehingga teks putih, nominal saldo, dan badge ikon tetap terbaca kontras di atas gradien biru cerah.
+- **Elemen dan Layar yang Disesuaikan:**
+  1. `TransactionTile`: Teks nominal mutasi transfer, badge kategori transfer, dan fallback category icon (`isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A)`).
+  2. `TransactionsScreen`: Label rentang tanggal kalender, ikon pencarian aktif, teks 'Reset Filter', dan border dropdown aktif.
+  3. `FinancialAnalysisScreen`: Ikon skor kesehatan, badge status & busur meter (`effectiveStatusColor`), ikon tips lampu cerdas, label zona 'Aman', titik legenda pengeluaran, nominal checkpoint, irisan donut chart pengeluaran, persentase kategori teratas, ikon saran budget, serta kurva alur pengeluaran & highlight dot.
+  4. `SettingsScreen`: Ikon uji push notifikasi, activeColor switch pengingat harian, ikon/teks 'Tambah Jam', ikon jam, border gender chip terpilih, statistik total transaksi, serta border & ikon picker impor JSON.
+  5. `AppUpdateDialog`: Ikon pembaruan sistem dan teks persentase progres unduhan APK.
+  6. `NotificationPermissionSheet`: Ikon judul lembar, teks aksi, dan ikon benefit privasi.
+  7. `BudgetDetailScreen`: Ikon 'Ubah Budget', ikon default total anggaran, dan teks 'Lihat Semua'.
+  8. `BudgetScreen`: Ikon judul modal sheet, tombol tambah anggaran, dan ikon kartu kosong.
+  9. `WalletsScreen`: Ikon judul modal sheet, activeColor switch sinkronisasi transaksi, tombol tambah dompet, dan ikon kartu dompet.
+  10. `ManageCategoriesScreen` & `EditCategoryScreen`: Tombol tambah kategori, tag default, border fokus form input, dan chip aktif.
+  11. `AddTransactionScreen`: Tombol 'Lainnya', judul/tombol modal kategori, dan pill kategori pengeluaran/pemasukan.
+  12. `NotificationsCenterScreen`: Ikon mutasi transfer.
+  13. `TransactionSuccessScreen`: Teks nominal transfer dan ikon rincian struk.
+  14. `SpendingCalendarCard`: Border pemilihan hari ini dan teks total pengeluaran harian.
+  15. `WeeklyActivityChart`: Highlight border batang aktivitas transaksi dan dot indikator hari ini.
+  16. `ReceiptAdjustmentSheet`: Ikon header pemindaian struk OCR.
+  17. `OnboardingProfileScreen`: Ikon radio button terpilih pada langkah preferensi tampilan.
+  18. `SplitBillScreen`: Teks subtotal, teks 'Pilih Semua', ikon bagikan tagihan, serta ikon anggota dan item.
+  19. `AnalyticsScreen`: Ikon tombol wawasan dan label kategori terpilih.
+  20. `CircularSpectrumVisualizer`: Highlight dasar sweep standby (`highlightBase`).
+  21. `DisplayPreferencesScreen`: Warna aksen (`accentColor`), border terpilih, teks label, dan miniatur bar live preview.
+  22. `CategoryChip`: Background chip terpilih dan border highlight.
+
+### 3.29 Eliminasi Jenis Kelamin & Penyederhanaan Profil Pengguna
+- **Rasionalitas UX & Anti-Slop:**
+  - Aplikasi pelacak keuangan pribadi adalah *gender-neutral*; kalkulasi mutasi, anggaran, saldo dompet, dan analitik tidak bergantung pada jenis kelamin pengguna.
+  - Meminta jenis kelamin menambah friksi yang tidak perlu pada mode tamu offline ("Masuk tanpa akun") serta melanggar prinsip *data minimization* dan privasi lokal.
+  - Menampilkan teks "Pria" atau "Wanita" pada kartu profil di menu Pengaturan terlihat kaku dan tidak relevan untuk personal finance app.
+- **Penyederhanaan Form Onboarding Step 1 (`lib/screens/onboarding_profile_screen.dart`):**
+  - Kolom dan selector 'Jenis Kelamin' (Pria/Wanita) dihapus permanen dari UI.
+  - Form Step 1 Data Diri disederhanakan murni menjadi: **Nama Lengkap (Wajib)** dan **No. Telp (Opsional)**.
+- **Penyederhanaan Header Profil & Modal Edit Profil (`lib/screens/settings_screen.dart`):**
+  - Subtitle kartu profil header kini menampilkan email cloud (jika terhubung Supabase) dan/atau nomor telepon: `[cloudEmail, userPhone].join(' · ')`. Jika kosong, menampilkan status `Mode Tamu (100% Lokal)` atau `Personal Account`.
+  - Selector 'Jenis Kelamin' pada modal bottom sheet *Ubah Profil Pengguna* dihapus total, menyisakan input Nama Lengkap dan Nomor Telepon.
+- **Kompatibilitas Mundur (Backward Compatibility):**
+  - Parameter `gender` pada method `completeOnboarding` dan `updateProfile` di `TransactionProvider` dijadikan opsional (`String gender = ''`).
+  - Getter `userGender` dipertahankan dengan fallback aman agar pembacaan backup JSON lokal dan sinkronisasi profil Supabase tidak mengalami breaking change.
+
+### 3.30 Logo Resmi Google Multi-Warna pada Seluruh Tombol Masuk Google (`assets/images/google_logo.png`)
+- Menggantikan ikon monokrom `Icons.g_mobiledata_rounded` dan mock huruf 'G' teks biasa dengan logo resmi multi-warna Google (*red, yellow, green, blue*):
+  1. `lib/screens/onboarding_profile_screen.dart`: Tombol "Lanjutkan dengan Google" pada Step 0 Auth Gate.
+  2. `lib/screens/auth_screen.dart`: Widget helper `_buildCleanGoogleIcon()` pada tombol "Lanjutkan dengan Google".
+  3. `lib/screens/settings_screen.dart`: Tombol "Masuk dengan Google" pada kartu Sinkronisasi Cloud.
+- Master aset disimpan di `assets/images/google_logo.png` (transparan RGBA 250x256) dengan rendering tajam `Image.asset(..., fit: BoxFit.contain)` dan proporsi 18-20px yang presisi anti-slop.
+
+### 3.31 Perbaikan Kontras Switch Toggle pada Mode Terang (White Thumb vs Sapphire Track)
+- **Akar Masalah:** Pada `Switch.adaptive` di Android/Material, `activeColor` di-mapping ke `effectiveActiveThumbColor` sementara `activeTrackColor` di-mapping ke `effectiveActiveTrackColor`. Ketika keduanya di-set ke `#02539A` pada mode terang, thumb (knob) dan track memiliki warna identik sehingga knob tampak lenyap ke dalam lintasan berbentuk oval biru tua solid tanpa kontras.
+- **Resolusi Desain & Arsitektur:**
+  1. `lib/theme/app_theme.dart`: Menambahkan `switchTheme: SwitchThemeData(...)` global untuk `lightTheme` dan `darkTheme`.
+     - `thumbColor`: `Colors.white` saat aktif (`activeThumbColor`), kontras maksimal di atas lintasan safir.
+     - `trackColor`: `#02539A` (`activeTrackColor`) saat aktif.
+     - `trackOutlineColor`: transparan (`Colors.transparent`) agar border toggle clean anti-slop.
+  2. Implementasi `Switch.adaptive` di seluruh layar:
+     - `lib/screens/wallets_screen.dart`: Toggle "Sinkronkan ke Transaksi" dan sheet "Catat ke Transaksi" menggunakan `activeThumbColor: Colors.white`, `activeTrackColor: const Color(0xFF02539A)`.
+     - `lib/screens/settings_screen.dart`: Switch pengingat harian modal sheet menggunakan `activeThumbColor: Colors.white` dan track safir `#02539A`.
+     - `lib/screens/split_bill_screen.dart`: Switch Pajak dan Tip/Layanan dimigrasikan ke `Switch.adaptive` dengan thumb putih dan track safir konsisten.
+- **Validasi Uji:** Ditambahkan widget regression test `Switch in WalletsScreen has distinct white thumb and sapphire track in light mode` di `test/wallet_sync_transaction_test.dart`. Total 170 tests passing 100%.
+
+### 3.32 Default Mode Tampilan ke Sistem & Restrukturisasi Analisis Keuangan
+- **Default ThemeMode.system:**
+  - `lib/providers/transaction_provider.dart`: State awal `_themeMode` kini disetel bawaan ke `ThemeMode.system` (menggantikan default `ThemeMode.dark` sebelumnya). `resetToDefaults()` dan `toggleThemeMode()` juga beroperasi adaptif mengikuti `ThemeMode.system` dan kecerahan sistem perangkat.
+- **Penyederhanaan Modal Sheet Mode Tampilan (`SettingsScreen`):**
+  - Modal sheet `_showThemeModeSheet` dibersihkan dari teks deskripsi panjang. Menampilkan 3 pilihan minimalis: **Sistem**, **Light Mode**, dan **Dark Mode**.
+  - `_getThemeLabel()` diselaraskan mengembalikan `'Sistem'`, `'Light Mode'`, dan `'Dark Mode'` sehingga baris setelan dan trailing chip memiliki keseragaman visual.
+- **Restrukturisasi Layar Analisis Keuangan (`FinancialAnalysisScreen`):**
+  1. **Urutan Kartu:** Kartu *Pemasukan vs Pengeluaran* (Donut Chart) kini berada di atas kartu *Alur Pemasukan & Pengeluaran* (Curve Chart) agar rasio ringkasan arus kas terlihat lebih dahulu sebelum alur runut waktu.
+  2. **Pembersihan Judul:** Teks `"Rasio Arus Kas"` di seberang judul kartu *Pemasukan vs Pengeluaran* dihapus permanen.
+  3. **Total Transaksi di Bawah Chart:** Indikator `${metrics.txCount} Transaksi` pada kartu *Alur Pemasukan & Pengeluaran* dipindahkan dari header ke kontainer baris rapi di bawah chart dan tombol checkpoints tanggal. Bar memuat ikon struk, label `"Total Transaksi Bulan Ini"`, dan jumlah transaksi tebal.
+- **Validasi Uji:** Seluruh unit & widget tests (170 tests) lulus 100%. Termasuk verifikasi posisi koordinat vertikal kartu donut di atas kartu kurva pada `test/financial_analysis_ux_test.dart`.
 
 ---
 
@@ -1599,6 +1682,18 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
   - **Normalisasi Otomatis:** Menambahkan fungsi `normalizeWalletType` di `wallets_screen.dart` yang memetakan nilai lama seperti `'Dompet'`, `'Tunai'`, atau string kosong ke `'Cash'`, serta `'Bank'` ke `'Bank Account'`. Dropdown dipastikan selalu menampilkan pilihan yang valid tanpa blank.
   - **Onboarding Alignment:** Modal tambah dompet di onboarding (`OnboardingProfileScreen`) kini menggunakan default `'Cash'` dan chip tipe yang selaras.
   - **Validasi Uji:** Ditambahkan 2 uji widget di `test/wallet_sync_transaction_test.dart`. Seluruh 164 unit & widget test lulus 100% (`flutter test`). APK dan Web release diperbarui.
+- [x] Gradien Kartu Saldo Light Mode Beranda ([dashboard_screen.dart](file:///Users/ianfrds/_My%20Files/AI%20Vibecoding/money-tracker/lib/screens/dashboard_screen.dart), [walkthrough.md](file:///Users/ianfrds/.gemini/antigravity/brain/db6d0a28-7186-442d-b8aa-fd9ac49d756b/walkthrough.md)):
+  - **Gradien Khusus Light Mode:** Menerapkan gradien radial presisi `radial-gradient(95.69% 108.33% at 50% 100%, #659CF3 0%, #5D92D0 36.06%, #0071D7 100%)` pada kartu hero saldo di Beranda (`_buildSapphireDecoration`) khusus saat mode terang aktif.
+  - **Sub-cards Frosted Slate Adaptif:** Menyesuaikan latar sub-card pengeluaran/pemasukan dan sub-card dompet menjadi putih frosted (`Colors.white.withOpacity(.20)`) dengan border halus agar teks dan nominal tetap kontras dan nyaman dibaca.
+  - **Validasi Uji Lengkap:** 167 unit & widget test lulus 100% (`flutter test`). APK ARM64 42.4 MB dan Web runner dibangun ulang.
+- [x] Minimalis Splash Screen, Pengingat Jam 18.00 & 21.00, & Status Bar Tema Terang ([plan_splash_reminder_and_light_theme_statusbar.md](file:///Users/ianfrds/.gemini/antigravity/brain/db6d0a28-7186-442d-b8aa-fd9ac49d756b/plan_splash_reminder_and_light_theme_statusbar.md), [walkthrough.md](file:///Users/ianfrds/.gemini/antigravity/brain/db6d0a28-7186-442d-b8aa-fd9ac49d756b/walkthrough.md)):
+  - **Pembersihan Teks Splash Screen (`SplashScreen`):** Menghapus subtitle "Personal Finance & Wealth Tracker" dan menghapus " · 100% Offline & Privat" di teks footer versi sehingga splash screen tampil ultra-minimalis hanya memuat logo emblem, nama "Yotro", dan versi aplikasi.
+  - **Jadwal Pengingat Transaksi Harian Default:** Menetapkan default pengingat harian pada jam **18:00** dan **21:00** pada `TransactionProvider` dan fallback modal di `SettingsScreen`.
+  - **Resolusi Status Bar Tema Terang di Android:**
+    1. Menonaktifkan penegakan kontras paksa Android OS pada Android 10+ (`window.isStatusBarContrastEnforced = false`, `window.isNavigationBarContrastEnforced = false`) di `MainActivity.kt` sehingga OS tidak memaksakan bilah hitam di status bar.
+    2. Menghapus keterikatan `NormalTheme` dengan window gelap permanen di `values-night/styles.xml`.
+    3. Memperbaiki perhitungan kecerahan status bar di `main.dart` agar langsung mengacu ke `provider.themeMode`, serta mengeksekusi sinkronisasi langsung `SystemChrome.setSystemUIOverlayStyle` saat tombol tema ditekan di `TransactionProvider.setThemeMode()`. Ikon jam dan baterai dipastikan hitam tajam di latar terang.
+  - **Validasi Uji Lengkap:** Seluruh 166 unit & widget test lulus 100% (`flutter test`). APK ARM64 42.4 MB berhasil dibangun di `yotro-app.apk` dan `build/web/yotro-app.apk`. Web runner diperbarui di `build/web/`.
 - [x] Perbaikan Alur Onboarding Pengguna Baru Google ([supabase_sync_service.dart](file:///Users/ianfrds/_My%20Files/AI%20Vibecoding/money-tracker/lib/services/supabase_sync_service.dart), [walkthrough.md](file:///Users/ianfrds/.gemini/antigravity/brain/db6d0a28-7186-442d-b8aa-fd9ac49d756b/walkthrough.md)):
   - **Akar Masalah Selesai:** Saat pertama kali daftar Google, trigger Supabase `on_auth_user_created` otomatis mengisi `profiles.name`. Fungsi `hasExistingUserData()` sebelumnya salah mengidentifikasi akun baru sebagai akun lama karena nama terisi atau jeda consent $\ge 30$ detik, sehingga pengguna baru langsung terlempar ke Beranda tanpa setup.
   - **Pengetatan Kriteria Akun Lama:** `hasExistingUserData()` kini hanya menganggap akun sebagai pengguna lama jika memiliki dompet (`wallets`), transaksi (`transactions`), atau kategori di cloud.
@@ -1642,6 +1737,31 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
   - Berkas disalin ke root [`yotro-app.apk`](yotro-app.apk), [`yotro-app-arm64.apk`](yotro-app-arm64.apk), [`yotro-app-armv7.apk`](yotro-app-armv7.apk), serta [`build/web/yotro-app.apk`](build/web/yotro-app.apk).
   - Endpoint unduh jaringan lokal (Wi-Fi) tersedia di `http://192.168.1.199:8080/yotro-app.apk`.
   - Tervalidasi lulus verifikasi `apksigner verify` (v2 & v3 schemes) dengan production release keystore.
+- [x] Migrasi Aksen Cyan (#55C7FF) ke Safir (#02539A) pada Mode Terang (Light Mode):
+  - Seluruh teks, ikon, indikator, kurva grafik, dan border highlight yang sebelumnya menggunakan cyan cerah `#55C7FF` (atau `#0284C7` / `#0066FF`) diubah menjadi sapphire `#02539A` (`Color(0xFF02539A)`) saat `isDark == false`.
+  - Meningkatkan rasio kontras teks/ikon di atas kanvas terang dari <2:1 menjadi >7:1 (lulus kualifikasi WCAG AAA).
+  - Mode Gelap (*Dark Mode*) tetap mempertahankan aksen cyan `#55C7FF` untuk kontras maksimal di atas kanvas gelap `#1C2229`.
+  - Kartu hero saldo di Beranda menggunakan gradien radial khusus Mode Terang: `radial-gradient(95.69% 108.33% at 50% 100%, #659CF3 0%, #5D92D0 36.06%, #0071D7 100%)`.
+  - Terverifikasi dengan pengujian unit & widget `test/light_mode_sapphire_accent_test.dart` dan 168 total tests passing (100% lulus).
+- [x] Eliminasi Total Kolom Jenis Kelamin & Penyederhanaan Profil Pengguna:
+  - Input dan selector Jenis Kelamin (Pria/Wanita) dihapus permanen dari alur Onboarding Step 1 Data Diri (`OnboardingProfileScreen`) dan modal sheet *Ubah Profil Pengguna* (`SettingsScreen`).
+  - Subtitle kartu profil di menu Pengaturan kini menampilkan kombinasi bersih Email Akun Cloud dan/atau Nomor Telepon (bebas dari label gender kaku).
+  - Parameter `gender` pada `completeOnboarding` dan `updateProfile` di `TransactionProvider` dijadikan opsional (`String gender = ''`) demi kompatibilitas mundur 100% tanpa breaking changes pada data tersimpan.
+  - Test suite unit & widget diperbarui (`test/onboarding_and_back_press_test.dart`) dengan 169 pengujian lulus 100%.
+- [x] Integrasi Logo Resmi Google Multi-Warna (`assets/images/google_logo.png`):
+  - Menggantikan ikon `g_mobiledata_rounded` dan mock 'G' di `OnboardingProfileScreen`, `AuthScreen`, dan `SettingsScreen` dengan logo resmi 'G' multi-warna.
+- [x] Perbaikan Kontras Switch Toggle pada Mode Terang:
+  - Menyelesaikan bug hilangnya knob/thumb toggle switch di mode terang pada "Sinkronkan ke Transaksi" dan pengingat harian.
+  - Mengonfigurasi `SwitchThemeData` global di `AppTheme` dengan `activeThumbColor: Colors.white` dan `activeTrackColor: Color(0xFF02539A)`.
+  - Memutakhirkan widget switch di `wallets_screen.dart`, `settings_screen.dart`, dan `split_bill_screen.dart`.
+  - Pengujian regresi widget ditambahkan ke `test/wallet_sync_transaction_test.dart` (170 test passing).
+- [x] Default Mode Tampilan ke Sistem & Restrukturisasi Analisis Keuangan:
+  - Mengubah state inisialisasi default `_themeMode` menjadi `ThemeMode.system` di `TransactionProvider`.
+  - Menyederhanakan modal bottom sheet mode tampilan di `SettingsScreen` tanpa teks deskripsi: hanya memuat opsi **Sistem**, **Light Mode**, dan **Dark Mode**.
+  - Restrukturisasi layar `FinancialAnalysisScreen`: menukar posisi kartu *Pemasukan vs Pengeluaran* (Donut Chart) ke atas kartu *Alur Pemasukan & Pengeluaran* (Curve Chart).
+  - Menghapus teks `"Rasio Arus Kas"` di seberang judul *Pemasukan vs Pengeluaran*.
+  - Memindahkan indikator total transaksi pada *Alur Pemasukan & Pengeluaran* dari header ke bar bawah chart & checkpoints.
+  - Tervalidasi 170 unit & widget test lulus 100%.
 - [x] File handover AI context di `context.md`.
 - [x] Aturan otomatisasi workspace agent di `AGENTS.md` dan `GEMINI.md` (auto-sync `context.md`).
 
@@ -1660,8 +1780,10 @@ Saat melanjutkan proyek ini:
 3. **Pahami Pemisahan Mode Tampilan & Saldo:**
    - `dashboardViewMode`: Enum 3 mode (`complete`, `incomeExpense`, `expenseOnly`).
    - Pada mode `expenseOnly`, kartu hero menampilkan "Total Pengeluaran" dan sub-kartu disembunyikan.
-4. **Theme Mode:**
-   - Mendukung 3 mode: `ThemeMode.system`, `ThemeMode.light`, `ThemeMode.dark` tersimpan persisten di `SharedPreferences`.
+4. **Theme Mode & Sapphire Accent Rule:**
+   - Mendukung 3 mode: `ThemeMode.system`, `ThemeMode.light`, `ThemeMode.dark` tersimpan persisten di `SharedPreferences`. Default aplikasi saat pertama kali dipasang atau di-reset adalah **`ThemeMode.system`**.
+   - **Invarian Aksen Warna:** Di Mode Terang, semua teks, ikon aksen, indikator aktif, dan sorotan kurva menggunakan safir `#02539A` (jangan pernah gunakan cyan muda `#55C7FF` di light mode karena rasio kontras tidak terbaca). Di Mode Gelap, gunakan `#55C7FF`.
+   - Gradien kartu hero saldo Beranda di Light Mode wajib menggunakan radial gradient: `#659CF3` (0%), `#5D92D0` (36.06%), `#0071D7` (100%).
 5. **Month Filter Konsisten:**
    - Gunakan `AppMonthFilterPill` dan `showAppMonthFilterSheet` dari `lib/widgets/month_filter_sheet.dart` untuk semua filter periode bulanan di Beranda, Analisis, dan Laporan Keuangan.
 6. **Sinkronisasi Dompet & Transaksi:**
@@ -1695,4 +1817,6 @@ Saat melanjutkan proyek ini:
 13. **Preview Web & Unduh APK:**
     - Preview UI/fungsional harian dijalankan dengan `flutter run -d chrome --web-port 8080` dan disajikan di `http://localhost:8080/`; hot reload tetap menjadi alur utama.
     - GitHub CI tidak mengompilasi release Web dan hanya memvalidasi universal Android APK. APK produksi diterbitkan manual dari hasil build lokal yang sudah diuji.
+14. **Invarian Kontras Switch Toggle:**
+    - Seluruh `Switch.adaptive` wajib mempertahankan `activeThumbColor: Colors.white` dengan `activeTrackColor: Color(0xFF02539A)` baik di mode terang maupun mode gelap. Dilarang menyamakan warna `activeThumbColor` dan `activeTrackColor` agar knob/thumb tidak lenyap ke dalam lintasan oval.
 

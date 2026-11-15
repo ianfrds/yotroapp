@@ -64,7 +64,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               await provider.completeOnboarding(
                 name: name,
                 phone: provider.userPhone,
-                gender: provider.userGender,
               );
               await provider.handleAuthSuccess(fullName: name);
             }
@@ -165,24 +164,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       letterSpacing: -0.6,
                     ),
                   ),
-                  const SizedBox(height: 4),
-
-                  // Subtitle
-                  Text(
-                    'Personal Finance & Wealth Tracker',
-                    style: GoogleFonts.manrope(
-                      color: subtitleColor,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
                 ],
               ),
             ),
           ),
 
-          // Bottom Version & Privacy Pledge
+          // Bottom Version
           Positioned(
             bottom: 34,
             left: 0,
@@ -197,7 +184,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   );
                 },
                 child: Text(
-                  'v${ChangelogData.currentVersion} · 100% Offline & Privat',
+                  'v${ChangelogData.currentVersion}',
                   style: GoogleFonts.manrope(
                     color: subtitleColor.withOpacity(0.7),
                     fontSize: 11,

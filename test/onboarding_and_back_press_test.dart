@@ -8,6 +8,7 @@ import 'package:money_tracker/providers/transaction_provider.dart';
 import 'package:money_tracker/screens/onboarding_profile_screen.dart';
 import 'package:money_tracker/screens/main_shell.dart';
 import 'package:money_tracker/screens/notifications_center_screen.dart';
+import 'package:money_tracker/screens/settings_screen.dart';
 import 'package:money_tracker/services/supabase_auth_service.dart';
 
 void main() {
@@ -72,6 +73,9 @@ void main() {
       expect(find.text('Data Diri'), findsOneWidget);
       expect(find.text('Nama Lengkap'), findsOneWidget);
       expect(find.text('No. Telp'), findsOneWidget);
+      expect(find.text('Jenis Kelamin'), findsNothing);
+      expect(find.text('Pria'), findsNothing);
+      expect(find.text('Wanita'), findsNothing);
 
       // Enter name & phone
       await tester.enterText(find.byType(TextField).first, 'Budi Santoso');
@@ -292,6 +296,40 @@ void main() {
       expect(find.text('Notifikasi'), findsOneWidget);
       expect(find.text('Aktivitas Transaksi'), findsOneWidget);
       expect(find.text('Belum Ada Aktivitas'), findsOneWidget);
+    });
+  });
+
+  group('Profile Gender Removal Tests', () {
+    testWidgets('SettingsScreen profile header and edit sheet do not render gender', (tester) async {
+      tester.view.physicalSize = const Size(800, 2600);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final provider = TransactionProvider();
+      await provider.updateProfile(name: 'Ian Firdaus', phone: '08123456789');
+
+      await tester.pumpWidget(buildTestWidget(
+        child: const SettingsScreen(),
+        provider: provider,
+      ));
+      await tester.pumpAndSettle();
+
+      // Profile header should show name and phone, not gender
+      expect(find.text('Ian Firdaus'), findsOneWidget);
+      expect(find.text('08123456789'), findsOneWidget);
+      expect(find.text('Pria'), findsNothing);
+      expect(find.text('Wanita'), findsNothing);
+
+      // Tap 'Ubah Profil' to open edit profile sheet
+      await tester.tap(find.text('Ubah Profil'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ubah Profil Pengguna'), findsOneWidget);
+      expect(find.text('Nama Lengkap'), findsOneWidget);
+      expect(find.text('Nomor Telepon'), findsOneWidget);
+      expect(find.text('Jenis Kelamin'), findsNothing);
+      expect(find.text('Pria'), findsNothing);
+      expect(find.text('Wanita'), findsNothing);
     });
   });
 }

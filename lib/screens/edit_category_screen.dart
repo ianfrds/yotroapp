@@ -215,7 +215,7 @@ class _EditCategoryScreenState extends State<EditCategoryScreen> {
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: isDark ? _cyan : const Color(0xFF0284C7)),
+                              borderSide: BorderSide(color: isDark ? _cyan : const Color(0xFF02539A)),
                             ),
                           ),
                         ),
@@ -381,7 +381,7 @@ class _EditCategoryScreenState extends State<EditCategoryScreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: isDark ? _cyan : const Color(0xFF0284C7)),
+                      borderSide: BorderSide(color: isDark ? _cyan : const Color(0xFF02539A)),
                     ),
                   ),
                 ),
@@ -486,7 +486,7 @@ class _EditCategoryScreenState extends State<EditCategoryScreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: isDark ? _cyan : const Color(0xFF0284C7)),
+                      borderSide: BorderSide(color: isDark ? _cyan : const Color(0xFF02539A)),
                     ),
                   ),
                 ),
@@ -651,7 +651,7 @@ class _EditCategoryScreenState extends State<EditCategoryScreen> {
                 style: GoogleFonts.interTight(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w600,
-                  color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF0284C7),
+                  color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                 ),
               ),
             ),
@@ -709,7 +709,7 @@ class _EditCategoryScreenState extends State<EditCategoryScreen> {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isSelected
-                  ? (isDark ? _cyan : const Color(0xFF0284C7))
+                  ? (isDark ? _cyan : const Color(0xFF02539A))
                   : (isDark ? Colors.transparent : const Color(0xFFE2E8F0)),
               width: 1.2,
             ),

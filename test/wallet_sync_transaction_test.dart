@@ -227,6 +227,30 @@ void main() {
       expect(provider.syncWalletToTransactions, isFalse);
     });
 
+    testWidgets('Switch in WalletsScreen has distinct white thumb and sapphire track in light mode', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final provider = TransactionProvider();
+      await provider.loadData();
+
+      await tester.pumpWidget(buildTestWidget(
+        child: const WalletsScreen(),
+        provider: provider,
+      ));
+      await tester.pumpAndSettle();
+
+      final switchWidget = tester.widget<Switch>(find.byWidgetPredicate(
+        (widget) => widget is Switch && widget.value == true,
+      ));
+
+      expect(switchWidget.activeThumbColor, Colors.white);
+      expect(switchWidget.activeTrackColor, const Color(0xFF02539A));
+      // Invariant: activeThumbColor must NOT equal activeTrackColor
+      expect(switchWidget.activeThumbColor != switchWidget.activeTrackColor, isTrue);
+    });
+
     testWidgets('Add wallet modal sheet includes Catat ke Transaksi toggle', (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 2.0;

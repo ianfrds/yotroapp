@@ -523,7 +523,7 @@ class _WeeklyActivityChartState extends State<WeeklyActivityChart> {
                                     ? BoxDecoration(
                                         borderRadius: BorderRadius.circular(6),
                                         border: Border.all(
-                                          color: const Color(0xFF55C7FF).withOpacity(0.5),
+                                          color: (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A)).withOpacity(0.5),
                                           width: 1,
                                         ),
                                       )
@@ -585,7 +585,7 @@ class _WeeklyActivityChartState extends State<WeeklyActivityChart> {
                                   borderRadius: BorderRadius.circular(9),
                                   border: isToday && !isSelected
                                       ? Border.all(
-                                          color: const Color(0xFF55C7FF).withOpacity(0.5),
+                                          color: (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A)).withOpacity(0.5),
                                           width: 1,
                                         )
                                       : null,
@@ -625,7 +625,7 @@ class _WeeklyActivityChartState extends State<WeeklyActivityChart> {
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       color: isToday
-                                          ? const Color(0xFF55C7FF)
+                                          ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A))
                                           : Colors.transparent,
                                     ),
                                   ),

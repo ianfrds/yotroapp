@@ -110,16 +110,19 @@ class TransactionTile extends StatelessWidget {
             orElse: () => null,
           );
 
-    final tileColor = isTransfer
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final tileColorRaw = isTransfer
         ? visual.color
         : (categoryModel?.colorValue != null ? Color(categoryModel!.colorValue!) : visual.color);
+    final tileColor = (!isDark && tileColorRaw.value == 0xFF55C7FF)
+        ? const Color(0xFF02539A)
+        : tileColorRaw;
 
     final wallet = provider.wallets.firstWhere(
       (w) => w.id == transaction.walletId,
       orElse: () => provider.wallets.first,
     );
-
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final prefix = isIncome
         ? '+ '
@@ -129,7 +132,7 @@ class TransactionTile extends StatelessWidget {
     final amountColor = isIncome
         ? const Color(0xFF39D98A)
         : isTransfer
-            ? const Color(0xFF55C7FF)
+            ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A))
             : (isDark ? Colors.white : const Color(0xFF0F172A));
 
     final dateStr = _formatDate(transaction.timestamp);

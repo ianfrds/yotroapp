@@ -323,9 +323,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         color: const Color(0xFF2563EB).withOpacity(0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.insights_rounded,
-                        color: Color(0xFF55C7FF),
+                        color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                         size: 18,
                       ),
                     ),
@@ -501,7 +501,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                         overflow: TextOverflow.ellipsis,
                                         style: GoogleFonts.manrope(
                                           color: isSelected
-                                              ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF0284C7))
+                                              ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A))
                                               : (isDark ? Colors.white : const Color(0xFF0F172A)),
                                           fontSize: 13.5,
                                           fontWeight: FontWeight.w600,

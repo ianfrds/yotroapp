@@ -77,7 +77,7 @@ void main() {
 
       expect(provider.isDailyReminderEnabled, isTrue);
       expect(provider.dailyReminderTimes, contains('18:00'));
-      expect(provider.dailyReminderTimes, contains('19:00'));
+      expect(provider.dailyReminderTimes, contains('21:00'));
     });
 
     testWidgets('SettingsScreen daily reminder alarms can be edited', (tester) async {

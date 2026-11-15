@@ -72,7 +72,7 @@ class WalletsScreen extends StatelessWidget {
       context: context,
       title: isEditing ? 'Ubah Dompet / Akun' : 'Tambah Dompet / Akun',
       titleIcon: Icons.account_balance_wallet_outlined,
-      titleIconColor: isDark ? _cyan : const Color(0xFF0284C7),
+      titleIconColor: isDark ? _cyan : const Color(0xFF02539A),
       child: StatefulBuilder(
         builder: (ctx, setSheetState) {
           return Column(
@@ -235,7 +235,7 @@ class WalletsScreen extends StatelessWidget {
                     Icon(
                       Icons.sync_alt_rounded,
                       size: 18,
-                      color: isDark ? _cyan : const Color(0xFF0284C7),
+                      color: isDark ? _cyan : const Color(0xFF02539A),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -265,8 +265,10 @@ class WalletsScreen extends StatelessWidget {
                     ),
                     Switch.adaptive(
                       value: syncToTransactions,
-                      activeColor: _cyan,
-                      activeTrackColor: _accentOceanic,
+                      activeThumbColor: Colors.white,
+                      activeTrackColor: const Color(0xFF02539A),
+                      inactiveThumbColor: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF94A3B8),
+                      inactiveTrackColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
                       onChanged: (val) {
                         setSheetState(() => syncToTransactions = val);
                       },
@@ -492,18 +494,18 @@ class WalletsScreen extends StatelessWidget {
                     color: isDark ? _accentOceanic.withOpacity(0.25) : const Color(0xFFE0F2FE),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: isDark ? _cyan.withOpacity(0.35) : const Color(0xFF0284C7).withOpacity(0.35),
+                      color: isDark ? _cyan.withOpacity(0.35) : const Color(0xFF02539A).withOpacity(0.35),
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.add_rounded, size: 16, color: isDark ? _cyan : const Color(0xFF0284C7)),
+                      Icon(Icons.add_rounded, size: 16, color: isDark ? _cyan : const Color(0xFF02539A)),
                       const SizedBox(width: 4),
                       Text(
                         'Tambah',
                         style: GoogleFonts.manrope(
-                          color: isDark ? _cyan : const Color(0xFF0284C7),
+                          color: isDark ? _cyan : const Color(0xFF02539A),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -557,7 +559,7 @@ class WalletsScreen extends StatelessWidget {
                               alignment: Alignment.center,
                               child: Icon(
                                 _getWalletIcon(wallet.type),
-                                color: isDark ? _cyan : const Color(0xFF0284C7),
+                                color: isDark ? _cyan : const Color(0xFF02539A),
                                 size: 20,
                               ),
                             ),
@@ -629,7 +631,7 @@ class WalletsScreen extends StatelessWidget {
                       alignment: Alignment.center,
                       child: Icon(
                         Icons.sync_alt_rounded,
-                        color: isDark ? _cyan : const Color(0xFF0284C7),
+                        color: isDark ? _cyan : const Color(0xFF02539A),
                         size: 18,
                       ),
                     ),
@@ -660,8 +662,10 @@ class WalletsScreen extends StatelessWidget {
                     Switch.adaptive(
                       value: provider.syncWalletToTransactions,
                       onChanged: (val) => provider.setSyncWalletToTransactions(val),
-                      activeColor: _cyan,
-                      activeTrackColor: _accentOceanic,
+                      activeThumbColor: Colors.white,
+                      activeTrackColor: const Color(0xFF02539A),
+                      inactiveThumbColor: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF94A3B8),
+                      inactiveTrackColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
                     ),
                   ],
                 ),

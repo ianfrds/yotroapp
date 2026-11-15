@@ -85,18 +85,18 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
                       color: isDark ? _accentOceanic.withOpacity(0.25) : const Color(0xFFE0F2FE),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: isDark ? _cyan.withOpacity(0.35) : const Color(0xFF0284C7).withOpacity(0.35),
+                        color: isDark ? _cyan.withOpacity(0.35) : const Color(0xFF02539A).withOpacity(0.35),
                       ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.add_rounded, size: 16, color: isDark ? _cyan : const Color(0xFF0284C7)),
+                        Icon(Icons.add_rounded, size: 16, color: isDark ? _cyan : const Color(0xFF02539A)),
                         const SizedBox(width: 4),
                         Text(
                           'Tambah',
                           style: GoogleFonts.manrope(
-                            color: isDark ? _cyan : const Color(0xFF0284C7),
+                            color: isDark ? _cyan : const Color(0xFF02539A),
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -228,7 +228,10 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
     bool isLast,
     bool isDark,
   ) {
-    final catColor = Color(cat.colorValue ?? 0xFF8CA7C5);
+    final catColorRaw = Color(cat.colorValue ?? 0xFF8CA7C5);
+    final catColor = (!isDark && catColorRaw.value == 0xFF55C7FF)
+        ? const Color(0xFF02539A)
+        : catColorRaw;
 
     return Column(
       children: [
@@ -280,7 +283,7 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
                             style: GoogleFonts.manrope(
                               color: cat.isDefault
                                   ? (isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B))
-                                  : (isDark ? _cyan : const Color(0xFF0284C7)),
+                                  : (isDark ? _cyan : const Color(0xFF02539A)),
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),

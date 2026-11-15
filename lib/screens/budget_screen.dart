@@ -63,7 +63,7 @@ class BudgetScreen extends StatelessWidget {
       context: context,
       title: isEditing ? 'Ubah Budget Kategori' : 'Tambah Budget Kategori',
       titleIcon: Icons.donut_small_rounded,
-      titleIconColor: _cyan,
+      titleIconColor: isDark ? _cyan : const Color(0xFF02539A),
       child: StatefulBuilder(
         builder: (ctx, setSheetState) {
           return Column(
@@ -307,7 +307,7 @@ class BudgetScreen extends StatelessWidget {
       context: context,
       title: 'Ubah Batas Budget Keseluruhan',
       titleIcon: Icons.account_balance_wallet_outlined,
-      titleIconColor: _cyan,
+      titleIconColor: isDark ? _cyan : const Color(0xFF02539A),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -429,18 +429,18 @@ class BudgetScreen extends StatelessWidget {
                     color: isDark ? _accentOceanic.withOpacity(0.25) : const Color(0xFFE0F2FE),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: isDark ? _cyan.withOpacity(0.35) : const Color(0xFF0284C7).withOpacity(0.35),
+                      color: isDark ? _cyan.withOpacity(0.35) : const Color(0xFF02539A).withOpacity(0.35),
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.add_rounded, size: 16, color: isDark ? _cyan : const Color(0xFF0284C7)),
+                      Icon(Icons.add_rounded, size: 16, color: isDark ? _cyan : const Color(0xFF02539A)),
                       const SizedBox(width: 4),
                       Text(
                         'Tambah',
                         style: GoogleFonts.manrope(
-                          color: isDark ? _cyan : const Color(0xFF0284C7),
+                          color: isDark ? _cyan : const Color(0xFF02539A),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -474,14 +474,14 @@ class BudgetScreen extends StatelessWidget {
                         color: isDark ? _accentOceanic.withOpacity(0.2) : const Color(0xFFE0F2FE),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: isDark ? _cyan.withOpacity(0.25) : const Color(0xFF0284C7).withOpacity(0.25),
+                          color: isDark ? _cyan.withOpacity(0.25) : const Color(0xFF02539A).withOpacity(0.25),
                         ),
                       ),
                       alignment: Alignment.center,
                       child: Icon(
                         Icons.account_balance_wallet_outlined,
                         size: 28,
-                        color: isDark ? _cyan : const Color(0xFF0284C7),
+                        color: isDark ? _cyan : const Color(0xFF02539A),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -536,7 +536,7 @@ class BudgetScreen extends StatelessWidget {
                         icon: Icon(
                           Icons.donut_small_rounded,
                           size: 16,
-                          color: isDark ? _cyan : const Color(0xFF0284C7),
+                          color: isDark ? _cyan : const Color(0xFF02539A),
                         ),
                         label: Text(
                           'Tambah Budget Kategori',
@@ -701,7 +701,7 @@ class BudgetScreen extends StatelessWidget {
                                 child: Text(
                                   '+ Tambah Budget Kategori',
                                   style: GoogleFonts.manrope(
-                                    color: isDark ? _cyan : const Color(0xFF0284C7),
+                                    color: isDark ? _cyan : const Color(0xFF02539A),
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
                                   ),

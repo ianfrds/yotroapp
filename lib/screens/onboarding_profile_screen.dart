@@ -37,7 +37,6 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
   final TextEditingController _phoneController = TextEditingController();
   bool _isSignUpMode = false;
   bool _obscurePassword = true;
-  String _selectedGender = 'Pria';
   TransactionType _selectedCategoryType = TransactionType.expense;
   Set<String> _selectedCategoryIds = {};
   bool _isSubmitting = false;
@@ -144,7 +143,6 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
       await provider.completeOnboarding(
         name: name,
         phone: provider.userPhone,
-        gender: provider.userGender,
       );
       await provider.handleAuthSuccess(fullName: name);
 
@@ -174,7 +172,6 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
         await provider.completeOnboarding(
           name: name,
           phone: provider.userPhone,
-          gender: provider.userGender,
         );
         if (mounted) {
           Navigator.of(context).pushAndRemoveUntil(
@@ -474,7 +471,6 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
       await provider.completeOnboarding(
         name: name,
         phone: phone,
-        gender: _selectedGender,
       );
       await provider.handleAuthSuccess(fullName: name);
       await SupabaseSyncService.uploadAllLocalData(provider);
@@ -483,7 +479,6 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
       await provider.completeOnboarding(
         name: name,
         phone: phone,
-        gender: _selectedGender,
       );
     }
 
@@ -1337,8 +1332,13 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.g_mobiledata_rounded, size: 26, color: Color(0xFF4285F4)),
-                        const SizedBox(width: 4),
+                        Image.asset(
+                          'assets/images/google_logo.png',
+                          width: 20,
+                          height: 20,
+                          fit: BoxFit.contain,
+                        ),
+                        const SizedBox(width: 8),
                         Text(
                           'Lanjutkan dengan Google',
                           style: GoogleFonts.manrope(
@@ -1654,25 +1654,6 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 10),
-
-        // Field: Jenis Kelamin
-        Text(
-          'Jenis Kelamin',
-          style: GoogleFonts.manrope(
-            color: labelColor,
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Row(
-          children: [
-            _buildGenderOption('Pria', Icons.male_rounded, isDark, inputBorder),
-            const SizedBox(width: 10),
-            _buildGenderOption('Wanita', Icons.female_rounded, isDark, inputBorder),
-          ],
-        ),
         const SizedBox(height: 16),
 
         // Action Buttons Row: Lanjutkan & Mulai Cepat
@@ -1718,47 +1699,6 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildGenderOption(String gender, IconData icon, bool isDark, Color inputBorder) {
-    final isSelected = _selectedGender == gender;
-    return Expanded(
-      child: InkWell(
-        onTap: () => setState(() => _selectedGender = gender),
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          height: 46,
-          decoration: BoxDecoration(
-            color: isSelected
-                ? AppColors.primaryButton
-                : (isDark ? Colors.white.withOpacity(0.04) : Colors.white),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: isSelected ? AppColors.primaryButton : inputBorder,
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 18,
-                color: isSelected ? Colors.white : (isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B)),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                gender,
-                style: GoogleFonts.manrope(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  color: isSelected ? Colors.white : (isDark ? Colors.white : const Color(0xFF0F172A)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -2036,7 +1976,9 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
             Icon(
               isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
               size: 18,
-              color: isSelected ? const Color(0xFF55C7FF) : (isDark ? const Color(0xFF65788F) : const Color(0xFF94A3B8)),
+              color: isSelected
+                  ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A))
+                  : (isDark ? const Color(0xFF65788F) : const Color(0xFF94A3B8)),
             ),
             const SizedBox(width: 10),
             Expanded(

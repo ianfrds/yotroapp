@@ -107,10 +107,11 @@ void main() {
       expect(find.text('Rasio Beban'), findsOneWidget);
       expect(find.text('Arus Kas'), findsOneWidget);
 
-      // Cash Flow Curve & Donut Cards
-      expect(find.text('Alur Pemasukan & Pengeluaran'), findsOneWidget);
+      // Cash Flow Donut & Curve Cards
       expect(find.text('Pemasukan vs Pengeluaran'), findsOneWidget);
       expect(find.text('Arus Kas Bersih'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Alur Pemasukan & Pengeluaran'), 300);
+      expect(find.text('Alur Pemasukan & Pengeluaran'), findsOneWidget);
     });
   });
 

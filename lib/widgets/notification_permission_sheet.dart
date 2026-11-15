@@ -19,7 +19,7 @@ void showNotificationPermissionSheet({
     context: context,
     title: 'Izin Notifikasi',
     titleIcon: Icons.notifications_active_rounded,
-    titleIconColor: const Color(0xFF55C7FF),
+    titleIconColor: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
     child: StatefulBuilder(
       builder: (ctx, setState) {
         final provider = ctx.watch<TransactionProvider>();
@@ -141,7 +141,7 @@ void showNotificationPermissionSheet({
                               ),
                               action: SnackBarAction(
                                 label: 'Buka Pengaturan',
-                                textColor: const Color(0xFF55C7FF),
+                                textColor: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                                 onPressed: () => provider.openDeviceSettings(),
                               ),
                             ),
@@ -189,7 +189,7 @@ Widget _buildPermissionBenefitItem({
         child: Icon(
           icon,
           size: 16,
-          color: const Color(0xFF55C7FF),
+          color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
         ),
       ),
       const SizedBox(width: 10),

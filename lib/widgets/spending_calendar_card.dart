@@ -218,7 +218,7 @@ class _SpendingCalendarCardState extends State<SpendingCalendarCard> {
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: isSelected
-                          ? const Color(0xFF55C7FF)
+                          ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A))
                           : (isDark ? Colors.white.withOpacity(0.35) : const Color(0xFF94A3B8)),
                       width: 1.2,
                     ),
@@ -228,7 +228,7 @@ class _SpendingCalendarCardState extends State<SpendingCalendarCard> {
                     color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFE2E8F0),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: isDark ? const Color(0xFF55C7FF).withOpacity(0.5) : const Color(0xFF0F172A),
+                      color: isDark ? const Color(0xFF55C7FF).withOpacity(0.5) : const Color(0xFF02539A),
                       width: 1,
                     ),
                   );
@@ -319,7 +319,7 @@ class _SpendingCalendarCardState extends State<SpendingCalendarCard> {
                       Text(
                         provider.formatCurrency(selectedExpense),
                         style: GoogleFonts.interTight(
-                          color: const Color(0xFF55C7FF),
+                          color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),

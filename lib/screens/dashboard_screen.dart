@@ -378,20 +378,30 @@ class _HeroBalancePanelState extends State<_HeroBalancePanel> {
     }
   }
 
-  BoxDecoration _buildSapphireDecoration() {
+  BoxDecoration _buildSapphireDecoration(bool isDark) {
     return BoxDecoration(
-      gradient: const RadialGradient(
-        center: Alignment(0.0, 1.0),
+      gradient: RadialGradient(
+        center: const Alignment(0.0, 1.0),
         radius: 1.08,
-        colors: [
-          Color(0xFF041735),
-          Color(0xFF001732),
-          Color(0xFF00498C),
-        ],
-        stops: [0.0, 0.3606, 1.0],
+        colors: isDark
+            ? const [
+                Color(0xFF041735),
+                Color(0xFF001732),
+                Color(0xFF00498C),
+              ]
+            : const [
+                Color(0xFF659CF3),
+                Color(0xFF5D92D0),
+                Color(0xFF0071D7),
+              ],
+        stops: const [0.0, 0.3606, 1.0],
       ),
       borderRadius: BorderRadius.circular(22),
-      border: Border.all(color: Colors.white.withOpacity(.12)),
+      border: Border.all(
+        color: isDark
+            ? Colors.white.withOpacity(.12)
+            : Colors.white.withOpacity(.25),
+      ),
     );
   }
 
@@ -821,13 +831,20 @@ class _HeroBalancePanelState extends State<_HeroBalancePanel> {
     VoidCallback? onTap,
     double? width,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardContent = Container(
       width: width,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF23374D).withOpacity(.55),
+        color: isDark
+            ? const Color(0xFF23374D).withOpacity(.55)
+            : Colors.white.withOpacity(.20),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.white.withOpacity(.14)),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withOpacity(.14)
+              : Colors.white.withOpacity(.28),
+        ),
       ),
       child: Row(
         mainAxisSize: width != null ? MainAxisSize.max : MainAxisSize.min,
@@ -997,7 +1014,7 @@ class _HeroBalancePanelState extends State<_HeroBalancePanel> {
               6,
               isExpenseOnly ? 10 : 7,
             ),
-            decoration: _buildSapphireDecoration(),
+            decoration: _buildSapphireDecoration(isDark),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [

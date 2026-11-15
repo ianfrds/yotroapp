@@ -153,9 +153,9 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                     border: Border.all(color: const Color(0xFF02539A).withOpacity(0.3)),
                   ),
                   alignment: Alignment.center,
-                  child: const Icon(
+                  child: Icon(
                     Icons.system_update_rounded,
-                    color: Color(0xFF55C7FF),
+                    color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                     size: 24,
                   ),
                 ),
@@ -242,7 +242,7 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                       Text(
                         '${(_progress * 100).toStringAsFixed(0)}%',
                         style: GoogleFonts.interTight(
-                          color: const Color(0xFF55C7FF),
+                          color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
                         ),

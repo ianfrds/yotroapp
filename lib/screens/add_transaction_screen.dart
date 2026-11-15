@@ -695,7 +695,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
         Widget buildPill(CategoryModel cat) {
           final isSel = cat.name == _selectedCategory;
-          final color = Color(cat.colorValue ?? 0xFF2B8DE0);
+          final rawColor = Color(cat.colorValue ?? 0xFF2B8DE0);
+          final color = (!isDark && rawColor.value == 0xFF55C7FF) ? const Color(0xFF02539A) : rawColor;
           return InkWell(
             onTap: () => setState(() => _selectedCategory = cat.name),
             borderRadius: BorderRadius.circular(12),
@@ -747,7 +748,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: (isDark ? const Color(0xFF55C7FF) : const Color(0xFF0284C7)).withOpacity(0.35),
+                color: (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A)).withOpacity(0.35),
               ),
             ),
             child: Row(
@@ -756,13 +757,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 Icon(
                   Icons.grid_view_rounded,
                   size: 14,
-                  color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF0284C7),
+                  color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   'Lainnya',
                   style: GoogleFonts.manrope(
-                    color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF0284C7),
+                    color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -846,7 +847,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           ? 'Pilih Kategori Pengeluaran'
           : 'Pilih Kategori Pemasukan',
       titleIcon: Icons.category_rounded,
-      titleIconColor: isDark ? const Color(0xFF55C7FF) : const Color(0xFF0284C7),
+      titleIconColor: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
       child: Container(
         constraints: const BoxConstraints(maxHeight: 420),
         child: SingleChildScrollView(
@@ -873,7 +874,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         color: isDark ? const Color(0xFF131A26) : const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: (isDark ? const Color(0xFF55C7FF) : const Color(0xFF0284C7)).withOpacity(0.35),
+                          color: (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A)).withOpacity(0.35),
                         ),
                       ),
                       child: Row(
@@ -882,7 +883,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                           Icon(
                             Icons.add_circle_outline_rounded,
                             size: 16,
-                            color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF0284C7),
+                            color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                           ),
                           const SizedBox(width: 8),
                           Text(
@@ -890,7 +891,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             style: GoogleFonts.manrope(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF0284C7),
+                              color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                             ),
                           ),
                         ],
@@ -902,7 +903,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     runSpacing: 10,
                     children: categories.map((cat) {
                   final isSel = cat.name == _selectedCategory;
-                  final color = Color(cat.colorValue ?? 0xFF2B8DE0);
+                  final rawColor = Color(cat.colorValue ?? 0xFF2B8DE0);
+                  final color = (!isDark && rawColor.value == 0xFF55C7FF) ? const Color(0xFF02539A) : rawColor;
                   return SizedBox(
                     width: itemWidth,
                     child: InkWell(
