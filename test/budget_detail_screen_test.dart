@@ -28,6 +28,10 @@ void main() {
 
   group('BudgetDetailScreen Tests', () {
     testWidgets('renders category details, chart title, and transactions', (tester) async {
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
       final provider = TransactionProvider();
       await provider.updateCategoryBudget('Makanan & Minuman', 1000000.0);
 
@@ -66,8 +70,8 @@ void main() {
 
       // Check budget total, terpakai, and sisa
       expect(find.text('Rp 1.000.000'), findsOneWidget);
-      expect(find.textContaining('Terpakai :'), findsOneWidget);
-      expect(find.textContaining('Sisa :'), findsOneWidget);
+      expect(find.textContaining('Terpakai'), findsWidgets);
+      expect(find.textContaining('Sisa'), findsWidgets);
 
       // Check sections
       expect(find.text('Statistik Penggunaan Anggaran'), findsOneWidget);
@@ -182,6 +186,114 @@ void main() {
         expect(find.text('Nasi Padang'), findsOneWidget);
         expect(find.text('Ayam Geprek'), findsOneWidget);
       }
+    });
+
+    testWidgets('deleteOverallBudget resets overall monthly limit to 0', (tester) async {
+      final provider = TransactionProvider();
+      await provider.updateOverallBudget(2500000.0);
+      expect(provider.budget.overallMonthlyLimit, equals(2500000.0));
+
+      await provider.deleteOverallBudget();
+      expect(provider.budget.overallMonthlyLimit, equals(0.0));
+    });
+
+    testWidgets('BudgetDetailScreen allows deleting overall budget via popup menu', (tester) async {
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final provider = TransactionProvider();
+      await provider.updateOverallBudget(3000000.0);
+
+      await tester.pumpWidget(
+        buildTestApp(
+          const BudgetDetailScreen(),
+          provider,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Semua Pengeluaran'), findsOneWidget);
+
+      // Open popup menu
+      await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+      await tester.pumpAndSettle();
+
+      // Tap 'Hapus Anggaran'
+      expect(find.text('Hapus Anggaran'), findsOneWidget);
+      await tester.tap(find.text('Hapus Anggaran'));
+      await tester.pumpAndSettle();
+
+      // Confirmation dialog appears
+      expect(find.text('Hapus Batas Anggaran?'), findsOneWidget);
+      await tester.tap(find.text('Hapus'));
+      await tester.pumpAndSettle();
+
+      expect(provider.budget.overallMonthlyLimit, equals(0.0));
+    });
+
+    testWidgets('Large budget and expense amounts render cleanly without overflow and without edit button on card', (tester) async {
+      tester.view.physicalSize = const Size(720, 1600);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final provider = TransactionProvider();
+      await provider.updateCategoryBudget('Makanan & Minuman', 150000000.0);
+      await provider.addTransaction(
+        title: 'Makan Besar Katering',
+        amount: 35000000.0,
+        type: TransactionType.expense,
+        categoryName: 'Makanan & Minuman',
+        categoryId: 'makanan_minuman',
+        walletId: 'w_bank',
+        date: DateTime.now(),
+      );
+
+      // Render category detail screen
+      await tester.pumpWidget(
+        buildTestApp(
+          const BudgetDetailScreen(categoryName: 'Makanan & Minuman'),
+          provider,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Verify amounts are rendered
+      expect(find.text('Rp 150.000.000'), findsOneWidget);
+      expect(find.text('Rp 35.000.000'), findsOneWidget);
+      expect(find.text('Rp 115.000.000'), findsOneWidget);
+
+      // Verify edit button is absent from card
+      expect(find.byIcon(Icons.edit_outlined), findsNothing);
+      expect(find.byIcon(Icons.edit_rounded), findsNothing);
+    });
+
+    testWidgets('Detail total anggaran (Semua Pengeluaran) has no edit button on card or header when rollup active', (tester) async {
+      tester.view.physicalSize = const Size(720, 1600);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final provider = TransactionProvider();
+      await provider.updateCategoryBudget('Makanan & Minuman', 200000.0);
+
+      // Render overall detail screen
+      await tester.pumpWidget(
+        buildTestApp(
+          const BudgetDetailScreen(),
+          provider,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Semua Pengeluaran'), findsOneWidget);
+      // Both Batas Anggaran and Sisa Anggaran are Rp 200.000
+      expect(find.text('Rp 200.000'), findsNWidgets(2));
+
+      // No edit icons anywhere on card or top bar
+      expect(find.byIcon(Icons.edit_outlined), findsNothing);
+      expect(find.byIcon(Icons.edit_rounded), findsNothing);
+      // Popup menu button is hidden for total aggregate
+      expect(find.byIcon(Icons.more_horiz_rounded), findsNothing);
     });
   });
 }

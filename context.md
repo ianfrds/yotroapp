@@ -135,7 +135,10 @@ money-tracker/
 │       ├── balance_card.dart       # Kartu metrik finansial
 │       ├── category_chip.dart      # Chip pemilihan kategori
 │       └── receipt_adjustment_sheet.dart # Modal sheet penyesuaian/persetujuan hasil scan OCR struk
-├── test/                           # Unit & Widget test suite (170 tests passed)
+├── test/                           # Unit & Widget test suite (192 tests passed)
+│   ├── category_budget_rollup_test.dart    # Test akumulasi roll-up anggaran kategori, kalkulasi terpakai & UI
+│   ├── budget_cycle_reset_test.dart        # Test kalkulasi siklus anggaran bulanan kustom, clamping tanggal & modal picker
+│   ├── profile_streak_test.dart            # Test perhitungan streak beruntun pencatatan transaksi & widget streak bar profil
 │   ├── wallet_reconciliation_test.dart # Test rekonsiliasi mandiri saldo dompet, transfer multi-dompet & proteksi snapshot cloud
 │   ├── light_mode_sapphire_accent_test.dart # Test adaptasi aksen sapphire (#02539A) di mode terang vs cyan (#55C7FF) di mode gelap
 │   ├── app_improvements_features_test.dart # Test verifikasi 6 fitur peningkatan antarmuka & opsi tema
@@ -865,6 +868,98 @@ money-tracker/
   2. **Pembersihan Judul:** Teks `"Rasio Arus Kas"` di seberang judul kartu *Pemasukan vs Pengeluaran* dihapus permanen.
   3. **Total Transaksi di Bawah Chart:** Indikator `${metrics.txCount} Transaksi` pada kartu *Alur Pemasukan & Pengeluaran* dipindahkan dari header ke kontainer baris rapi di bawah chart dan tombol checkpoints tanggal. Bar memuat ikon struk, label `"Total Transaksi Bulan Ini"`, dan jumlah transaksi tebal.
 - **Validasi Uji:** Seluruh unit & widget tests (170 tests) lulus 100%. Termasuk verifikasi posisi koordinat vertikal kartu donut di atas kartu kurva pada `test/financial_analysis_ux_test.dart`.
+
+### 3.33 Fitur Hapus Batas Anggaran Keseluruhan (Global Budget Deletion & Reset)
+- **Akar Masalah:** Sebelumnya, modal sheet pengubahan batas anggaran hanya menyediakan tombol *Simpan Perubahan*. Jika input dikosongkan, kode melakukan fallback ke limit lama (`?? overallMonthlyLimit`). Selain itu, menu titik tiga di `BudgetDetailScreen` secara eksplisit mengecualikan batas global (`if (!_isOverall)`), sehingga pengguna tidak memiliki opsi eksplisit untuk menghapus batas anggaran global.
+- **Implementasi Solusi:**
+  1. `lib/providers/transaction_provider.dart`: Menambahkan method `deleteOverallBudget()` yang mereset `overallMonthlyLimit = 0.0`, memicu `notifyListeners()`, dan menyimpan ke storage lokal/cloud.
+  2. `lib/screens/budget_screen.dart`:
+     - Pada kartu utama *Batas Budget Keseluruhan*, menambahkan ikon pensil edit di header samping badge status agar pengguna dapat langsung membuka modal sheet ubah & hapus tanpa harus membuka menu rincian.
+     - Pada modal sheet ubah batas anggaran global (`_showEditOverallBudgetSheet`), jika limit saat ini $> 0$, tombol hapus (ikon tempat sampah merah dengan background translusen) ditampilkan berdampingan dengan tombol *Simpan Perubahan*.
+     - Ditambahkan dialog konfirmasi `_confirmDeleteOverallBudget` bertajuk "Hapus Batas Anggaran?" dengan aksi batal dan hapus aman.
+     - Fallback input kosong diubah menjadi `0.0` (bukan mengembalikan angka lama).
+  3. `lib/screens/budget_detail_screen.dart`:
+     - Nominal limit di ringkasan atas kini dilengkapi ikon pensil dan dapat diklik langsung untuk memunculkan modal ubah/hapus.
+     - Menu titik tiga (popup menu) kini mengizinkan opsi `'Hapus Anggaran'` untuk anggaran global (`_isOverall`).
+     - Modal sheet `_showEditSheet` juga dilengkapi tombol tempat sampah merah jika limit $> 0$.
+     - Dialog `_confirmDeleteBudget` adaptif mereset batas anggaran global saat berada di layar Semua Pengeluaran.
+- **Validasi Uji:** Pengujian unit dan interaksi widget di `test/budget_detail_screen_test.dart` (172 tests passed 100%).
+
+### 3.34 Gamifikasi Streak Pencatatan Finansial di Profil Pengguna (Streak 🔥 Minimalist Anti-Slop)
+- **Kebutuhan:** Menghapus 3 mini statistik di bawah profil kartu akun (`Transaksi`, `Dompet`, `Bulan Ini`) di `SettingsScreen` dan menggantikannya dengan indikator *Streak Pencatatan* yang minimalis dan bersih (/antislop-ui).
+- **Implementasi Solusi:**
+  1. `lib/providers/transaction_provider.dart`:
+     - Menambahkan getter `int get recordingStreak`.
+     - Logika perhitungan: Mengambil tanggal seluruh transaksi dalam format tanggal murni (`DateTime(year, month, day)`) dan menyimpannya ke dalam `Set<DateTime>` agar transaksi jam berapapun atau transaksi berganda di hari yang sama dihitung tepat 1 hari.
+     - Streak aktif jika terdapat transaksi hari ini (`today`) ATAU kemarin (`yesterday` — memberi toleransi agar streak pengguna tidak langsung putus di pagi hari sebelum mencatat). Jika salah satu terpenuhi, perhitungan berulang mundur hari per hari (`checkDate.subtract(const Duration(days: 1))`) hingga ditemukan jeda hari tanpa transaksi.
+  2. `lib/screens/settings_screen.dart`:
+     - Menghapus method `_buildProfileStat` dan baris 3 kolom mini stats (`Transaksi`, `Dompet`, `Bulan Ini`).
+     - Menyederhanakan tampilan streak sesuai standar `/antislop-ui`:
+       - Menghilangkan kontainer bersarang, border tebal, teks motivasi generik, dan capsule pill ganda.
+       - Menggantinya dengan baris data tunggal ultra-bersih:
+         - Sisi kiri: Ikon api `🔥` (15px) bersanding dengan label teks `"Streak Pencatatan"` (`Manrope`, 12.5px, `mutedColor`).
+         - Sisi kanan: Angka streak `${provider.recordingStreak} Hari` (`Inter Tight`, 13.5px, `FontWeight.w600`, `textColor`).
+- **Validasi Uji:** Dibuat test suite komprehensif di `test/profile_streak_test.dart` (7 tests) yang menguji: 0 streak tanpa transaksi, 1 streak hari ini, 1 streak kemarin saja, 3 hari beruntun berturut-turut, streak terputus 2 hari lalu, transaksi berulang di hari yang sama tetap 1 hari, dan verifikasi baris minimal streak tanpa elemen slop di `SettingsScreen`. Seluruh test suite (179 tests) lulus 100%.
+
+### 3.35 Fitur Pengaturan Tanggal Reset Anggaran Bulanan (Custom Budget Monthly Reset Day)
+- **Kebutuhan:** Pengguna menginginkan kemampuan untuk menyetel tanggal reset bulanan pada menu Anggaran (`BudgetScreen`), misalnya tanggal 1 untuk awal bulan kalender, tanggal 25 untuk siklus gajian, atau tanggal 1–31 lainnya.
+- **Implementasi Solusi:**
+  1. `lib/models/budget_model.dart`:
+     - Menambahkan field `int monthlyResetDay` (default `1`, clamped 1 s.d. 31).
+     - Serialisasi `toJson` dan `fromJson` untuk persistensi storage lokal dan snapshot cloud.
+  2. `lib/providers/transaction_provider.dart`:
+     - Menambahkan method pembantu murni `DateTimeRange getBudgetCycleForDate({DateTime? referenceDate, int? resetDay})`.
+     - Logika perhitungan siklus:
+       - Jika `resetDay == 1`: siklus adalah tanggal 1 hingga hari terakhir bulan berjalan (28/29/30/31).
+       - Jika `resetDay > 1`: jika tanggal sekarang `>= resetDay`, siklus dimulai tanggal `resetDay` bulan ini hingga tanggal `resetDay - 1 ms` bulan depan. Jika `< resetDay`, siklus dimulai tanggal `resetDay` bulan lalu hingga tanggal `resetDay - 1 ms` bulan ini.
+       - Penanganan bulan pendek: clamped otomatis dengan `math.min(day, daysInMonth)`.
+     - Getter `DateTimeRange get currentBudgetCycle`.
+     - Getter `String get currentBudgetCycleLabel` (misal `"25 Okt - 24 Nov 2026"`).
+     - Getter `int get currentBudgetDaysRemaining`.
+     - Getter `double get currentCycleExpense` (hanya menghitung pengeluaran yang jatuh di dalam rentang siklus aktif).
+     - Method `double getCategoryCycleExpense(String categoryName)` (menghitung pengeluaran kategori di dalam rentang siklus aktif).
+     - Update `remainingBudget` dan `budgetUsagePercentage` agar menggunakan `currentCycleExpense`.
+     - Method `Future<void> updateBudgetResetDay(int day)` untuk menyimpan preferensi.
+  3. `lib/screens/settings_screen.dart` (Profil & Pengaturan):
+     - Menempatkan opsi pengaturan siklus anggaran bulanan di bagian *Preferensi Finansial & Tampilan* agar terpusat dan menjaga layar `BudgetScreen` tetap bersih dan fokus pada visualisasi keuangan.
+     - Menyediakan baris pengaturan:
+       - Judul: `"Siklus Reset Anggaran"`
+       - Subtitle dinamis: `"Tiap tgl X · Periode ..."`
+       - Badge tombol: `"Tgl X >"`
+     - Menyediakan modal sheet `_showBudgetResetDaySheet` dengan:
+       - Preset cepat: `Tgl 1 (Awal)`, `Tgl 25 (Gajian)`, `Tgl 28 (Akhir)`.
+       - Grid pemilih tanggal 1 s.d. 31 yang responsif dan nyaman disentuh.
+       - Kotak preview siklus dinamis: *"Siklus: ... (Sisa X hari)"*.
+       - Tombol simpan.
+  4. `lib/screens/budget_screen.dart`:
+     - Mempertahankan antarmuka yang bersih tanpa kartu setting ekstra.
+     - Memperbarui kartu *Batas Budget Keseluruhan* dan daftar *Budget Per Kategori* agar otomatis menggunakan `currentCycleExpense` dan `getCategoryCycleExpense`.
+  5. `lib/screens/budget_detail_screen.dart`:
+     - Menyesuaikan filtering `matchingTransactions` agar dibatasi dalam rentang `currentBudgetCycle`.
+     - Menampilkan label periode siklus aktif pada ringkasan atas layar detail anggaran.
+  6. `lib/services/supabase_sync_service.dart`:
+     - Menyimpan metadata reset day secara aman dan kompatibel.
+- **Validasi Uji:** Dibuat test suite komprehensif di `test/budget_cycle_reset_test.dart` (9 tests) yang menguji: siklus tgl 1, siklus tgl 25 sebelum/sesudah/tepat hari reset, penanganan bulan pendek (Februari 28 hari), isolasi kalkulasi transaksi siklus vs all-time, verifikasi ketiadaan kartu setting di `BudgetScreen`, dan UI widget picker di `SettingsScreen`. Seluruh test suite (188 tests) lulus 100%.
+
+### 3.36 Restrukturisasi Anggaran Berbasis Akumulasi Kategori (Category Roll-up Budgeting)
+- **Kebutuhan:** Menghilangkan kebingungan input batas anggaran keseluruhan manual terpisah dan menyelaraskan sistem anggaran dengan prinsip *Envelope Budgeting*: kartu atas menjadi ringkasan akumulasi seluruh anggaran kategori aktif (*roll-up*), dan bagian bawah berisi daftar kartu per-kategori lengkap dengan tombol penambahan.
+- **Implementasi Solusi:**
+  1. `lib/providers/transaction_provider.dart`:
+     - Menambahkan getter `double get totalCategoryBudget`: menjumlahkan limit seluruh kategori aktif (`_budget.categoryBudgets.values.fold(...)`).
+     - Menambahkan getter `int get activeCategoryBudgetCount`: jumlah kategori yang memiliki batas aktif.
+     - Menambahkan getter `double get totalBudgetedExpense`: menghitung total pengeluaran siklus aktif khusus pada kategori-kategori yang dibudgetkan.
+     - Menambahkan getter `double get effectiveMonthlyBudget`: fallback aman yang mengutamakan total kategori jika ada, atau batas overall jika belum ada kategori.
+     - Menyesuaikan `remainingBudget` dan `budgetUsagePercentage`: jika ada budget kategori, dihitung presisi terhadap `totalCategoryBudget` dan `totalBudgetedExpense`.
+  2. `lib/screens/budget_screen.dart`:
+     - Kartu atas diubah menjadi ringkasan roll-up *"Total Anggaran Bulan Ini"* dengan badge `${categoryBudgets.length} Kategori` dan indikator status (`Aman`, `Waspada`, `Terlampaui`). Input edit manual batas global disingkirkan.
+     - Bagian bawah menampilkan *Budget Per Kategori* dengan tombol `+ Tambah` cepat di header dan tombol `+ Tambah Kategori Lain` di akhir list kartu.
+     - Empty state disederhanakan: judul *"Belum Ada Anggaran"* dengan satu tombol utama elevated oceanic sapphire `+ Tambah Budget Kategori`.
+  3. `lib/screens/budget_detail_screen.dart`:
+     - Saat membuka ringkasan akumulasi (`_isOverall`), batas yang ditampilkan adalah `totalCategoryBudget`, subtitle menampilkan `${provider.activeCategoryBudgetCount} Kategori · Periode ...`, dan transaksi disaring untuk kategori yang dibudgetkan.
+     - Ketukan pada batas di header rincian memberi snackbar informatif bahwa batas merupakan akumulasi otomatis kategori.
+  4. `lib/screens/financial_analysis_screen.dart`:
+     - Mempertahankan kalkulasi panduan anggaran yang konsisten dengan batas bulanan.
+- **Validasi Uji:** Dibuat test suite komprehensif di `test/category_budget_rollup_test.dart` (4 tests) yang menguji agregasi total kategori, isolasi pengeluaran siklus pada kategori terbudgetkan, tampilan kartu roll-up, dan navigasi tombol tambah. Seluruh test suite (192 tests) lulus 100%.
 
 ---
 
@@ -1761,7 +1856,57 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
   - Restrukturisasi layar `FinancialAnalysisScreen`: menukar posisi kartu *Pemasukan vs Pengeluaran* (Donut Chart) ke atas kartu *Alur Pemasukan & Pengeluaran* (Curve Chart).
   - Menghapus teks `"Rasio Arus Kas"` di seberang judul *Pemasukan vs Pengeluaran*.
   - Memindahkan indikator total transaksi pada *Alur Pemasukan & Pengeluaran* dari header ke bar bawah chart & checkpoints.
-  - Tervalidasi 170 unit & widget test lulus 100%.
+  - Tervalidasi unit & widget test lulus 100%.
+- [x] Fitur Hapus Batas Anggaran Keseluruhan (Global Budget Deletion & Reset):
+  - Menambahkan method `deleteOverallBudget()` di `TransactionProvider` yang mereset `overallMonthlyLimit = 0.0`.
+  - Menambahkan tombol tempat sampah merah dan dialog konfirmasi `_confirmDeleteOverallBudget` pada modal sheet ubah anggaran di `BudgetScreen`.
+  - Mengaktifkan opsi *Hapus Anggaran* pada popup menu titik tiga dan tombol hapus pada modal edit di `BudgetDetailScreen` untuk batas global.
+  - Test suite unit & widget diperluas ke 172 tests (100% green).
+- [x] Fitur Streak Pencatatan Finansial di Profil Pengguna (Streak 🔥 Replacement):
+  - Menambahkan getter `recordingStreak` di `TransactionProvider` untuk menghitung hari konsisten pencatatan aktif berurutan tanpa dipengaruhi frekuensi per-hari.
+  - Menghapus mini stats 3 kolom (`Transaksi`, `Dompet`, `Bulan Ini`) di `SettingsScreen` dan menggantikannya dengan bar streak dengan ikon `🔥`, jumlah hari beruntun, pesan motivasi, dan badge pill.
+  - Test suite unit & widget diperluas ke 179 tests (100% green).
+- [x] Fitur Pengaturan Tanggal Reset Anggaran Bulanan (Custom Budget Monthly Reset Day):
+  - Menambahkan field `monthlyResetDay` (1–31, default: 1) di `BudgetModel`.
+  - Logika evaluasi siklus aktif `DateTimeRange` di `TransactionProvider` (clamping bulan pendek, penanganan sebelum/sesudah tanggal reset).
+  - Mengisolasi perhitungan pengeluaran anggaran bulanan global & kategori ke `currentCycleExpense` dan `getCategoryCycleExpense`.
+  - Menempatkan opsi pengaturan siklus anggaran bulanan dan modal sheet pemilih tanggal 1–31 serta preset cepat (Tgl 1, Tgl 25, Tgl 28) di **Profil & Pengaturan** ([`lib/screens/settings_screen.dart`](lib/screens/settings_screen.dart)) di bawah seksi *Preferensi Finansial & Tampilan*.
+  - Layar `BudgetScreen` bersih dari kartu setting, fokus murni pada visualisasi anggaran.
+  - Sinkronisasi filter transaksi dan grafik pada `BudgetDetailScreen` agar dibatasi dalam rentang siklus aktif.
+  - Test suite unit & widget diperluas ke 188 tests (100% green).
+- [x] Redesain Minimal Streak Pencatatan di Profil Pengguna ([`lib/screens/settings_screen.dart`](lib/screens/settings_screen.dart)):
+  - Menghapus 3 mini-stats (`Transaksi`, `Dompet`, `Bulan Ini`) dan menggantikannya dengan satu baris minimalis anti-slop: icon `Icons.local_fire_department_rounded` + `Streak Pencatatan` — `X Hari` (tanpa emoji dekoratif sesuai invarian anti-slop).
+  - Teruji dengan test suite `test/profile_streak_test.dart` (7 tests).
+- [x] Restrukturisasi Anggaran Berbasis Akumulasi Kategori (Category Roll-up Budgeting) ([`lib/screens/budget_screen.dart`](lib/screens/budget_screen.dart) & [`lib/providers/transaction_provider.dart`](lib/providers/transaction_provider.dart)):
+  - Menghapus input manual batas global; kartu atas beralih menjadi ringkasan roll-up *"Total Anggaran Bulan Ini"* (`Σ Budget Kategori`) dengan badge `${categoryBudgets.length} Kategori` dan status kesehatan.
+  - Bagian bawah menampilkan *Budget Per Kategori* dengan tombol `+ Tambah` cepat di header dan tombol `+ Tambah Kategori Lain` di akhir list kartu.
+  - Empty state disederhanakan dengan judul *"Belum Ada Anggaran"* dan tombol tunggal `+ Tambah Budget Kategori`.
+  - Teruji dengan test suite baru `test/category_budget_rollup_test.dart` (4 tests) dan total 192 unit & widget tests lulus 100%.
+- [x] Redesain Anti-Slop UI Modal Siklus Reset Anggaran Bulanan ([`lib/screens/settings_screen.dart`](lib/screens/settings_screen.dart)):
+  - Mengeliminasi layout AI-slop pada `_showBudgetResetDaySheet` (wrapping teks panjang, scrollview bertingkat, preview box redundan, dan preset button kaku).
+  - Mengimplementasikan standar `/antislop-ui`:
+    1. Hero Preview Header: Menampilkan tanggal reset terpilih (`Inter Tight` 20px w700) dan subtitle dinamis (`Tanggal X Setiap Bulan · Periode: DD/MM - DD/MM · Sisa Y hari`).
+    2. Segmented Pill Row: 3 opsi preset cepat terintegrasi dalam satu bar 38px: `Tgl 1 (Awal)`, `Tgl 25 (Gajian)`, `Tgl 28 (Akhir)` dengan status active pill mulus.
+    3. 7-Column Calendar Grid: Grid kalender 7 kolom berjarak 6px (1–31) pas dalam 5 baris tanpa scroll internal (`NeverScrollableScrollPhysics` & `shrinkWrap: true`).
+    4. Button simpan standar 48px `Simpan Tanggal Reset`.
+  - Teruji dengan test suite `test/budget_cycle_reset_test.dart` (9 tests) dan seluruh 192 unit & widget tests lulus 100%.
+- [x] Redesain Anti-Slop UI Kartu Ringkasan & Eliminasi Tombol Edit Angka pada Rincian Anggaran ([`lib/screens/budget_detail_screen.dart`](lib/screens/budget_detail_screen.dart)):
+  - **Eliminasi Tombol Edit Angka**: Menghapus ikon pensil `Icons.edit_outlined` dan interaksi edit langsung pada angka kartu (baik untuk total agregat *Semua Pengeluaran* maupun detail kategori). Aksi ubah dan hapus budget kategori dialihkan bersih ke menu titik tiga (`...`) di header atas. Untuk total agregat roll-up, menu titik tiga disembunyikan karena batas merupakan akumulasi otomatis kategori.
+  - **Layout Anti-Slop & Tahan Nominal Besar**:
+    1. *Row Header*: Avatar kategori (42px) + Kolom nama kategori & badge status (`Aman` / `80% Waspada` / `100% Terlampaui`) + Subtitle periode berjalan memanfaatkan lebar penuh kartu sehingga tidak ada teks periode yang patah baris ("Nov 2026").
+    2. *Hero Batas Anggaran*: Nominal batas besar (`Inter Tight` 22px w700) dibungkus `FittedBox` (tahan nominal puluhan juta hingga miliaran) bersanding dengan persentase penggunaan semibold.
+    3. *Progress Bar*: `LinearProgressIndicator` (tinggi 6px, radius 4) dengan warna responsif (hijau / amber / merah).
+    4. *Pods Metrik Side-by-Side*: Nominal `Terpakai` dan `Sisa Anggaran` masing-masing dibungkus kontainer pod terpisah dengan `FittedBox`, menghilangkan risiko tabrakan teks atau overflow horizontal pada angka besar.
+  - Teruji dengan test suite `test/budget_detail_screen_test.dart` (8 tests) dan seluruh 194 unit & widget tests lulus 100%.
+- [x] Perbaikan Grafik Batang Mengambang pada Rincian Anggaran ([`lib/screens/budget_detail_screen.dart`](lib/screens/budget_detail_screen.dart)):
+  - **Penyebab Batang Mengambang**: Pada layer plot batang `_buildUsageBarChart`, widget batang dibungkus dengan `child: Center(` di dalam `Expanded`, sehingga batang harian terpusat secara vertikal di tengah area plot dan melayang di udara tanpa menyentuh garis baseline 0.
+  - **Solusi**: Mengganti `child: Center(` dengan `child: Align(alignment: Alignment.bottomCenter, ...)` dan menyetel sudut bawah bar `bottom: Radius.circular(1)` sehingga batang berdiri kokoh tepat di atas garis baseline 0 dan tumbuh ke atas sesuai proporsi nominal.
+- [x] Rilis Versi 2.0.7 (Build +15) & Pembaruan Catatan Rilis:
+  - Menaikkan versi aplikasi di [`pubspec.yaml`](pubspec.yaml) ke `2.0.7+15`.
+  - Menambahkan metadata rilis v2.0.7 pada [`lib/models/changelog_model.dart`](lib/models/changelog_model.dart) (`ChangelogData.currentVersion = '2.0.7'`).
+  - Fitur utama v2.0.7: Akumulasi Anggaran Kategori (Roll-up Envelope Budgeting), Kustomisasi Tanggal Reset Anggaran Bulanan (1–31) di Profil, Streak Pencatatan Finansial di Profil, dan Redesain Anti-Slop Rincian Anggaran (tahan angka besar, bebas tombol edit langsung pada kartu, dan batang grafik grounded di baseline 0).
+  - Mengompilasi split-per-abi release APK yang terkompresi (dari 103 MB turun ke **40 MB** untuk ARM64 dan **34 MB** untuk ARMv7) di [`yotro-app.apk`](yotro-app.apk), [`yotro-app-arm64.apk`](yotro-app-arm64.apk), dan [`yotro-app-armv7.apk`](yotro-app-armv7.apk).
+  - Tervalidasi lulus 194 unit & widget tests (`flutter test`).
 - [x] File handover AI context di `context.md`.
 - [x] Aturan otomatisasi workspace agent di `AGENTS.md` dan `GEMINI.md` (auto-sync `context.md`).
 
@@ -1799,7 +1944,7 @@ Saat melanjutkan proyek ini:
 8. **In-App OTA Updater & Changelog Invariants:**
    - Model rilis GitHub: `ianfrds/yotroapp`.
    - `package_info_plus: ^10.2.2` & `open_filex: ^4.7.0` mengelola deteksi versi dan instalasi paket.
-   - Versi saat ini di `pubspec.yaml` adalah `2.0.6+14` dengan `ChangelogData.currentVersion = '2.0.6'`.
+   - Versi saat ini di `pubspec.yaml` adalah `2.0.7+15` dengan `ChangelogData.currentVersion = '2.0.7'`.
    - Workflow `.github/workflows/build-apk.yml` hanya membangun branch/PR/manual-dispatch untuk validasi dengan keystore sementara. Workflow tidak merespons tag dan tidak menerbitkan GitHub Release.
    - Jangan distribusikan artifact GitHub Actions atau rilis `v2.0.3`; keduanya memakai keystore CI sementara. Produksi memakai APK lokal yang ditandatangani keystore produksi dan sudah diuji langsung di perangkat.
    - Publikasi produksi dilakukan manual melalui GitHub Release UI: tag harus cocok dengan versi, release non-draft/non-prerelease/latest, dan asset wajib bernama `yotro-app.apk`.

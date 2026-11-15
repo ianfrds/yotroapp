@@ -1,7 +1,7 @@
 name: money_tracker
 description: A minimalist dark mode Money Tracker app built with Flutter and Forui.
 publish_to: 'none'
-version: 2.0.6+14
+version: 2.0.7+15
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

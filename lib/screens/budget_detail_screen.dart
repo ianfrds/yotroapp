@@ -162,35 +162,66 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
             ),
           ),
           const SizedBox(height: 18),
-          SizedBox(
-            height: 44,
-            child: ElevatedButton(
-              onPressed: () async {
-                final cleanStr = controller.text.replaceAll('.', '').trim();
-                final val = double.tryParse(cleanStr) ?? currentLimit;
-                if (_isOverall) {
-                  await provider.updateOverallBudget(val);
-                } else {
-                  await provider.updateCategoryBudget(widget.categoryName!, val);
-                }
-                if (context.mounted) Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF02539A),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
+          Row(
+            children: [
+              if (currentLimit > 0) ...[
+                InkWell(
+                  onTap: () {
+                    Navigator.pop(context);
+                    _confirmDeleteBudget(context, provider);
+                  },
                   borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    height: 44,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.35)),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: Color(0xFFEF4444),
+                      size: 20,
+                    ),
+                  ),
                 ),
-                elevation: 0,
-              ),
-              child: Text(
-                'Simpan Perubahan',
-                style: GoogleFonts.manrope(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
+                const SizedBox(width: 10),
+              ],
+              Expanded(
+                child: SizedBox(
+                  height: 44,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final cleanStr = controller.text.replaceAll('.', '').trim();
+                      final val = double.tryParse(cleanStr) ?? 0.0;
+                      if (_isOverall) {
+                        await provider.updateOverallBudget(val);
+                      } else {
+                        await provider.updateCategoryBudget(widget.categoryName!, val);
+                      }
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF02539A),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'Simpan Perubahan',
+                      style: GoogleFonts.manrope(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         ],
       ),
@@ -205,14 +236,16 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
         backgroundColor: isDark ? const Color(0xFF131A26) : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
-          'Hapus Budget Kategori?',
+          _isOverall ? 'Hapus Batas Anggaran?' : 'Hapus Budget Kategori?',
           style: GoogleFonts.interTight(
             color: isDark ? Colors.white : const Color(0xFF0F172A),
             fontWeight: FontWeight.w600,
           ),
         ),
         content: Text(
-          'Target budget untuk "${widget.categoryName}" akan dihapus. Transaksi tidak akan terpengaruh.',
+          _isOverall
+              ? 'Batas anggaran bulanan keseluruhan akan dihapus. Riwayat transaksi tetap aman.'
+              : 'Target budget untuk "${widget.categoryName}" akan dihapus. Transaksi tidak akan terpengaruh.',
           style: GoogleFonts.manrope(
             color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
             fontSize: 13,
@@ -232,7 +265,11 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              await provider.deleteCategoryBudget(widget.categoryName!);
+              if (_isOverall) {
+                await provider.deleteOverallBudget();
+              } else {
+                await provider.deleteCategoryBudget(widget.categoryName!);
+              }
               if (context.mounted) {
                 Navigator.pop(context);
               }
@@ -259,19 +296,31 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
         : null;
 
     final double budgetLimit = _isOverall
-        ? provider.budget.overallMonthlyLimit
+        ? (provider.totalCategoryBudget > 0
+            ? provider.totalCategoryBudget
+            : provider.budget.overallMonthlyLimit)
         : (provider.budget.categoryBudgets[widget.categoryName] ??
             (targetNorm != null ? provider.budget.categoryBudgets[targetNorm] : null) ??
             widget.customLimit ??
             0.0);
 
-    // Matching expense transactions
+    final cycle = provider.currentBudgetCycle;
+    // Matching expense transactions within current cycle
     final matchingTransactions = provider.transactions.where((t) {
       if (t.type != TransactionType.expense) return false;
+      if (t.timestamp.isBefore(cycle.start) || t.timestamp.isAfter(cycle.end)) {
+        return false;
+      }
       if (!_isOverall && targetNorm != null) {
         if (CategoryModel.normalizeCategoryName(t.categoryName) != targetNorm) {
           return false;
         }
+      } else if (_isOverall && provider.totalCategoryBudget > 0) {
+        final catNorm = CategoryModel.normalizeCategoryName(t.categoryName);
+        final isBudgeted = provider.budget.categoryBudgets.keys.any(
+          (k) => CategoryModel.normalizeCategoryName(k) == catNorm,
+        );
+        if (!isBudgeted) return false;
       }
       return true;
     }).toList();
@@ -279,7 +328,9 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
     matchingTransactions.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
     final double totalSpent = _isOverall
-        ? provider.totalExpense
+        ? (provider.totalCategoryBudget > 0
+            ? provider.totalBudgetedExpense
+            : provider.currentCycleExpense)
         : matchingTransactions.fold(0.0, (sum, t) => sum + t.amount);
     final double remaining = math.max(0.0, budgetLimit - totalSpent);
 
@@ -314,6 +365,13 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
 
     final String displayName = _isOverall ? 'Semua Pengeluaran' : (widget.categoryName ?? 'Anggaran');
 
+    final double usagePct = budgetLimit > 0 ? (totalSpent / budgetLimit * 100) : 0.0;
+    final bool isOver = usagePct >= 100;
+    final bool isWarn = usagePct >= 80 && !isOver;
+    const positiveGreen = Color(0xFF22C55E);
+    const warningAmber = Color(0xFFF59E0B);
+    const negativeRed = Color(0xFFEF4444);
+
     final bgColor = isDark ? const Color(0xFF0F141C) : const Color(0xFFF4F5F7);
     final cardBg = isDark ? const Color(0xFF141C28) : Colors.white;
     final borderColor = isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFE2E8F0);
@@ -340,49 +398,55 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
                     ),
                     tooltip: 'Tutup',
                   ),
-                  Text(
-                    'Rincian Anggaran',
-                    style: GoogleFonts.interTight(
-                      color: textPrimary,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.2,
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'Rincian Anggaran',
+                        style: GoogleFonts.interTight(
+                          color: textPrimary,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
-                  PopupMenuButton<String>(
-                    icon: Icon(
-                      Icons.more_horiz_rounded,
-                      color: textPrimary,
-                      size: 24,
-                    ),
-                    color: isDark ? const Color(0xFF131A26) : Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    onSelected: (val) {
-                      if (val == 'edit') {
-                        _showEditSheet(context, provider, budgetLimit);
-                      } else if (val == 'delete' && !_isOverall) {
-                        _confirmDeleteBudget(context, provider);
-                      }
-                    },
-                    itemBuilder: (ctx) => [
-                      PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit_outlined, size: 18, color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A)),
-                            const SizedBox(width: 10),
-                            Text(
-                              'Ubah Budget',
-                              style: GoogleFonts.manrope(
-                                color: textPrimary,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
+                  if (!_isOverall || (provider.budget.overallMonthlyLimit > 0 && provider.totalCategoryBudget <= 0))
+                    PopupMenuButton<String>(
+                      icon: Icon(
+                        Icons.more_horiz_rounded,
+                        color: textPrimary,
+                        size: 24,
                       ),
-                      if (!_isOverall)
+                      color: isDark ? const Color(0xFF131A26) : Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      onSelected: (val) {
+                        if (val == 'edit') {
+                          _showEditSheet(context, provider, budgetLimit);
+                        } else if (val == 'delete') {
+                          _confirmDeleteBudget(context, provider);
+                        }
+                      },
+                      itemBuilder: (ctx) => [
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit_outlined, size: 18, color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A)),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Ubah Budget',
+                                style: GoogleFonts.manrope(
+                                  color: textPrimary,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                         PopupMenuItem(
                           value: 'delete',
                           child: Row(
@@ -390,7 +454,7 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
                               const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFFEF4444)),
                               const SizedBox(width: 10),
                               Text(
-                                'Hapus Budget',
+                                'Hapus Anggaran',
                                 style: GoogleFonts.manrope(
                                   color: const Color(0xFFEF4444),
                                   fontSize: 13,
@@ -400,8 +464,10 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
                             ],
                           ),
                         ),
-                    ],
-                  ),
+                      ],
+                    )
+                  else
+                    const SizedBox(width: 48),
                 ],
               ),
             ),
@@ -410,7 +476,7 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 6, 16, 28),
                 children: [
-                  // 1. Top Summary Card (matches uploaded layout)
+                  // 1. Top Summary Card (Responsive Anti-Slop Layout)
                   Container(
                     decoration: BoxDecoration(
                       color: cardBg,
@@ -426,31 +492,31 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
                     ),
                     padding: const EdgeInsets.all(16),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Row 1: Category avatar + Name, Right: Total Limit
+                        // Row 1: Category avatar + Name & Subtitle + Status Badge
                         Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Circular Category Icon Avatar with red badge
                             Stack(
                               clipBehavior: Clip.none,
                               children: [
                                 Container(
-                                  width: 44,
-                                  height: 44,
+                                  width: 42,
+                                  height: 42,
                                   decoration: BoxDecoration(
                                     color: isDark ? Colors.white.withOpacity(0.07) : const Color(0xFFF1F5F9),
                                     shape: BoxShape.circle,
                                   ),
                                   alignment: Alignment.center,
                                   child: catObj != null
-                                      ? catObj.buildIconWidget(size: 22)
+                                      ? catObj.buildIconWidget(size: 20)
                                       : Icon(
                                           _isOverall
                                               ? Icons.account_balance_wallet_rounded
                                               : Icons.label_rounded,
                                           color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
-                                          size: 22,
+                                          size: 20,
                                         ),
                                 ),
                                 Positioned(
@@ -465,7 +531,7 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
                                     ),
                                     child: const Icon(
                                       Icons.arrow_upward_rounded,
-                                      size: 9,
+                                      size: 8,
                                       color: Colors.white,
                                     ),
                                   ),
@@ -477,87 +543,207 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    displayName,
-                                    style: GoogleFonts.interTight(
-                                      color: textPrimary,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: -0.2,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          displayName,
+                                          style: GoogleFonts.interTight(
+                                            color: textPrimary,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: -0.2,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: isOver
+                                              ? negativeRed.withOpacity(0.18)
+                                              : (isWarn ? warningAmber.withOpacity(0.18) : positiveGreen.withOpacity(0.18)),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          isOver ? '100% Terlampaui' : (isWarn ? '80% Waspada' : 'Aman'),
+                                          style: GoogleFonts.manrope(
+                                            color: isOver ? negativeRed : (isWarn ? warningAmber : positiveGreen),
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    _isOverall ? 'Anggaran Keseluruhan' : 'Anggaran Kategori',
+                                    _isOverall
+                                        ? (provider.totalCategoryBudget > 0
+                                            ? '${provider.activeCategoryBudgetCount} Kategori · Periode ${provider.currentBudgetCycleLabel}'
+                                            : 'Semua Pengeluaran · Periode ${provider.currentBudgetCycleLabel}')
+                                        : 'Anggaran Kategori · Periode ${provider.currentBudgetCycleLabel}',
                                     style: GoogleFonts.manrope(
                                       color: textMuted,
-                                      fontSize: 11.5,
+                                      fontSize: 11,
                                       fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 14),
+                        Container(height: 1, color: borderColor),
+                        const SizedBox(height: 12),
+
+                        // Row 2: Batas Anggaran + Usage Percentage
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Batas Anggaran',
+                                    style: GoogleFonts.manrope(
+                                      color: textMuted,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      provider.formatCurrency(budgetLimit),
+                                      style: GoogleFonts.interTight(
+                                        color: textPrimary,
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: -0.3,
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
+                            const SizedBox(width: 12),
                             Text(
-                              provider.formatCurrency(budgetLimit),
+                              '${usagePct.toStringAsFixed(1)}%',
                               style: GoogleFonts.interTight(
-                                color: textPrimary,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: -0.3,
+                                color: isOver
+                                    ? negativeRed
+                                    : (isWarn ? warningAmber : textPrimary),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 14),
-                        Container(height: 1, color: borderColor),
-                        const SizedBox(height: 12),
-                        // Row 2: Terpakai vs Sisa
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Flexible(
-                              child: Text.rich(
-                                TextSpan(
-                                  text: 'Terpakai : ',
-                                  style: GoogleFonts.manrope(
-                                    color: const Color(0xFFEF4444),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  children: [
-                                    TextSpan(
-                                      text: provider.formatCurrency(totalSpent),
-                                      style: GoogleFonts.interTight(
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
+
+                        const SizedBox(height: 8),
+
+                        // Progress Indicator
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: budgetLimit > 0 ? (totalSpent / budgetLimit).clamp(0.0, 1.0) : 0.0,
+                            backgroundColor: isDark ? const Color(0xFF0C0E14) : const Color(0xFFE2E8F0),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              isOver ? negativeRed : (isWarn ? warningAmber : positiveGreen),
                             ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text.rich(
-                                TextSpan(
-                                  text: 'Sisa : ',
-                                  style: GoogleFonts.manrope(
-                                    color: textMuted,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                            minHeight: 6,
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // Row 3: Terpakai vs Sisa Anggaran Pods
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: isDark ? Colors.white.withOpacity(0.03) : const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: borderColor),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    TextSpan(
-                                      text: provider.formatCurrency(remaining),
-                                      style: GoogleFonts.interTight(
-                                        color: textPrimary,
+                                    Text(
+                                      'Terpakai',
+                                      style: GoogleFonts.manrope(
+                                        color: const Color(0xFFEF4444),
+                                        fontSize: 11,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
+                                    const SizedBox(height: 2),
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        provider.formatCurrency(totalSpent),
+                                        style: GoogleFonts.interTight(
+                                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
                                   ],
                                 ),
-                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: isDark ? Colors.white.withOpacity(0.03) : const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: borderColor),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Sisa Anggaran',
+                                      style: GoogleFonts.manrope(
+                                        color: textMuted,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        provider.formatCurrency(remaining),
+                                        style: GoogleFonts.interTight(
+                                          color: isOver
+                                              ? const Color(0xFFEF4444)
+                                              : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
@@ -864,8 +1050,9 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
     final dashedColor = isDark ? Colors.white.withOpacity(0.09) : const Color(0xFFE2E8F0);
 
     if (activeDays.isEmpty || totalSpent == 0) {
-      return SizedBox(
-        height: 180,
+      return Container(
+        constraints: const BoxConstraints(minHeight: 180),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1095,7 +1282,8 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
                                         _selectedChartDate!.day == day.day;
 
                                     return Expanded(
-                                      child: Center(
+                                      child: Align(
+                                        alignment: Alignment.bottomCenter,
                                         child: InkWell(
                                           onTap: () {
                                             setState(() {
@@ -1114,7 +1302,7 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
                                                     : const Color(0xFFEF4444),
                                                 borderRadius: const BorderRadius.vertical(
                                                   top: Radius.circular(5),
-                                                  bottom: Radius.circular(2),
+                                                  bottom: Radius.circular(1),
                                                 ),
                                                 boxShadow: isSelected
                                                     ? [

@@ -114,10 +114,10 @@ void main() {
 
       // Verify Empty State is shown
       expect(find.text('Belum Ada Anggaran'), findsOneWidget);
-      expect(find.text('Atur Anggaran Bulanan'), findsOneWidget);
       expect(find.text('Tambah Budget Kategori'), findsOneWidget);
 
-      // Verify 'Batas Budget Keseluruhan' card is NOT shown
+      // Verify 'Total Anggaran Bulan Ini' and 'Batas Budget Keseluruhan' cards are NOT shown
+      expect(find.text('Total Anggaran Bulan Ini'), findsNothing);
       expect(find.text('Batas Budget Keseluruhan'), findsNothing);
     });
   });

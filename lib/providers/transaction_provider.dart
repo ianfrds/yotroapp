@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -174,6 +175,36 @@ class TransactionProvider with ChangeNotifier {
         tx.timestamp.year == now.year &&
         tx.timestamp.month == now.month &&
         tx.timestamp.day == now.day);
+  }
+
+  int get recordingStreak {
+    if (_transactions.isEmpty) return 0;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    final recordedDates = <DateTime>{};
+    for (final t in _transactions) {
+      recordedDates.add(DateTime(t.timestamp.year, t.timestamp.month, t.timestamp.day));
+    }
+
+    DateTime checkDate;
+    if (recordedDates.contains(today)) {
+      checkDate = today;
+    } else if (recordedDates.contains(yesterday)) {
+      checkDate = yesterday;
+    } else {
+      return 0;
+    }
+
+    int streak = 0;
+    while (recordedDates.contains(checkDate)) {
+      streak++;
+      checkDate = checkDate.subtract(const Duration(days: 1));
+    }
+
+    return streak;
   }
 
   bool get shouldShowDailyReminder =>
@@ -364,14 +395,135 @@ class TransactionProvider with ChangeNotifier {
         .fold(0.0, (sum, t) => sum + t.amount);
   }
 
+  DateTimeRange getBudgetCycleForDate({DateTime? referenceDate, int? resetDay}) {
+    final now = referenceDate ?? DateTime.now();
+    final day = (resetDay ?? _budget.monthlyResetDay).clamp(1, 31);
+
+    int daysInMonth(int year, int month) =>
+        DateTime(year, month + 1, 0).day;
+
+    DateTime startDate;
+    DateTime endDate;
+
+    if (day == 1) {
+      final lastDay = daysInMonth(now.year, now.month);
+      startDate = DateTime(now.year, now.month, 1, 0, 0, 0);
+      endDate = DateTime(now.year, now.month, lastDay, 23, 59, 59, 999);
+    } else {
+      if (now.day >= day) {
+        final startYear = now.year;
+        final startMonth = now.month;
+        final startDay = math.min(day, daysInMonth(startYear, startMonth));
+        startDate = DateTime(startYear, startMonth, startDay, 0, 0, 0);
+
+        final nextYear = startMonth == 12 ? startYear + 1 : startYear;
+        final nextMonth = startMonth == 12 ? 1 : startMonth + 1;
+        final nextCycleDay = math.min(day, daysInMonth(nextYear, nextMonth));
+        endDate = DateTime(nextYear, nextMonth, nextCycleDay, 0, 0, 0)
+            .subtract(const Duration(milliseconds: 1));
+      } else {
+        final prevYear = now.month == 1 ? now.year - 1 : now.year;
+        final prevMonth = now.month == 1 ? 12 : now.month - 1;
+        final startDay = math.min(day, daysInMonth(prevYear, prevMonth));
+        startDate = DateTime(prevYear, prevMonth, startDay, 0, 0, 0);
+
+        final endCycleDay = math.min(day, daysInMonth(now.year, now.month));
+        endDate = DateTime(now.year, now.month, endCycleDay, 0, 0, 0)
+            .subtract(const Duration(milliseconds: 1));
+      }
+    }
+
+    return DateTimeRange(start: startDate, end: endDate);
+  }
+
+  DateTimeRange get currentBudgetCycle => getBudgetCycleForDate();
+
+  String get currentBudgetCycleLabel {
+    final cycle = currentBudgetCycle;
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+      'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'
+    ];
+    final s = cycle.start;
+    final e = cycle.end;
+    if (s.year == e.year) {
+      if (s.month == e.month) {
+        return '${s.day} - ${e.day} ${months[s.month - 1]} ${s.year}';
+      }
+      return '${s.day} ${months[s.month - 1]} - ${e.day} ${months[e.month - 1]} ${s.year}';
+    }
+    return '${s.day} ${months[s.month - 1]} ${s.year} - ${e.day} ${months[e.month - 1]} ${e.year}';
+  }
+
+  int get currentBudgetDaysRemaining {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final cycleEndDay = DateTime(
+      currentBudgetCycle.end.year,
+      currentBudgetCycle.end.month,
+      currentBudgetCycle.end.day,
+    );
+    final diff = cycleEndDay.difference(today).inDays;
+    return math.max(0, diff + 1);
+  }
+
+  double get currentCycleExpense {
+    final cycle = currentBudgetCycle;
+    return _transactions
+        .where((t) =>
+            t.type == TransactionType.expense &&
+            !t.timestamp.isBefore(cycle.start) &&
+            !t.timestamp.isAfter(cycle.end))
+        .fold(0.0, (sum, t) => sum + t.amount);
+  }
+
+  double getCategoryCycleExpense(String categoryName) {
+    final cycle = currentBudgetCycle;
+    final normTarget = CategoryModel.normalizeCategoryName(categoryName);
+    return _transactions
+        .where((t) =>
+            t.type == TransactionType.expense &&
+            CategoryModel.normalizeCategoryName(t.categoryName) == normTarget &&
+            !t.timestamp.isBefore(cycle.start) &&
+            !t.timestamp.isAfter(cycle.end))
+        .fold(0.0, (sum, t) => sum + t.amount);
+  }
+
+  /// Total nominal batas anggaran dari seluruh kategori yang aktif
+  double get totalCategoryBudget =>
+      _budget.categoryBudgets.values.fold(0.0, (sum, limit) => sum + limit);
+
+  /// Jumlah kategori yang memiliki batas anggaran aktif
+  int get activeCategoryBudgetCount => _budget.categoryBudgets.length;
+
+  /// Total pengeluaran siklus aktif khusus untuk kategori-kategori yang dibudgetkan
+  double get totalBudgetedExpense {
+    if (_budget.categoryBudgets.isEmpty) return 0.0;
+    return _budget.categoryBudgets.keys.fold(0.0, (sum, cat) {
+      return sum + getCategoryCycleExpense(cat);
+    });
+  }
+
+  /// Batas anggaran bulanan efektif: total akumulasi kategori (jika ada), atau fallback ke overall limit
+  double get effectiveMonthlyBudget =>
+      totalCategoryBudget > 0 ? totalCategoryBudget : _budget.overallMonthlyLimit;
+
   double get remainingBudget {
-    final rem = _budget.overallMonthlyLimit - totalExpense;
+    if (totalCategoryBudget > 0) {
+      final rem = totalCategoryBudget - totalBudgetedExpense;
+      return rem > 0 ? rem : 0.0;
+    }
+    final rem = _budget.overallMonthlyLimit - currentCycleExpense;
     return rem > 0 ? rem : 0.0;
   }
 
   double get budgetUsagePercentage {
+    if (totalCategoryBudget > 0) {
+      final pct = (totalBudgetedExpense / totalCategoryBudget) * 100;
+      return pct > 100 ? 100 : pct;
+    }
     if (_budget.overallMonthlyLimit <= 0) return 0.0;
-    final pct = (totalExpense / _budget.overallMonthlyLimit) * 100;
+    final pct = (currentCycleExpense / _budget.overallMonthlyLimit) * 100;
     return pct > 100 ? 100 : pct;
   }
 
@@ -2371,6 +2523,12 @@ class TransactionProvider with ChangeNotifier {
     await saveData();
   }
 
+  Future<void> deleteOverallBudget() async {
+    _budget.overallMonthlyLimit = 0.0;
+    notifyListeners();
+    await saveData();
+  }
+
   Future<void> updateCategoryBudget(String category, double limit) async {
     _budget.categoryBudgets[category] = limit;
     notifyListeners();
@@ -2379,6 +2537,12 @@ class TransactionProvider with ChangeNotifier {
 
   Future<void> deleteCategoryBudget(String category) async {
     _budget.categoryBudgets.remove(category);
+    notifyListeners();
+    await saveData();
+  }
+
+  Future<void> updateBudgetResetDay(int day) async {
+    _budget.monthlyResetDay = day.clamp(1, 31);
     notifyListeners();
     await saveData();
   }

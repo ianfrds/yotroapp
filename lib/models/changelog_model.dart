@@ -17,7 +17,7 @@ class ChangelogItem {
 }
 
 class ChangelogData {
-  static const String currentVersion = '2.0.6';
+  static const String currentVersion = '2.0.7';
 
   static ChangelogItem? getRelease(String tagOrVersion) {
     final clean =
@@ -30,10 +30,27 @@ class ChangelogData {
 
   static const List<ChangelogItem> history = [
     ChangelogItem(
+      version: '2.0.7',
+      date: '15 November 2026',
+      title: 'Akumulasi Anggaran Kategori & Kustomisasi Siklus Reset',
+      isCurrent: true,
+      features: [
+        'Total anggaran bulanan kini merupakan akumulasi otomatis dari seluruh kategori aktif (Envelope Budgeting).',
+        'Kustomisasi tanggal reset anggaran bulanan (1–31) di Profil & Pengaturan dengan preset cepat (Awal Bulan, Tanggal Gajian, Akhir Bulan).',
+        'Fitur Streak Pencatatan Finansial di Profil untuk melacak konsistensi pencatatan harian.',
+      ],
+      improvements: [
+        'Redesain anti-slop kartu rincian anggaran: tata letak responsif bertingkat yang kokoh untuk nominal puluhan juta hingga miliaran.',
+        'Eliminasi tombol edit langsung pada kartu anggaran; opsi ubah dan hapus budget kategori dialihkan bersih ke menu titik tiga.',
+        'Perbaikan grafik batang harian pada rincian anggaran agar menempel presisi di garis baseline 0.',
+        'Pembersihan modal reset siklus anggaran menjadi grid kalender 7 kolom ringkas tanpa scroll.',
+      ],
+    ),
+    ChangelogItem(
       version: '2.0.6',
       date: '15 November 2026',
       title: 'Sinkronisasi Real-Time Saldo Dompet & Rekonsiliasi Otomatis',
-      isCurrent: true,
+      isCurrent: false,
       features: [
         'Sinkronisasi real-time saldo dompet langsung ke database cloud Supabase pada setiap transaksi baru, ubah, atau hapus.',
         'Pemulihan mandiri otomatis (Self-Healing) yang menghitung dan memulihkan saldo dompet yang sempat reset menjadi Rp 0 dari riwayat transaksi.',

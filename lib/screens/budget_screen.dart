@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -361,31 +362,110 @@ class BudgetScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 18),
-          SizedBox(
-            height: 48,
-            child: ElevatedButton(
-              onPressed: () async {
-                final cleanStr = controller.text.replaceAll('.', '').trim();
-                final val = double.tryParse(cleanStr) ?? provider.budget.overallMonthlyLimit;
-                await provider.updateOverallBudget(val);
-                if (context.mounted) Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _accentOceanic,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
+          Row(
+            children: [
+              if (provider.budget.overallMonthlyLimit > 0) ...[
+                InkWell(
+                  onTap: () {
+                    Navigator.pop(context);
+                    _confirmDeleteOverallBudget(context, provider);
+                  },
                   borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    height: 48,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: _negativeRed.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _negativeRed.withOpacity(0.35)),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: _negativeRed,
+                      size: 20,
+                    ),
+                  ),
                 ),
-                elevation: 0,
+                const SizedBox(width: 10),
+              ],
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final cleanStr = controller.text.replaceAll('.', '').trim();
+                      final val = double.tryParse(cleanStr) ?? 0.0;
+                      await provider.updateOverallBudget(val);
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _accentOceanic,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'Simpan Perubahan',
+                      style: GoogleFonts.manrope(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
               ),
-              child: Text(
-                'Simpan Perubahan',
-                style: GoogleFonts.manrope(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteOverallBudget(BuildContext context, TransactionProvider provider) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF131A26) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Hapus Batas Anggaran?',
+          style: GoogleFonts.interTight(
+            color: isDark ? Colors.white : const Color(0xFF0F172A),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: Text(
+          'Batas anggaran bulanan keseluruhan akan dihapus. Riwayat transaksi tetap aman.',
+          style: GoogleFonts.manrope(
+            color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+            fontSize: 13,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Batal',
+              style: GoogleFonts.manrope(
+                color: isDark ? Colors.white70 : const Color(0xFF64748B),
+                fontWeight: FontWeight.w600,
               ),
             ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await provider.deleteOverallBudget();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _negativeRed,
+              foregroundColor: Colors.white,
+            ),
+            child: Text('Hapus', style: GoogleFonts.manrope(fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -396,17 +476,21 @@ class BudgetScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final provider = context.watch<TransactionProvider>();
-    final totalExpense = provider.totalExpense;
-    final overallLimit = provider.budget.overallMonthlyLimit;
+    final categoryBudgets = provider.budget.categoryBudgets;
+    final hasCategoryBudgets = categoryBudgets.isNotEmpty;
+    final hasOverallBudget = provider.budget.overallMonthlyLimit > 0;
+    final hasAnyBudget = hasCategoryBudgets || hasOverallBudget;
+
+    final totalExpense = hasCategoryBudgets
+        ? provider.totalBudgetedExpense
+        : provider.currentCycleExpense;
+    final effectiveLimit = hasCategoryBudgets
+        ? provider.totalCategoryBudget
+        : provider.budget.overallMonthlyLimit;
     final budgetPct = provider.budgetUsagePercentage;
 
     final isOver = budgetPct >= 100;
     final isWarn = budgetPct >= 80 && !isOver;
-
-    final categoryBudgets = provider.budget.categoryBudgets;
-    final hasCategoryBudgets = categoryBudgets.isNotEmpty;
-    final hasOverallBudget = overallLimit > 0;
-    final hasAnyBudget = hasOverallBudget || hasCategoryBudgets;
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF1C2229) : const Color(0xFFF4F5F7),
@@ -479,7 +563,7 @@ class BudgetScreen extends StatelessWidget {
                       ),
                       alignment: Alignment.center,
                       child: Icon(
-                        Icons.account_balance_wallet_outlined,
+                        Icons.donut_small_rounded,
                         size: 28,
                         color: isDark ? _cyan : const Color(0xFF02539A),
                       ),
@@ -495,7 +579,7 @@ class BudgetScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Atur batas anggaran bulanan atau per kategori untuk memantau pengeluaran Anda.',
+                      'Pasang batas anggaran per kategori (seperti Makanan, Transportasi, atau Hiburan) untuk memantau pengeluaran Anda.',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.manrope(
                         color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
@@ -508,12 +592,12 @@ class BudgetScreen extends StatelessWidget {
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton.icon(
-                        onPressed: () => _showEditOverallBudgetSheet(context, provider),
-                        icon: const Icon(Icons.add_rounded, size: 16),
+                        onPressed: () => _showAddOrEditCategoryBudgetSheet(context, provider),
+                        icon: const Icon(Icons.add_rounded, size: 18),
                         label: Text(
-                          'Atur Anggaran Bulanan',
+                          'Tambah Budget Kategori',
                           style: GoogleFonts.manrope(
-                            fontSize: 13,
+                            fontSize: 13.5,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -527,183 +611,390 @@ class BudgetScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 44,
-                      child: OutlinedButton.icon(
-                        onPressed: () => _showAddOrEditCategoryBudgetSheet(context, provider),
-                        icon: Icon(
-                          Icons.donut_small_rounded,
-                          size: 16,
-                          color: isDark ? _cyan : const Color(0xFF02539A),
-                        ),
-                        label: Text(
-                          'Tambah Budget Kategori',
-                          style: GoogleFonts.manrope(
-                            color: isDark ? Colors.white : const Color(0xFF0F172A),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(
-                            color: isDark ? Colors.white.withOpacity(0.12) : const Color(0xFFCBD5E1),
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
             ] else ...[
-              // 1. Overall Monthly Budget Card (Only shown if setup)
-              if (hasOverallBudget) ...[
-                NestedCard(
-                  title: 'Batas Budget Keseluruhan',
-                  action: 'Ubah',
-                  onActionTap: () => _showEditOverallBudgetSheet(context, provider),
-                  actionWidget: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: isOver
-                          ? _negativeRed.withOpacity(0.18)
-                          : (isWarn ? _warningAmber.withOpacity(0.18) : _positiveGreen.withOpacity(0.18)),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      isOver ? '100% Terlampaui' : (isWarn ? '80% Waspada' : 'Aman'),
-                      style: GoogleFonts.manrope(
-                        color: isOver ? _negativeRed : (isWarn ? _warningAmber : _positiveGreen),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+              // 1. Roll-up Summary Budget Card (or legacy overall budget card)
+              NestedCard(
+                title: hasCategoryBudgets ? 'Total Anggaran Bulan Ini' : 'Batas Budget Keseluruhan',
+                actionWidget: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: isOver
+                            ? _negativeRed.withOpacity(0.18)
+                            : (isWarn ? _warningAmber.withOpacity(0.18) : _positiveGreen.withOpacity(0.18)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        isOver ? '100% Terlampaui' : (isWarn ? '80% Waspada' : 'Aman'),
+                        style: GoogleFonts.manrope(
+                          color: isOver ? _negativeRed : (isWarn ? _warningAmber : _positiveGreen),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  ),
-                  child: InkWell(
-                    onTap: () => BudgetDetailScreen.show(context),
-                    borderRadius: BorderRadius.circular(16),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            textBaseline: TextBaseline.alphabetic,
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  provider.formatCurrency(totalExpense),
-                                  style: GoogleFonts.interTight(
-                                    color: isDark ? Colors.white : const Color(0xFF0F172A),
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                  'dari ${provider.formatCurrency(overallLimit)}',
-                                  style: GoogleFonts.manrope(
-                                    color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
+                    const SizedBox(width: 8),
+                    if (hasCategoryBudgets)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFCBD5E1),
                           ),
-                          const SizedBox(height: 12),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: LinearProgressIndicator(
-                              value: overallLimit > 0 ? (budgetPct / 100).clamp(0.0, 1.0) : 0.0,
-                              backgroundColor: isDark ? const Color(0xFF0C0E14) : const Color(0xFFE2E8F0),
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                isOver ? _negativeRed : (isWarn ? _warningAmber : _positiveGreen),
-                              ),
-                              minHeight: 8,
+                        ),
+                        child: Text(
+                          '${categoryBudgets.length} Kategori',
+                          style: GoogleFonts.manrope(
+                            color: isDark ? _cyan : const Color(0xFF02539A),
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      )
+                    else
+                      InkWell(
+                        onTap: () => _showEditOverallBudgetSheet(context, provider),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFCBD5E1),
                             ),
                           ),
-                          const SizedBox(height: 10),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  'Sisa: ${provider.formatCurrency(provider.remainingBudget)}',
-                                  style: GoogleFonts.manrope(
-                                    color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '${budgetPct.toStringAsFixed(1)}%',
-                                style: GoogleFonts.manrope(
-                                  color: isOver
-                                      ? _negativeRed
-                                      : (isWarn ? _warningAmber : (isDark ? Colors.white : const Color(0xFF0F172A))),
-                                  fontSize: 11.5,
+                          child: Icon(
+                            Icons.edit_outlined,
+                            size: 14,
+                            color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                child: InkWell(
+                  onTap: () => BudgetDetailScreen.show(context),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                provider.formatCurrency(totalExpense),
+                                style: GoogleFonts.interTight(
+                                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                  fontSize: 24,
                                   fontWeight: FontWeight.w600,
                                 ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ],
+                            ),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                'dari ${provider.formatCurrency(effectiveLimit)}',
+                                style: GoogleFonts.manrope(
+                                  color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: LinearProgressIndicator(
+                            value: effectiveLimit > 0 ? (budgetPct / 100).clamp(0.0, 1.0) : 0.0,
+                            backgroundColor: isDark ? const Color(0xFF0C0E14) : const Color(0xFFE2E8F0),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              isOver ? _negativeRed : (isWarn ? _warningAmber : _positiveGreen),
+                            ),
+                            minHeight: 8,
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                'Sisa: ${provider.formatCurrency(provider.remainingBudget)}',
+                                style: GoogleFonts.manrope(
+                                  color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${budgetPct.toStringAsFixed(1)}%',
+                              style: GoogleFonts.manrope(
+                                color: isOver
+                                    ? _negativeRed
+                                    : (isWarn ? _warningAmber : (isDark ? Colors.white : const Color(0xFF0F172A))),
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-              ],
+              ),
+              const SizedBox(height: 12),
 
-            // 2. Category Budgets Section (NestedCard)
-            NestedCard(
-              title: 'Budget Per Kategori',
-              action: '${categoryBudgets.length} Kategori',
-              child: !hasCategoryBudgets
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-                      child: Center(
+              // 2. Category Budgets Section (NestedCard)
+              NestedCard(
+                title: 'Budget Per Kategori',
+                actionWidget: InkWell(
+                  onTap: () => _showAddOrEditCategoryBudgetSheet(context, provider),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.add_rounded,
+                          size: 14,
+                          color: isDark ? _cyan : const Color(0xFF02539A),
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          'Tambah',
+                          style: GoogleFonts.manrope(
+                            color: isDark ? _cyan : const Color(0xFF02539A),
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                child: !hasCategoryBudgets
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                        child: Center(
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.donut_large_rounded,
+                                size: 32,
+                                color: isDark ? const Color(0xFF6F8197) : const Color(0xFF94A3B8),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                'Belum ada budget per kategori.',
+                                style: GoogleFonts.manrope(
+                                  color: isDark ? const Color(0xFF8CA7C5) : const Color(0xFF64748B),
+                                  fontSize: 12.5,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              InkWell(
+                                onTap: () => _showAddOrEditCategoryBudgetSheet(context, provider),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  child: Text(
+                                    '+ Tambah Budget Kategori',
+                                    style: GoogleFonts.manrope(
+                                      color: isDark ? _cyan : const Color(0xFF02539A),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Column(
                           children: [
-                            Icon(
-                              Icons.donut_large_rounded,
-                              size: 32,
-                              color: isDark ? const Color(0xFF6F8197) : const Color(0xFF94A3B8),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              'Belum ada budget per kategori.',
-                              style: GoogleFonts.manrope(
-                                color: isDark ? const Color(0xFF8CA7C5) : const Color(0xFF64748B),
-                                fontSize: 12.5,
+                            ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: categoryBudgets.length,
+                              separatorBuilder: (_, __) => Divider(
+                                color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFE2E8F0),
+                                height: 1,
+                                indent: 14,
+                                endIndent: 14,
                               ),
+                              itemBuilder: (context, index) {
+                                final entry = categoryBudgets.entries.elementAt(index);
+                                final catName = entry.key;
+                                final limit = entry.value;
+                                final spent = provider.getCategoryCycleExpense(catName);
+                                final pct = limit > 0 ? (spent / limit * 100).clamp(0.0, 100.0) : 0.0;
+                                final catObj = provider.getCategoryByName(catName);
+
+                                final catOver = pct >= 100;
+                                final catWarn = pct >= 80 && !catOver;
+
+                                return InkWell(
+                                  onTap: () => BudgetDetailScreen.show(
+                                    context,
+                                    categoryName: catName,
+                                    customLimit: limit,
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            if (catObj != null) ...[
+                                              catObj.buildIconWidget(size: 18),
+                                              const SizedBox(width: 8),
+                                            ],
+                                            Expanded(
+                                              child: Text(
+                                                catName,
+                                                style: GoogleFonts.manrope(
+                                                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                            Text(
+                                              '${pct.toStringAsFixed(1)}%',
+                                              style: GoogleFonts.manrope(
+                                                color: catOver
+                                                    ? _negativeRed
+                                                    : (catWarn ? _warningAmber : (isDark ? Colors.white : const Color(0xFF0F172A))),
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            InkWell(
+                                              onTap: () => _showAddOrEditCategoryBudgetSheet(
+                                                context,
+                                                provider,
+                                                initialCategory: catName,
+                                                initialLimit: limit,
+                                              ),
+                                              borderRadius: BorderRadius.circular(6),
+                                              child: Padding(
+                                                padding: const EdgeInsets.all(4),
+                                                child: Icon(
+                                                  Icons.edit_rounded,
+                                                  color: isDark ? const Color(0xFF6F8197) : const Color(0xFF94A3B8),
+                                                  size: 14,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(4),
+                                          child: LinearProgressIndicator(
+                                            value: (pct / 100).clamp(0.0, 1.0),
+                                            backgroundColor: isDark ? const Color(0xFF0C0E14) : const Color(0xFFE2E8F0),
+                                            valueColor: AlwaysStoppedAnimation<Color>(
+                                              catOver ? _negativeRed : (catWarn ? _warningAmber : _positiveGreen),
+                                            ),
+                                            minHeight: 6,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                '${provider.formatCurrency(spent)} terpakai',
+                                                style: GoogleFonts.manrope(
+                                                  color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                                                  fontSize: 10.5,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Flexible(
+                                              child: Text(
+                                                'dari batas ${provider.formatCurrency(limit)}',
+                                                style: GoogleFonts.manrope(
+                                                  color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                                                  fontSize: 10.5,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
-                            const SizedBox(height: 8),
-                            InkWell(
-                              onTap: () => _showAddOrEditCategoryBudgetSheet(context, provider),
-                              borderRadius: BorderRadius.circular(8),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                child: Text(
-                                  '+ Tambah Budget Kategori',
-                                  style: GoogleFonts.manrope(
-                                    color: isDark ? _cyan : const Color(0xFF02539A),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
+                            // Quick add button at the end of category list
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+                              child: InkWell(
+                                onTap: () => _showAddOrEditCategoryBudgetSheet(context, provider),
+                                borderRadius: BorderRadius.circular(10),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? Colors.white.withOpacity(0.03) : const Color(0xFFF8FAFC),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFCBD5E1),
+                                    ),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.add_circle_outline_rounded,
+                                        size: 16,
+                                        color: isDark ? _cyan : const Color(0xFF02539A),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Tambah Kategori Lain',
+                                        style: GoogleFonts.manrope(
+                                          color: isDark ? _cyan : const Color(0xFF02539A),
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -711,138 +1002,7 @@ class BudgetScreen extends StatelessWidget {
                           ],
                         ),
                       ),
-                    )
-                  : Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: categoryBudgets.length,
-                        separatorBuilder: (_, __) => Divider(
-                          color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFE2E8F0),
-                          height: 1,
-                          indent: 14,
-                          endIndent: 14,
-                        ),
-                        itemBuilder: (context, index) {
-                          final entry = categoryBudgets.entries.elementAt(index);
-                          final catName = entry.key;
-                          final limit = entry.value;
-                          final normCat = CategoryModel.normalizeCategoryName(catName);
-                          final spent = provider.transactions
-                              .where((t) => t.type == TransactionType.expense && CategoryModel.normalizeCategoryName(t.categoryName) == normCat)
-                              .fold(0.0, (sum, t) => sum + t.amount);
-                          final pct = limit > 0 ? (spent / limit * 100).clamp(0.0, 100.0) : 0.0;
-                          final catObj = provider.getCategoryByName(catName);
-
-                          final catOver = pct >= 100;
-                          final catWarn = pct >= 80 && !catOver;
-
-                          return InkWell(
-                            onTap: () => BudgetDetailScreen.show(
-                              context,
-                              categoryName: catName,
-                              customLimit: limit,
-                            ),
-                            borderRadius: BorderRadius.circular(10),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      if (catObj != null) ...[
-                                        catObj.buildIconWidget(size: 18),
-                                        const SizedBox(width: 8),
-                                      ],
-                                      Expanded(
-                                        child: Text(
-                                          catName,
-                                          style: GoogleFonts.manrope(
-                                            color: isDark ? Colors.white : const Color(0xFF0F172A),
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                      Text(
-                                        '${pct.toStringAsFixed(1)}%',
-                                        style: GoogleFonts.manrope(
-                                          color: catOver
-                                              ? _negativeRed
-                                              : (catWarn ? _warningAmber : (isDark ? Colors.white : const Color(0xFF0F172A))),
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      InkWell(
-                                        onTap: () => _showAddOrEditCategoryBudgetSheet(
-                                          context,
-                                          provider,
-                                          initialCategory: catName,
-                                          initialLimit: limit,
-                                        ),
-                                        borderRadius: BorderRadius.circular(6),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(4),
-                                          child: Icon(
-                                            Icons.edit_rounded,
-                                            color: isDark ? const Color(0xFF6F8197) : const Color(0xFF94A3B8),
-                                            size: 14,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: LinearProgressIndicator(
-                                      value: (pct / 100).clamp(0.0, 1.0),
-                                      backgroundColor: isDark ? const Color(0xFF0C0E14) : const Color(0xFFE2E8F0),
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        catOver ? _negativeRed : (catWarn ? _warningAmber : _positiveGreen),
-                                      ),
-                                      minHeight: 6,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Flexible(
-                                        child: Text(
-                                          '${provider.formatCurrency(spent)} terpakai',
-                                          style: GoogleFonts.manrope(
-                                            color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-                                            fontSize: 10.5,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Flexible(
-                                        child: Text(
-                                          'dari batas ${provider.formatCurrency(limit)}',
-                                          style: GoogleFonts.manrope(
-                                            color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-                                            fontSize: 10.5,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-            ),
+              ),
             ],
           ],
         ),

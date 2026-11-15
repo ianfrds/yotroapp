@@ -87,10 +87,12 @@ class SupabaseSyncService {
       }
 
       // 5. Upsert Budget
+      final catBudgetsWithMeta = Map<String, dynamic>.from(provider.budget.categoryBudgets);
+      catBudgetsWithMeta['_meta_reset_day'] = provider.budget.monthlyResetDay;
       await _client!.from('budgets').upsert({
         'user_id': user.id,
         'overall_monthly_limit': provider.budget.overallMonthlyLimit,
-        'category_budgets': provider.budget.categoryBudgets,
+        'category_budgets': catBudgetsWithMeta,
         'updated_at': now,
       });
 
@@ -240,12 +242,18 @@ class SupabaseSyncService {
       if (budgetRes != null) {
         final limit = (budgetRes['overall_monthly_limit'] as num?)?.toDouble() ?? 0.0;
         final rawCat = budgetRes['category_budgets'] as Map<String, dynamic>? ?? {};
-        final Map<String, double> catBudgets = rawCat.map(
-          (k, v) => MapEntry(k, (v as num).toDouble()),
-        );
+        final int? metaResetDay = (rawCat['_meta_reset_day'] as num?)?.toInt() ??
+            (budgetRes['monthly_reset_day'] as num?)?.toInt();
+        final Map<String, double> catBudgets = {};
+        rawCat.forEach((k, v) {
+          if (k != '_meta_reset_day' && v is num) {
+            catBudgets[k] = v.toDouble();
+          }
+        });
         fetchedBudget = BudgetModel(
           overallMonthlyLimit: limit,
           categoryBudgets: catBudgets,
+          monthlyResetDay: metaResetDay ?? 1,
         );
       }
 

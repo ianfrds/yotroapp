@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -140,8 +141,6 @@ class SettingsScreen extends StatelessWidget {
         isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B);
     final dividerColor =
         isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFE2E8F0);
-    final sepColor =
-        isDark ? Colors.white.withOpacity(0.07) : const Color(0xFFCBD5E1);
 
     return Column(
       children: [
@@ -248,74 +247,34 @@ class SettingsScreen extends StatelessWidget {
             color: dividerColor,
           ),
         ),
-        Row(
-          children: [
-            Expanded(
-              child: _buildProfileStat(
-                label: 'Transaksi',
-                value: '${provider.transactions.length}',
-                unit: 'catatan',
-                isDark: isDark,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          child: Row(
+            children: [
+              Icon(
+                Icons.local_fire_department_rounded,
+                size: 16,
+                color: isDark ? const Color(0xFFF59E0B) : const Color(0xFFD97706),
               ),
-            ),
-            Container(width: 1, height: 28, color: sepColor),
-            Expanded(
-              child: _buildProfileStat(
-                label: 'Dompet',
-                value: '${provider.wallets.length}',
-                unit: 'rekening',
-                isDark: isDark,
+              const SizedBox(width: 8),
+              Text(
+                'Streak Pencatatan',
+                style: GoogleFonts.manrope(
+                  color: mutedColor,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
-            Container(width: 1, height: 28, color: sepColor),
-            Expanded(
-              child: _buildProfileStat(
-                label: 'Bulan Ini',
-                value: provider.formatCurrency(provider.totalExpense),
-                unit: 'keluar',
-                isDark: isDark,
+              const Spacer(),
+              Text(
+                '${provider.recordingStreak} Hari',
+                style: GoogleFonts.interTight(
+                  color: textColor,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProfileStat({
-    required String label,
-    required String value,
-    required String unit,
-    required bool isDark,
-  }) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: GoogleFonts.manrope(
-            color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-            fontSize: 10.5,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 2),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            value,
-            style: GoogleFonts.interTight(
-              color: isDark ? Colors.white : const Color(0xFF0F172A),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        Text(
-          unit,
-          style: GoogleFonts.manrope(
-            color: isDark ? const Color(0xFF708398) : const Color(0xFF94A3B8),
-            fontSize: 9.5,
-            fontWeight: FontWeight.w500,
+            ],
           ),
         ),
       ],
@@ -569,6 +528,40 @@ class SettingsScreen extends StatelessWidget {
                     provider.dashboardViewMode.shortLabel,
                     style: GoogleFonts.interTight(
                       color: textColor,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right_rounded, color: mutedColor, size: 20),
+            ],
+          ),
+        ),
+        _buildDivider(context),
+        _buildSettingRow(
+          context: context,
+          icon: Icons.event_repeat_rounded,
+          title: 'Siklus Reset Anggaran',
+          subtitle: 'Tiap tgl ${provider.budget.monthlyResetDay} · Periode ${provider.currentBudgetCycleLabel}',
+          onTap: () => _showBudgetResetDaySheet(context, provider),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                height: 30,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: chipBg,
+                  borderRadius: BorderRadius.circular(9),
+                  border: Border.all(color: borderColor),
+                ),
+                child: Center(
+                  child: Text(
+                    'Tgl ${provider.budget.monthlyResetDay}',
+                    style: GoogleFonts.interTight(
+                      color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,
                     ),
@@ -2714,6 +2707,265 @@ class SettingsScreen extends StatelessWidget {
             ],
           );
         },
+      ),
+    );
+  }
+
+  void _showBudgetResetDaySheet(BuildContext context, TransactionProvider provider) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    int selectedDay = provider.budget.monthlyResetDay;
+    const cyan = Color(0xFF55C7FF);
+
+    _showModalCardSheet(
+      context: context,
+      title: 'Tanggal Reset Bulanan',
+      titleIcon: Icons.event_repeat_rounded,
+      titleIconColor: isDark ? cyan : const Color(0xFF02539A),
+      child: StatefulBuilder(
+        builder: (ctx, setModalState) {
+          final previewCycle = provider.getBudgetCycleForDate(resetDay: selectedDay);
+          const months = [
+            'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+            'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'
+          ];
+          final s = previewCycle.start;
+          final e = previewCycle.end;
+          final cycleLabel = '${s.day} ${months[s.month - 1]} - ${e.day} ${months[e.month - 1]} ${e.year}';
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+          final cycleEndDay = DateTime(e.year, e.month, e.day);
+          final daysRemaining = math.max(0, cycleEndDay.difference(today).inDays + 1);
+
+          final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+          final labelColor = isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B);
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Hero Preview Header (Clean & Focused)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF0C131D) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFCBD5E1),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF02539A).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF55C7FF).withOpacity(0.3) : const Color(0xFF02539A).withOpacity(0.3),
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '$selectedDay',
+                        style: GoogleFonts.interTight(
+                          color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Tanggal $selectedDay Setiap Bulan',
+                            style: GoogleFonts.interTight(
+                              color: textColor,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Periode: $cycleLabel · Sisa $daysRemaining hari',
+                            style: GoogleFonts.manrope(
+                              color: labelColor,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Presets Segmented Row
+              Container(
+                height: 38,
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFE2E8F0).withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    _buildPresetResetChip(
+                      label: 'Tgl 1 (Awal)',
+                      day: 1,
+                      isSelected: selectedDay == 1,
+                      isDark: isDark,
+                      onTap: () => setModalState(() => selectedDay = 1),
+                    ),
+                    const SizedBox(width: 4),
+                    _buildPresetResetChip(
+                      label: 'Tgl 25 (Gajian)',
+                      day: 25,
+                      isSelected: selectedDay == 25,
+                      isDark: isDark,
+                      onTap: () => setModalState(() => selectedDay = 25),
+                    ),
+                    const SizedBox(width: 4),
+                    _buildPresetResetChip(
+                      label: 'Tgl 28 (Akhir)',
+                      day: 28,
+                      isSelected: selectedDay == 28,
+                      isDark: isDark,
+                      onTap: () => setModalState(() => selectedDay = 28),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // 7-Column Calendar Grid (No Nested Scroll View!)
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 7,
+                  mainAxisSpacing: 6,
+                  crossAxisSpacing: 6,
+                  childAspectRatio: 1.0,
+                ),
+                itemCount: 31,
+                itemBuilder: (context, index) {
+                  final day = index + 1;
+                  final isSelected = selectedDay == day;
+                  return InkWell(
+                    onTap: () => setModalState(() => selectedDay = day),
+                    borderRadius: BorderRadius.circular(9),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? const Color(0xFF02539A)
+                            : (isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF1F5F9)),
+                        borderRadius: BorderRadius.circular(9),
+                        border: Border.all(
+                          color: isSelected
+                              ? (isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A))
+                              : (isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFCBD5E1)),
+                          width: isSelected ? 1.5 : 1.0,
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '$day',
+                        style: GoogleFonts.interTight(
+                          color: isSelected
+                              ? Colors.white
+                              : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                          fontSize: 13,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Save Button (Standard 48px height)
+              SizedBox(
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    await provider.updateBudgetResetDay(selectedDay);
+                    AppSnackBar.show(
+                      context,
+                      'Siklus reset anggaran diperbarui ke tanggal $selectedDay.',
+                      type: SnackBarType.success,
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF02539A),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    'Simpan Tanggal Reset',
+                    style: GoogleFonts.manrope(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPresetResetChip({
+    required String label,
+    required int day,
+    required bool isSelected,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isSelected
+                ? (isDark ? const Color(0xFF02539A) : Colors.white)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: isSelected && !isDark
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                : null,
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: GoogleFonts.manrope(
+              color: isSelected
+                  ? (isDark ? Colors.white : const Color(0xFF0F172A))
+                  : (isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B)),
+              fontSize: 11.5,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            ),
+          ),
+        ),
       ),
     );
   }
