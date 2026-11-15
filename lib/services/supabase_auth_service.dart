@@ -7,13 +7,20 @@ class SupabaseAuthService {
 
   static bool get isConfigured => SupabaseConfig.isConfigured;
 
-  static bool get isAuthenticated => client?.auth.currentUser != null;
+  @visibleForTesting
+  static bool? mockIsAuthenticated;
+
+  @visibleForTesting
+  static String? mockUserName;
+
+  static bool get isAuthenticated => mockIsAuthenticated ?? (client?.auth.currentUser != null);
 
   static User? get currentUser => client?.auth.currentUser;
 
   static String? get userEmail => currentUser?.email;
 
   static String? get userName {
+    if (mockUserName != null) return mockUserName;
     final meta = currentUser?.userMetadata;
     if (meta == null) return userEmail?.split('@').first;
     return meta['full_name'] as String? ??
@@ -28,8 +35,14 @@ class SupabaseAuthService {
 
   static Stream<AuthState>? get onAuthStateChange => client?.auth.onAuthStateChange;
 
+  @visibleForTesting
+  static Future<bool> Function()? mockSignInWithGoogle;
+
   /// Sign In with Google via OAuth
   static Future<bool> signInWithGoogle() async {
+    if (mockSignInWithGoogle != null) {
+      return await mockSignInWithGoogle!();
+    }
     if (!SupabaseConfig.isInitialized || client == null) {
       throw StateError('Koneksi Supabase belum aktif atau Anon Key belum disetel.');
     }

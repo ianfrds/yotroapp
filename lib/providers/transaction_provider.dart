@@ -449,11 +449,17 @@ class TransactionProvider with ChangeNotifier {
                 ?.map((w) => WalletModel.fromJson(w as Map<String, dynamic>))
                 .toList() ??
             [];
+        for (final w in _wallets) {
+          if (w.type.isEmpty || w.type.toLowerCase() == 'dompet' || w.type.toLowerCase() == 'tunai') {
+            w.type = 'Cash';
+          }
+        }
         _transactions = (data['transactions'] as List<dynamic>?)
                 ?.map(
                     (t) => TransactionModel.fromJson(t as Map<String, dynamic>))
                 .toList() ??
             [];
+        reconcileWalletBalances();
         if (data['activityNotifications'] != null) {
           _activityNotifications =
               (data['activityNotifications'] as List<dynamic>)
@@ -641,7 +647,7 @@ class TransactionProvider with ChangeNotifier {
     ];
     _wallets = [
       WalletModel(
-          id: 'w_default', name: 'Dompet Utama', type: 'Dompet', balance: 0.0),
+          id: 'w_default', name: 'Dompet Utama', type: 'Cash', balance: 0.0),
     ];
     _budget = BudgetModel(
       overallMonthlyLimit: 0.0,
@@ -1082,6 +1088,7 @@ class TransactionProvider with ChangeNotifier {
         }
       }
 
+      reconcileWalletBalances();
       notifyListeners();
       await saveData();
       return true;
@@ -1902,6 +1909,63 @@ class TransactionProvider with ChangeNotifier {
     }
   }
 
+  /// Reconciles wallet balances with historical transaction records.
+  /// If a wallet balance is Rp 0 (or force is true) while its net calculated transactions != 0,
+  /// this restores the wallet's true balance and syncs it with Supabase.
+  bool reconcileWalletBalances({bool force = false}) {
+    if (_wallets.isEmpty) return false;
+    bool anyRepaired = false;
+
+    for (final wallet in _wallets) {
+      double netFromTransactions = 0.0;
+      bool hasTransactions = false;
+
+      for (final tx in _transactions) {
+        if (tx.type == TransactionType.transfer) {
+          if (tx.toWalletId == wallet.id) {
+            netFromTransactions += tx.amount;
+            hasTransactions = true;
+          }
+          if (tx.fromWalletId == wallet.id) {
+            netFromTransactions -= tx.amount;
+            hasTransactions = true;
+          }
+        } else {
+          final isMatched = tx.walletId == wallet.id ||
+              (_wallets.length == 1 && tx.walletId.isEmpty);
+          if (isMatched) {
+            hasTransactions = true;
+            if (tx.type == TransactionType.income) {
+              netFromTransactions += tx.amount;
+            } else if (tx.type == TransactionType.expense) {
+              netFromTransactions -= tx.amount;
+            }
+          }
+        }
+      }
+
+      if (hasTransactions) {
+        final currentBal = wallet.balance;
+        final needsRepair = (currentBal == 0.0 && netFromTransactions != 0.0) ||
+            (force && (currentBal - netFromTransactions).abs() > 0.001);
+
+        if (needsRepair) {
+          debugPrint('[TransactionProvider] Reconciled wallet "${wallet.name}" balance: '
+              'from $currentBal to $netFromTransactions');
+          wallet.balance = netFromTransactions;
+          anyRepaired = true;
+          unawaited(SupabaseSyncService.syncWallet(wallet));
+        }
+      }
+    }
+
+    if (anyRepaired) {
+      saveData();
+      notifyListeners();
+    }
+    return anyRepaired;
+  }
+
   void applyCloudSnapshot({
     List<WalletModel>? wallets,
     List<CategoryModel>? categories,
@@ -1914,11 +1978,33 @@ class TransactionProvider with ChangeNotifier {
     if (userName != null && userName.trim().isNotEmpty) _userName = userName.trim();
     if (userPhone != null && userPhone.trim().isNotEmpty) _userPhone = userPhone.trim();
     if (userGender != null && userGender.trim().isNotEmpty) _userGender = userGender.trim();
-    if (wallets != null && wallets.isNotEmpty) _wallets = wallets;
-    if (categories != null && categories.isNotEmpty) _categories = categories;
+
     if (transactions != null) _transactions = transactions;
+
+    if (wallets != null && wallets.isNotEmpty) {
+      // Protect against cloud zero-overwrite when local wallet has a valid balance
+      for (final cloudW in wallets) {
+        if (cloudW.type.isEmpty || cloudW.type.toLowerCase() == 'dompet' || cloudW.type.toLowerCase() == 'tunai') {
+          cloudW.type = 'Cash';
+        }
+        final localW = _wallets.cast<WalletModel?>().firstWhere(
+          (w) => w?.id == cloudW.id,
+          orElse: () => null,
+        );
+        if (cloudW.balance == 0.0 && localW != null && localW.balance != 0.0) {
+          cloudW.balance = localW.balance;
+        }
+      }
+      _wallets = wallets;
+    }
+
+    if (categories != null && categories.isNotEmpty) _categories = categories;
     if (budget != null) _budget = budget;
     _lastCloudSyncTime = DateTime.now();
+
+    // Auto-reconcile in case cloud had 0 balance but transactions exist
+    reconcileWalletBalances();
+
     notifyListeners();
     saveData();
   }
@@ -2031,6 +2117,26 @@ class TransactionProvider with ChangeNotifier {
     notifyListeners();
     await saveData();
     unawaited(SupabaseSyncService.syncSingleTransaction(tx));
+
+    if (type == TransactionType.transfer &&
+        fromWalletId != null &&
+        toWalletId != null) {
+      final fromW = _wallets.cast<WalletModel?>().firstWhere(
+          (w) => w?.id == fromWalletId,
+          orElse: () => null);
+      final toW = _wallets.cast<WalletModel?>().firstWhere(
+          (w) => w?.id == toWalletId,
+          orElse: () => null);
+      if (fromW != null) unawaited(SupabaseSyncService.syncWallet(fromW));
+      if (toW != null) unawaited(SupabaseSyncService.syncWallet(toW));
+    } else {
+      final w = _wallets.cast<WalletModel?>().firstWhere(
+          (w) => w?.id == walletId,
+          orElse: () => null);
+      if (w != null) {
+        unawaited(SupabaseSyncService.syncWallet(w));
+      }
+    }
     return tx;
   }
 
@@ -2078,7 +2184,28 @@ class TransactionProvider with ChangeNotifier {
     notifyListeners();
     await saveData();
     unawaited(SupabaseSyncService.syncSingleTransaction(tx, isDelete: true));
+
+    if (tx.type == TransactionType.transfer &&
+        tx.fromWalletId != null &&
+        tx.toWalletId != null) {
+      final fromW = _wallets.cast<WalletModel?>().firstWhere(
+          (w) => w?.id == tx.fromWalletId,
+          orElse: () => null);
+      final toW = _wallets.cast<WalletModel?>().firstWhere(
+          (w) => w?.id == tx.toWalletId,
+          orElse: () => null);
+      if (fromW != null) unawaited(SupabaseSyncService.syncWallet(fromW));
+      if (toW != null) unawaited(SupabaseSyncService.syncWallet(toW));
+    } else {
+      final w = _wallets.cast<WalletModel?>().firstWhere(
+          (w) => w?.id == tx.walletId,
+          orElse: () => null);
+      if (w != null) {
+        unawaited(SupabaseSyncService.syncWallet(w));
+      }
+    }
   }
+
   Future<void> addWallet({
     required String name,
     required String type,
@@ -2096,6 +2223,7 @@ class TransactionProvider with ChangeNotifier {
     _wallets.add(wallet);
 
     if (shouldSync) {
+      unawaited(SupabaseSyncService.syncWallet(wallet));
       await addTransaction(
         title: 'Saldo Awal - ${wallet.name}',
         amount: initialBalance,
@@ -2109,6 +2237,7 @@ class TransactionProvider with ChangeNotifier {
     } else {
       notifyListeners();
       await saveData();
+      unawaited(SupabaseSyncService.syncWallet(wallet));
     }
   }
 
@@ -2160,10 +2289,12 @@ class TransactionProvider with ChangeNotifier {
         _wallets[idx].balance = balance;
         notifyListeners();
         await saveData();
+        unawaited(SupabaseSyncService.syncWallet(_wallets[idx]));
       }
     } else {
       notifyListeners();
       await saveData();
+      unawaited(SupabaseSyncService.syncWallet(_wallets[idx]));
     }
   }
 
@@ -2196,8 +2327,11 @@ class TransactionProvider with ChangeNotifier {
     }).toList();
 
     _wallets.removeWhere((w) => w.id == id);
+    reconcileWalletBalances(force: true);
     notifyListeners();
     await saveData();
+    unawaited(SupabaseSyncService.deleteWalletFromCloud(id));
+    unawaited(SupabaseSyncService.syncWallet(fallbackWallet));
   }
 
   // 4.4 Budgeting Updates

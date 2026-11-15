@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -56,6 +57,7 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
     _authSub = SupabaseAuthService.onAuthStateChange?.listen((event) async {
       if (!mounted) return;
       if (event.session != null && !_isHandlingSuccess) {
+        if (mounted) setState(() => _isAuthLoading = true);
         final cloudName = SupabaseAuthService.userName;
         if (cloudName != null && cloudName.isNotEmpty && _nameController.text.trim().isEmpty) {
           _nameController.text = cloudName;
@@ -124,6 +126,7 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
   Future<void> _handleExistingUserAuthSuccess() async {
     if (_isHandlingSuccess) return;
     _isHandlingSuccess = true;
+    if (mounted) setState(() => _isAuthLoading = true);
 
     final provider = context.read<TransactionProvider>();
 
@@ -505,7 +508,7 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final nameCtrl = TextEditingController();
     final balanceCtrl = TextEditingController();
-    String selectedType = 'Bank';
+    String selectedType = 'Cash';
 
     final sheetBg = isDark ? const Color(0xFF0C131D) : Colors.white;
     final cardBg = isDark ? const Color(0xFF131A26) : const Color(0xFFF8FAFC);
@@ -593,7 +596,13 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                   ),
                   const SizedBox(height: 8),
                   Row(
-                    children: ['Bank', 'E-Wallet', 'Cash'].map((t) {
+                    children: [
+                      {'type': 'Cash', 'label': 'Tunai'},
+                      {'type': 'Bank Account', 'label': 'Bank'},
+                      {'type': 'E-Wallet', 'label': 'E-Wallet'},
+                    ].map((item) {
+                      final t = item['type']!;
+                      final label = item['label']!;
                       final isSelected = selectedType == t;
                       return Expanded(
                         child: Padding(
@@ -614,7 +623,7 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                                 ),
                               ),
                               child: Text(
-                                t,
+                                label,
                                 style: GoogleFonts.manrope(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w600,
@@ -735,7 +744,9 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
         child: Scaffold(
           backgroundColor: bgNavy,
           resizeToAvoidBottomInset: true,
-          body: LayoutBuilder(
+          body: Stack(
+            children: [
+              LayoutBuilder(
             builder: (context, constraints) {
               final isWide = constraints.maxWidth >= 600;
               final contentWidth = isWide ? 460.0 : constraints.maxWidth;
@@ -867,6 +878,86 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                 ),
               );
             },
+          ),
+          if (_isAuthLoading || _isHandlingSuccess)
+            _buildLoadingOverlay(isDark),
+        ],
+      ),
+    ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingOverlay(bool isDark) {
+    return Positioned.fill(
+      child: Container(
+        color: (isDark ? const Color(0xFF09101C) : const Color(0xFF0F172A)).withOpacity(0.88),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Center(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 28),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 26),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF131A26) : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isDark ? Colors.white.withOpacity(0.1) : const Color(0xFFE2E8F0),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(isDark ? 0.45 : 0.1),
+                    blurRadius: 28,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0284C7).withOpacity(0.12),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xFF0284C7).withOpacity(0.3),
+                      ),
+                    ),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Color(0xFF38BDF8),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'Memuat Akun...',
+                    style: GoogleFonts.interTight(
+                      fontSize: 16.5,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Sedang menghubungkan & memuat data akun Anda.',
+                    style: GoogleFonts.manrope(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w400,
+                      color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

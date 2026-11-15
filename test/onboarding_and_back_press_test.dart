@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +8,7 @@ import 'package:money_tracker/providers/transaction_provider.dart';
 import 'package:money_tracker/screens/onboarding_profile_screen.dart';
 import 'package:money_tracker/screens/main_shell.dart';
 import 'package:money_tracker/screens/notifications_center_screen.dart';
+import 'package:money_tracker/services/supabase_auth_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +34,7 @@ void main() {
       addTearDown(() => tester.view.resetPhysicalSize());
 
       final provider = TransactionProvider();
+      await provider.logout();
       await tester.pumpWidget(buildTestWidget(
         child: const OnboardingProfileScreen(),
         provider: provider,
@@ -90,6 +93,7 @@ void main() {
       addTearDown(() => tester.view.resetPhysicalSize());
 
       final provider = TransactionProvider();
+      await provider.logout();
       await tester.pumpWidget(buildTestWidget(
         child: const OnboardingProfileScreen(),
         provider: provider,
@@ -144,6 +148,70 @@ void main() {
 
       expect(provider.isOnboardingCompleted, isTrue);
       expect(provider.userName, 'Siti Rahma');
+    });
+
+    testWidgets('Tapping Lanjutkan dengan Google triggers auth loading overlay', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        SupabaseAuthService.mockSignInWithGoogle = null;
+      });
+
+      final completer = Completer<bool>();
+      SupabaseAuthService.mockSignInWithGoogle = () => completer.future;
+
+      final provider = TransactionProvider();
+      await provider.logout();
+      await tester.pumpWidget(buildTestWidget(
+        child: const OnboardingProfileScreen(),
+        provider: provider,
+      ));
+      await tester.pumpAndSettle();
+
+      final googleButton = find.text('Lanjutkan dengan Google');
+      expect(googleButton, findsOneWidget);
+
+      await tester.tap(googleButton);
+      await tester.pump(); // Frame right after tap when _isAuthLoading = true
+      expect(find.text('Memuat Akun...'), findsOneWidget);
+      expect(find.text('Sedang menghubungkan & memuat data akun Anda.'), findsOneWidget);
+
+      completer.complete(false);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('New Google user without cloud data transitions to Step 1 (Data Diri)', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        SupabaseAuthService.mockSignInWithGoogle = null;
+        SupabaseAuthService.mockIsAuthenticated = null;
+        SupabaseAuthService.mockUserName = null;
+      });
+
+      SupabaseAuthService.mockSignInWithGoogle = () async => true;
+      SupabaseAuthService.mockIsAuthenticated = true;
+      SupabaseAuthService.mockUserName = 'Budi Santoso';
+
+      final provider = TransactionProvider();
+      await provider.logout();
+      await tester.pumpWidget(buildTestWidget(
+        child: const OnboardingProfileScreen(),
+        provider: provider,
+      ));
+      await tester.pumpAndSettle();
+
+      final googleButton = find.text('Lanjutkan dengan Google');
+      await tester.tap(googleButton);
+      await tester.pumpAndSettle();
+
+      // Verified: brand new user transitions to Step 1 setup, not MainShell directly
+      expect(find.text('Data Diri'), findsOneWidget);
+      expect(find.text('Budi Santoso'), findsOneWidget);
+      expect(find.text('Lanjutkan'), findsOneWidget);
+      expect(provider.isOnboardingCompleted, isFalse);
     });
 
     testWidgets('TransactionProvider logout resets isOnboardingCompleted to false', (tester) async {

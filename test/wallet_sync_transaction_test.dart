@@ -248,6 +248,35 @@ void main() {
       expect(find.text('Tambah Dompet / Akun'), findsOneWidget);
       expect(find.text('Catat ke Transaksi'), findsOneWidget);
       expect(find.text('Buat transaksi pemasukan saldo awal otomatis'), findsOneWidget);
+      // Account type defaults to Cash / Tunai
+      expect(find.text('Cash / Tunai'), findsOneWidget);
+    });
+
+    testWidgets('Edit wallet modal normalizes legacy Dompet type to Cash / Tunai cleanly', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final provider = TransactionProvider();
+      await provider.loadData();
+
+      // Ensure we have a wallet with legacy type 'Dompet'
+      final legacyWallet = provider.wallets.first;
+      legacyWallet.type = 'Dompet';
+
+      await tester.pumpWidget(buildTestWidget(
+        child: const WalletsScreen(),
+        provider: provider,
+      ));
+      await tester.pumpAndSettle();
+
+      // Tap on the wallet card to open edit modal
+      await tester.tap(find.text(legacyWallet.name).first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ubah Dompet / Akun'), findsOneWidget);
+      // The dropdown correctly resolved 'Dompet' -> 'Cash' ('Cash / Tunai'), never blank
+      expect(find.text('Cash / Tunai'), findsOneWidget);
     });
   });
 }

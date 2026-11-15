@@ -40,11 +40,32 @@ class WalletsScreen extends StatelessWidget {
     final isEditing = walletToEdit != null;
     final nameController = TextEditingController(text: walletToEdit?.name ?? '');
 
+    String normalizeWalletType(String? rawType) {
+      if (rawType == null || rawType.trim().isEmpty) return 'Cash';
+      final clean = rawType.trim().toLowerCase();
+      if (clean == 'cash' || clean == 'tunai' || clean == 'dompet' || clean == 'cash / tunai') {
+        return 'Cash';
+      }
+      if (clean == 'bank account' || clean == 'bank' || clean == 'rekening') {
+        return 'Bank Account';
+      }
+      if (clean == 'e-wallet' || clean == 'ewallet' || clean == 'dompet digital') {
+        return 'E-Wallet';
+      }
+      if (clean == 'savings' || clean == 'tabungan') {
+        return 'Savings';
+      }
+      if (clean == 'other' || clean == 'lainnya') {
+        return 'Other';
+      }
+      return 'Cash';
+    }
+
     final initialFormatted = walletToEdit != null
         ? ThousandsSeparatorInputFormatter.formatNumber(walletToEdit.balance.round().toString())
         : '0';
     final balanceController = TextEditingController(text: initialFormatted);
-    String selectedType = walletToEdit?.type ?? 'Bank Account';
+    String selectedType = normalizeWalletType(walletToEdit?.type);
     bool syncToTransactions = provider.syncWalletToTransactions;
 
     showModalCardSheet(
@@ -131,8 +152,8 @@ class WalletsScreen extends StatelessWidget {
                       fontSize: 13,
                     ),
                     items: const [
-                      DropdownMenuItem(value: 'Bank Account', child: Text('Bank Account')),
                       DropdownMenuItem(value: 'Cash', child: Text('Cash / Tunai')),
+                      DropdownMenuItem(value: 'Bank Account', child: Text('Bank Account')),
                       DropdownMenuItem(value: 'E-Wallet', child: Text('E-Wallet')),
                       DropdownMenuItem(value: 'Savings', child: Text('Tabungan')),
                       DropdownMenuItem(value: 'Other', child: Text('Lainnya')),
@@ -717,15 +738,20 @@ class WalletsScreen extends StatelessWidget {
   IconData _getWalletIcon(String type) {
     switch (type.toLowerCase()) {
       case 'bank account':
+      case 'bank':
         return Icons.account_balance_rounded;
       case 'cash':
+      case 'tunai':
+      case 'dompet':
         return Icons.payments_rounded;
       case 'e-wallet':
+      case 'ewallet':
         return Icons.phone_android_rounded;
       case 'savings':
+      case 'tabungan':
         return Icons.savings_rounded;
       default:
-        return Icons.credit_card_rounded;
+        return Icons.payments_rounded;
     }
   }
 }

@@ -135,10 +135,11 @@ money-tracker/
 │       ├── balance_card.dart       # Kartu metrik finansial
 │       ├── category_chip.dart      # Chip pemilihan kategori
 │       └── receipt_adjustment_sheet.dart # Modal sheet penyesuaian/persetujuan hasil scan OCR struk
-├── test/                           # Unit & Widget test suite (155 tests passed)
+├── test/                           # Unit & Widget test suite (166 tests passed)
+│   ├── wallet_reconciliation_test.dart # Test rekonsiliasi mandiri saldo dompet, transfer multi-dompet & proteksi snapshot cloud
 │   ├── app_improvements_features_test.dart # Test verifikasi 6 fitur peningkatan antarmuka & opsi tema
 │   ├── receipt_parser_test.dart    # Test unit mesin ekstraksi & heuristik OCR struk
-│   ├── add_transaction_ocr_action_bar_test.dart # Test widget 3-button bottom bar & receipt adjustment sheet
+│   ├── add_transaction_ocr_action_bar_test.dart # Test widget 3-button bottom bar & receipt adjustment sheet single-line button
 │   ├── month_filter_and_budget_empty_test.dart # Test filter bulanan beranda & empty state budget
 │   ├── transactions_filter_unified_test.dart   # Test filter waktu lengkap riwayat transaksi
 │   ├── voice_recording_sheet_test.dart         # Test circular spectrum, standby, preview web, simulator & autofill form
@@ -147,6 +148,7 @@ money-tracker/
 │   ├── wallet_sync_transaction_test.dart       # Test sinkronisasi transaksi otomatis saat tambah/ubah dompet & toggle ON/OFF
 │   ├── supabase_sync_test.dart                 # Test konfigurasi Supabase, graceful fallback, snapshot apply & UI Settings
 │   ├── auth_screen_test.dart                   # Test layar autentikasi multi-opsi (daftar email+nama, masuk, guest 100% lokal & error formatting)
+│   ├── onboarding_and_back_press_test.dart     # Test alur onboarding, auth loading overlay, logout reset, back navigation & anti-slop
 │   └── app_update_and_changelog_test.dart      # Test changelog metadata, semver comparison logic, changelog sheet & update dialog UI
 ├── supabase/
 │   ├── config.toml                 # Konfigurasi Supabase project ref njjcviwihzvzjgfbzitg
@@ -574,8 +576,8 @@ money-tracker/
   - **Card 2 (Toko & Tanggal):** Input teks nama toko/merchant (autofill dari OCR, dapat diedit) dan tombol pemilih tanggal kalender.
   - **Card 3 (Kategori & Dompet Pembayaran):** Dropdown pilihan kategori pengeluaran (autoselect dari deteksi cerdas) dan pilihan akun dompet asal.
   - **Dua Tombol Alur Penyelesaian (Opsi 2 User Flow):**
-    1. **"Setujui & Simpan" (Tombol Utama Safir):** 1-klik langsung mencatat transaksi pengeluaran baru ke `TransactionProvider`, menutup sheet, dan membuka layar sukses penuh `TransactionSuccessScreen`.
-    2. **"Buka di Form" (Tombol Outlined):** Menerapkan nominal, merchant/catatan, tanggal, kategori, dan dompet yang telah disesuaikan langsung ke form `AddTransactionScreen` untuk pengisian tambahan.
+    1. **"Setujui & Simpan" (Tombol Utama Safir - flex 6):** 1-klik langsung mencatat transaksi pengeluaran baru ke `TransactionProvider`, menutup sheet, dan membuka layar sukses penuh `TransactionSuccessScreen`.
+    2. **"Buka di Form" (Tombol Outlined - flex 5):** Menggunakan `FittedBox(fit: BoxFit.scaleDown)` dan padding 8dp agar teks tetap satu baris rapi (*anti-wrapping*) pada layar smartphone sempit. Menerapkan nominal, merchant/catatan, tanggal, kategori, dan dompet yang telah disesuaikan langsung ke form `AddTransactionScreen` untuk pengisian tambahan.
 
 ### 3.18 Redesain Analisis Keuangan: Half Circular Gauge, Kurva Alur, & Donut Chart (`lib/screens/financial_analysis_screen.dart`, `lib/widgets/donut_chart_painter.dart`)
 - **Half Circular Health Gauge (Arch 180°):**
@@ -1591,6 +1593,30 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
   - **Validasi lokal:** 155 test lulus dan 1 dilewati. Universal release APK berhasil dibangun tanpa Web ke `yotro-app.apk` (103,2 MB menurut Flutter/98 MiB pada filesystem), `versionName 2.0.5`, `versionCode 13`, application ID `com.moneytracker.app`, serta memuat `libapp.so`/`libflutter.so` untuk ARM64, ARMv7, dan x86_64.
   - **Signature & checksum:** APK lolos `apksigner verify` dengan signature scheme v2/v3, sertifikat RSA 4096 `CN=Yotro, OU=Mobile, O=Ian Firdaus`, certificate SHA-256 `7c15d277063c2c8a2027019ecaac0d7e970f9fc0cb5bb719b44ecbf154dae9a8`, dan file SHA-256 `e97d4e05c23a6f717e6ed9617b091ba7a6f7fb3b02731c77ec65bf77cbe0d44e`.
   - **Gate publikasi:** Status build/test/signature sudah lulus, tetapi pengujian startup di HP masih wajib. Jangan unggah ke GitHub Release sebelum APK ini berhasil dibuka, ditutup, dan dibuka kembali pada perangkat target tanpa force-close.
+- [x] Default Tipe Akun Dompet Cash / Tunai & Normalisasi Dropdown Kosong (`lib/screens/wallets_screen.dart`, `lib/screens/onboarding_profile_screen.dart`, `lib/providers/transaction_provider.dart`, `test/wallet_sync_transaction_test.dart`):
+  - **Akar Masalah Selesai:** Mengatasi dropdown tipe akun yang kadang tampak kosong/blank saat mengedit dompet. Penyebabnya adalah nilai tipe dompet bawaan tersimpan sebagai `'Dompet'` (di `_seedEmpty()`) atau string kosong yang tidak terdaftar pada `DropdownMenuItem`.
+  - **Tipe Default Cash / Tunai:** Default tipe dompet baru diubah menjadi `'Cash'` (label UI: "Cash / Tunai").
+  - **Normalisasi Otomatis:** Menambahkan fungsi `normalizeWalletType` di `wallets_screen.dart` yang memetakan nilai lama seperti `'Dompet'`, `'Tunai'`, atau string kosong ke `'Cash'`, serta `'Bank'` ke `'Bank Account'`. Dropdown dipastikan selalu menampilkan pilihan yang valid tanpa blank.
+  - **Onboarding Alignment:** Modal tambah dompet di onboarding (`OnboardingProfileScreen`) kini menggunakan default `'Cash'` dan chip tipe yang selaras.
+  - **Validasi Uji:** Ditambahkan 2 uji widget di `test/wallet_sync_transaction_test.dart`. Seluruh 164 unit & widget test lulus 100% (`flutter test`). APK dan Web release diperbarui.
+- [x] Perbaikan Alur Onboarding Pengguna Baru Google ([supabase_sync_service.dart](file:///Users/ianfrds/_My%20Files/AI%20Vibecoding/money-tracker/lib/services/supabase_sync_service.dart), [walkthrough.md](file:///Users/ianfrds/.gemini/antigravity/brain/db6d0a28-7186-442d-b8aa-fd9ac49d756b/walkthrough.md)):
+  - **Akar Masalah Selesai:** Saat pertama kali daftar Google, trigger Supabase `on_auth_user_created` otomatis mengisi `profiles.name`. Fungsi `hasExistingUserData()` sebelumnya salah mengidentifikasi akun baru sebagai akun lama karena nama terisi atau jeda consent $\ge 30$ detik, sehingga pengguna baru langsung terlempar ke Beranda tanpa setup.
+  - **Pengetatan Kriteria Akun Lama:** `hasExistingUserData()` kini hanya menganggap akun sebagai pengguna lama jika memiliki dompet (`wallets`), transaksi (`transactions`), atau kategori di cloud.
+  - **Alur Pengguna Baru Google:** Pengguna baru Google kini otomatis dialirkan ke Step 1 (Data Diri, nama terisi otomatis dari Google tapi dapat diedit) $\to$ Step 2 (Tema) $\to$ Step 3 (Dompet Awal) $\to$ Step 4 (Kategori) $\to$ Beranda.
+  - **Validasi Uji Lengkap:** 166 unit & widget test lulus 100% (`flutter test`). APK ARM64 42.4 MB dan Web runner dibangun ulang.
+- [x] Loading Screen Google Auth, OCR Button Single-Line, & Default Cash Wallet ([walkthrough.md](file:///Users/ianfrds/.gemini/antigravity/brain/db6d0a28-7186-442d-b8aa-fd9ac49d756b/walkthrough.md)):
+  - **Loading Overlay Saat Masuk Google (`OnboardingProfileScreen`):** Menambahkan backdrop blur frosted dark sapphire (`_buildLoadingOverlay`) saat user menekan "Lanjutkan dengan Google" dan saat sinkronisasi data cloud berlangsung, memberi umpan balik visual jelas bahwa akun sedang dimuat ("Memuat Akun...").
+  - **Tombol Ringkasan OCR Single-Line (`ReceiptAdjustmentSheet`):** Mengatur `flex: 5` untuk "Buka di Form" dan `flex: 6` untuk "Setujui & Simpan", padding horizontal 8dp, serta `FittedBox(fit: BoxFit.scaleDown)` untuk menjamin label tombol tidak terpotong atau wrap menjadi 2 baris pada smartphone berlayar sempit.
+  - **Default Tipe Dompet Otomatis Tunai (`WalletsScreen` & `TransactionProvider`):** Memastikan inisialisasi tipe dompet default terisi 'Cash' (Tunai) dan menormalisasi tipe lama/kosong agar pilihan dropdown tidak blank.
+  - **Validasi Uji Lengkap:** Seluruh 165 unit & widget test lulus 100% (`flutter test`). APK ARM64 42.4 MB berhasil dibangun di `yotro-app.apk` dan `build/web/yotro-app.apk`. Web runner diperbarui di `build/web/`.
+- [x] Rilis v2.0.6+14: Sinkronisasi Real-Time Saldo Dompet & Rekonsiliasi Mandiri Otomatis ([plan_wallet_balance_sync_and_reconciliation.md](file:///Users/ianfrds/.gemini/antigravity/brain/db6d0a28-7186-442d-b8aa-fd9ac49d756b/plan_wallet_balance_sync_and_reconciliation.md), [walkthrough.md](file:///Users/ianfrds/.gemini/antigravity/brain/db6d0a28-7186-442d-b8aa-fd9ac49d756b/walkthrough.md)):
+  - **Akar Masalah Selesai:** Masalah saldo dompet reset Rp 0 teratasi tuntas. Penambahan transaksi sebelumnya hanya mengirim mutasi ke tabel `transactions` tanpa meng-upsert saldo dompet ke tabel `wallets`. Saat startup atau pull-to-refresh, snapshot cloud kosong menimpa saldo lokal.
+  - **Solusi Lapis 1 (Self-Healing Auto-Repair):** Menambahkan `reconcileWalletBalances({bool force = false})` pada `TransactionProvider`. Sistem otomatis merekonstruksi saldo bersih dari riwayat transaksi ($\sum \text{Masuk} - \sum \text{Keluar} + \Delta\text{Transfer}$) saat data dimuat (`loadData`) dan snapshot cloud diaplikasikan (`applyCloudSnapshot`). Dompet yang sempat 0 langsung pulih seketika menjadi Rp 165.000.
+  - **Solusi Lapis 2 (Real-Time Cloud Sync):** Menambahkan `SupabaseSyncService.syncWallet(wallet)`, `syncWallets(wallets)`, dan `deleteWalletFromCloud(id)`. Setiap aksi transaksi (`addTransaction`, `deleteTransaction`), pembuatan dompet (`addWallet`), pembaruan dompet (`updateWallet`), dan penghapusan (`deleteWallet`) langsung menyinkronkan saldo dompet terbaru ke tabel `wallets` Supabase.
+  - **Solusi Lapis 3 (Proteksi Penimpaan Saldo):** Pada `applyCloudSnapshot`, saldo lokal diverifikasi terhadap saldo cloud; jika snapshot cloud bernilai 0 sementara saldo lokal aktif atau ada transaksi, saldo lokal dipertahankan dan segera di-push kembali ke Supabase.
+  - **Layout Fix:** Perbaikan tata letak pemilih tanggal transaksi pada `AddTransactionScreen` dengan `Expanded` dan `TextOverflow.ellipsis` untuk mencegah RenderFlex overflow di layar sempit.
+  - **Validasi Uji Lengkap:** 163 unit & widget test lulus 100% (`flutter test`). APK ARM64 42.4 MB berhasil dibangun di `yotro-app.apk` dan `build/web/yotro-app.apk`. Web runner diperbarui di `build/web/`.
+  - **Manifest Pembaruan:** `version.json` dan `pubspec.yaml` diperbarui ke `v2.0.6+14`. Changelog in-app mencatat fitur pemulihan saldo mandiri.
 - [x] Skeleton Loading, Pull-to-Refresh, & Perombakan Tombol Logout ([plan_skeleton_refresh_logout.md](file:///Users/ianfrds/.gemini/antigravity/brain/db6d0a28-7186-442d-b8aa-fd9ac49d756b/plan_skeleton_refresh_logout.md), [walkthrough.md](file:///Users/ianfrds/.gemini/antigravity/brain/db6d0a28-7186-442d-b8aa-fd9ac49d756b/walkthrough.md)):
   - **Skeleton Shimmer (`lib/widgets/app_skeleton.dart`):** Komponen `AppSkeletonShimmer`, `SkeletonHeroCard`, dan `SkeletonTransactionList` menggunakan linear gradient shader mask tanpa dependensi pihak ketiga.
   - **Pull-to-Refresh:** Menambahkan `refreshData()` pada `TransactionProvider` dan membungkus `DashboardScreen` serta `TransactionsScreen` dengan `RefreshIndicator` (`physics: const AlwaysScrollableScrollPhysics()`) yang memuat ulang data lokal dan cloud.
@@ -1651,7 +1677,7 @@ Saat melanjutkan proyek ini:
 8. **In-App OTA Updater & Changelog Invariants:**
    - Model rilis GitHub: `ianfrds/yotroapp`.
    - `package_info_plus: ^10.2.2` & `open_filex: ^4.7.0` mengelola deteksi versi dan instalasi paket.
-   - Versi saat ini di `pubspec.yaml` adalah `2.0.5+13` dengan `ChangelogData.currentVersion = '2.0.5'`.
+   - Versi saat ini di `pubspec.yaml` adalah `2.0.6+14` dengan `ChangelogData.currentVersion = '2.0.6'`.
    - Workflow `.github/workflows/build-apk.yml` hanya membangun branch/PR/manual-dispatch untuk validasi dengan keystore sementara. Workflow tidak merespons tag dan tidak menerbitkan GitHub Release.
    - Jangan distribusikan artifact GitHub Actions atau rilis `v2.0.3`; keduanya memakai keystore CI sementara. Produksi memakai APK lokal yang ditandatangani keystore produksi dan sudah diuji langsung di perangkat.
    - Publikasi produksi dilakukan manual melalui GitHub Release UI: tag harus cocok dengan versi, release non-draft/non-prerelease/latest, dan asset wajib bernama `yotro-app.apk`.

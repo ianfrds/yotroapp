@@ -1281,14 +1281,19 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      _formatIndonesianDate(_selectedDate),
-                      style: GoogleFonts.manrope(
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                    Expanded(
+                      child: Text(
+                        _formatIndonesianDate(_selectedDate),
+                        style: GoogleFonts.manrope(
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                     ),
+                    const SizedBox(width: 4),
                     Icon(
                       Icons.calendar_today_rounded,
                       color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),

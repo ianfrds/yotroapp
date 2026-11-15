@@ -17,7 +17,7 @@ class ChangelogItem {
 }
 
 class ChangelogData {
-  static const String currentVersion = '2.0.5';
+  static const String currentVersion = '2.0.6';
 
   static ChangelogItem? getRelease(String tagOrVersion) {
     final clean =
@@ -30,10 +30,26 @@ class ChangelogData {
 
   static const List<ChangelogItem> history = [
     ChangelogItem(
+      version: '2.0.6',
+      date: '15 November 2026',
+      title: 'Sinkronisasi Real-Time Saldo Dompet & Rekonsiliasi Otomatis',
+      isCurrent: true,
+      features: [
+        'Sinkronisasi real-time saldo dompet langsung ke database cloud Supabase pada setiap transaksi baru, ubah, atau hapus.',
+        'Pemulihan mandiri otomatis (Self-Healing) yang menghitung dan memulihkan saldo dompet yang sempat reset menjadi Rp 0 dari riwayat transaksi.',
+      ],
+      improvements: [
+        'Proteksi saldo dompet lokal agar tidak tertimpa snapshot cloud kosong saat aplikasi dibuka atau saat pull-to-refresh.',
+        'Layar pemuatan (loading screen) informatif saat masuk dan menyinkronkan akun Google.',
+        'Optimalisasi tombol aksi ringkasan OCR agar teks tetap satu baris rapi di berbagai ukuran layar ponsel.',
+        'Default tipe dompet baru otomatis memilih Tunai (Cash) untuk mencegah opsi kosong.',
+      ],
+    ),
+    ChangelogItem(
       version: '2.0.5',
       date: '14 November 2026',
       title: 'Pemulihan Stabilitas Android',
-      isCurrent: true,
+      isCurrent: false,
       features: [
         'Pembaruan aplikasi menggunakan APK universal yang diuji langsung sebelum diterbitkan.',
       ],

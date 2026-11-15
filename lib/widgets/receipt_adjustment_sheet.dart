@@ -587,7 +587,7 @@ class _ReceiptAdjustmentSheetState extends State<ReceiptAdjustmentSheet> {
                 children: [
                   // Secondary: Buka di Form
                   Expanded(
-                    flex: 1,
+                    flex: 5,
                     child: SizedBox(
                       height: 48,
                       child: OutlinedButton(
@@ -605,12 +605,18 @@ class _ReceiptAdjustmentSheetState extends State<ReceiptAdjustmentSheet> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
                         ),
-                        child: Text(
-                          'Buka di Form',
-                          style: GoogleFonts.manrope(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'Buka di Form',
+                            maxLines: 1,
+                            softWrap: false,
+                            style: GoogleFonts.manrope(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
@@ -619,7 +625,7 @@ class _ReceiptAdjustmentSheetState extends State<ReceiptAdjustmentSheet> {
                   const SizedBox(width: 10),
                   // Primary: Setujui & Simpan
                   Expanded(
-                    flex: 2,
+                    flex: 6,
                     child: SizedBox(
                       height: 48,
                       child: ElevatedButton(
@@ -644,12 +650,18 @@ class _ReceiptAdjustmentSheetState extends State<ReceiptAdjustmentSheet> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
                         ),
-                        child: Text(
-                          'Setujui & Simpan',
-                          style: GoogleFonts.manrope(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w600,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'Setujui & Simpan',
+                            maxLines: 1,
+                            softWrap: false,
+                            style: GoogleFonts.manrope(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),

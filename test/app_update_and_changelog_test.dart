@@ -29,17 +29,18 @@ void main() {
 
   group('ChangelogModel & Semantic Versioning Tests', () {
     test('ChangelogData history contains accurate metadata', () {
-      expect(ChangelogData.currentVersion, '2.0.5');
+      expect(ChangelogData.currentVersion, '2.0.6');
       expect(ChangelogData.history, isNotEmpty);
 
       final current = ChangelogData.history.first;
-      expect(current.version, '2.0.5');
+      expect(current.version, '2.0.6');
       expect(current.isCurrent, isTrue);
       expect(current.features, isNotEmpty);
       expect(current.improvements, isNotEmpty);
 
       // Verify past versions exist
       final versions = ChangelogData.history.map((e) => e.version).toList();
+      expect(versions, contains('2.0.6'));
       expect(versions, contains('2.0.5'));
       expect(versions, contains('2.0.4'));
       expect(versions, contains('2.0.3'));
@@ -91,7 +92,7 @@ void main() {
 
       expect(checkUpdateRow, findsOneWidget);
       expect(changelogRow, findsOneWidget);
-      expect(find.textContaining('Versi terpasang v2.0.5'), findsOneWidget);
+      expect(find.textContaining('Versi terpasang v${ChangelogData.currentVersion}'), findsOneWidget);
 
       // Tap Catatan Rilis to open sheet
       await tester.tap(changelogRow);
@@ -100,7 +101,7 @@ void main() {
       expect(find.text('Catatan Rilis (Changelog)'),
           findsNWidgets(2)); // row + sheet title
       expect(find.text('Versi Terpasang'), findsOneWidget);
-      expect(find.text('v2.0.5'), findsOneWidget);
+      expect(find.text('v${ChangelogData.currentVersion}'), findsOneWidget);
 
       final v105 = find.text('v1.0.5');
       await tester.scrollUntilVisible(v105, 100,

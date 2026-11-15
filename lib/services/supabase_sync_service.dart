@@ -109,21 +109,7 @@ class SupabaseSyncService {
     if (user == null) return false;
 
     try {
-      // 1. Check profile in Supabase
-      final profileRes = await _client!
-          .from('profiles')
-          .select('id, name, phone')
-          .eq('id', user.id)
-          .maybeSingle();
-      if (profileRes != null) {
-        final name = (profileRes['name'] as String?)?.trim() ?? '';
-        final phone = (profileRes['phone'] as String?)?.trim() ?? '';
-        if (name.isNotEmpty || phone.isNotEmpty) {
-          return true;
-        }
-      }
-
-      // 2. Check if user already has wallets in Supabase
+      // 1. Check if user already has wallets in Supabase (Primary indicator of completed onboarding setup)
       final walletRes = await _client!
           .from('wallets')
           .select('id')
@@ -131,7 +117,7 @@ class SupabaseSyncService {
           .limit(1);
       if ((walletRes as List).isNotEmpty) return true;
 
-      // 3. Check if user already has transactions
+      // 2. Check if user already has transactions in Supabase
       final txRes = await _client!
           .from('transactions')
           .select('id')
@@ -139,7 +125,7 @@ class SupabaseSyncService {
           .limit(1);
       if ((txRes as List).isNotEmpty) return true;
 
-      // 4. Check if user has categories
+      // 3. Check if user has categories in Supabase
       final catRes = await _client!
           .from('categories')
           .select('id')
@@ -147,26 +133,10 @@ class SupabaseSyncService {
           .limit(1);
       if ((catRes as List).isNotEmpty) return true;
 
-      // 5. Check auth metadata: returning user who has signed in before
-      final lastSignIn = user.lastSignInAt;
-      final createdAt = user.createdAt;
-      if (lastSignIn != null && lastSignIn.isNotEmpty && createdAt.isNotEmpty) {
-        if (lastSignIn != createdAt) {
-          return true;
-        }
-      }
-
-      // 6. Check if user account was created in the past (> 30 seconds ago)
-      if (createdAt.isNotEmpty) {
-        final createdDateTime = DateTime.tryParse(createdAt);
-        if (createdDateTime != null) {
-          final diff = DateTime.now().toUtc().difference(createdDateTime.toUtc());
-          if (diff.inSeconds >= 30) {
-            return true;
-          }
-        }
-      }
-
+      // Note: We do NOT use profiles.name because Google OAuth automatically
+      // inserts profiles.name via database trigger on initial sign up.
+      // A brand new user with 0 wallets, 0 transactions, and 0 categories must
+      // be guided to complete the onboarding setup first.
       return false;
     } catch (e) {
       debugPrint('[SupabaseSyncService] Error in hasExistingUserData: $e');
@@ -333,6 +303,68 @@ class SupabaseSyncService {
       }
     } catch (e) {
       debugPrint('[SupabaseSyncService] Error saat syncSingleTransaction: $e');
+    }
+  }
+
+  /// Sync single wallet row to Supabase in background
+  static Future<void> syncWallet(WalletModel wallet) async {
+    if (!canSync) return;
+    final user = SupabaseAuthService.currentUser;
+    if (user == null) return;
+
+    try {
+      await _client!.from('wallets').upsert({
+        'id': wallet.id,
+        'user_id': user.id,
+        'name': wallet.name,
+        'type': wallet.type,
+        'balance': wallet.balance,
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+      debugPrint('[SupabaseSyncService] Synced wallet ${wallet.name} (balance: ${wallet.balance})');
+    } catch (e) {
+      debugPrint('[SupabaseSyncService] Error saat syncWallet: $e');
+    }
+  }
+
+  /// Batch sync all wallets to Supabase in background
+  static Future<void> syncWallets(List<WalletModel> wallets) async {
+    if (!canSync || wallets.isEmpty) return;
+    final user = SupabaseAuthService.currentUser;
+    if (user == null) return;
+
+    try {
+      final now = DateTime.now().toIso8601String();
+      final walletRows = wallets.map((w) => {
+        'id': w.id,
+        'user_id': user.id,
+        'name': w.name,
+        'type': w.type,
+        'balance': w.balance,
+        'updated_at': now,
+      }).toList();
+      await _client!.from('wallets').upsert(walletRows);
+      debugPrint('[SupabaseSyncService] Synced ${wallets.length} wallets');
+    } catch (e) {
+      debugPrint('[SupabaseSyncService] Error saat syncWallets: $e');
+    }
+  }
+
+  /// Delete wallet from Supabase in background
+  static Future<void> deleteWalletFromCloud(String walletId) async {
+    if (!canSync) return;
+    final user = SupabaseAuthService.currentUser;
+    if (user == null) return;
+
+    try {
+      await _client!
+          .from('wallets')
+          .delete()
+          .eq('id', walletId)
+          .eq('user_id', user.id);
+      debugPrint('[SupabaseSyncService] Deleted wallet $walletId from cloud');
+    } catch (e) {
+      debugPrint('[SupabaseSyncService] Error saat deleteWalletFromCloud: $e');
     }
   }
 }
