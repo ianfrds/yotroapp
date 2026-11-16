@@ -17,7 +17,7 @@ class ChangelogItem {
 }
 
 class ChangelogData {
-  static const String currentVersion = '2.0.7';
+  static const String currentVersion = '2.0.8';
 
   static ChangelogItem? getRelease(String tagOrVersion) {
     final clean =
@@ -30,10 +30,26 @@ class ChangelogData {
 
   static const List<ChangelogItem> history = [
     ChangelogItem(
+      version: '2.0.8',
+      date: '16 November 2026',
+      title: 'Enkripsi Client-Side (Zero-Knowledge) & Kalender Mutasi Harian',
+      isCurrent: true,
+      features: [
+        'Enkripsi data transaksi (judul, nominal, catatan) menggunakan AES-256-CBC sebelum dikirim ke cloud Supabase tanpa meminta PIN pengguna.',
+        'Riwayat mutasi harian kalender: ketuk tanggal berapapun di kalender Beranda untuk membuka detail transaksi hari tersebut.',
+        'Pembersihan skema database: menghapus kolom gender dari tabel profil.',
+      ],
+      improvements: [
+        'Tata letak bottom sheet mutasi harian anti-slop: metrik simetris 50/50, tanpa double padding, dan label mutasi di atas kartu.',
+        'Backward-compatibility penuh untuk pembacaan nominal angka legacy di cloud.',
+        'Optimasi biner APK rilis terkompresi (~41 MB ARM64 / ~35 MB ARMv7).',
+      ],
+    ),
+    ChangelogItem(
       version: '2.0.7',
       date: '15 November 2026',
       title: 'Akumulasi Anggaran Kategori & Kustomisasi Siklus Reset',
-      isCurrent: true,
+      isCurrent: false,
       features: [
         'Total anggaran bulanan kini merupakan akumulasi otomatis dari seluruh kategori aktif (Envelope Budgeting).',
         'Kustomisasi tanggal reset anggaran bulanan (1–31) di Profil & Pengaturan dengan preset cepat (Awal Bulan, Tanggal Gajian, Akhir Bulan).',

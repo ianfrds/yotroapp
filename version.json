@@ -1,8 +1,8 @@
 {
-  "version": "2.0.6",
-  "build_number": 14,
-  "release_date": "2026-11-15",
-  "title": "Yotro v2.0.6",
-  "release_notes": "• Perbaikan sinkronisasi saldo dompet ke database cloud Supabase secara real-time.\n• Fitur rekonsiliasi mandiri otomatis yang memulihkan saldo dompet dari riwayat transaksi.\n• Tampilan loading screen informatif saat masuk/sinkronisasi akun Google.\n• Tombol aksi struk OCR tetap rapi satu baris pada berbagai resolusi layar ponsel.\n• Pilihan default tipe akun dompet otomatis terisi Tunai (Cash).",
-  "download_url": "https://github.com/ianfrds/yotroapp/releases/download/v2.0.6/yotro-app.apk"
+  "version": "2.0.8",
+  "build_number": 16,
+  "release_date": "2026-11-16",
+  "title": "Yotro v2.0.8",
+  "release_notes": "• Enkripsi client-side (AES-256) untuk data transaksi di cloud Supabase secara zero-knowledge.\n• Riwayat mutasi harian pada kalender Beranda: ketuk tanggal berapapun untuk melihat detail transaksi.\n• Pembersihan skema database: menghapus kolom gender dari profil pengguna.\n• Tata letak bottom sheet mutasi anti-slop dengan metrik seimbang 50/50.",
+  "download_url": "https://github.com/ianfrds/yotroapp/releases/download/v2.0.8/yotro-app.apk"
 }

@@ -6,6 +6,7 @@ import '../models/category_model.dart';
 import '../models/wallet_model.dart';
 import '../models/budget_model.dart';
 import '../providers/transaction_provider.dart';
+import 'encryption_service.dart';
 import 'supabase_auth_service.dart';
 
 class SupabaseSyncService {
@@ -29,7 +30,6 @@ class SupabaseSyncService {
         'email': user.email ?? '',
         'name': provider.userName,
         'phone': provider.userPhone,
-        'gender': provider.userGender,
         'currency': provider.currency,
         'sync_wallet_to_transactions': provider.syncWalletToTransactions,
         'updated_at': now,
@@ -63,22 +63,22 @@ class SupabaseSyncService {
         await _client!.from('categories').upsert(categoryRows);
       }
 
-      // 4. Upsert Transactions
+      // 4. Upsert Transactions (with transparent E2EE encryption)
       if (provider.transactions.isNotEmpty) {
         const batchSize = 50;
         for (var i = 0; i < provider.transactions.length; i += batchSize) {
           final chunk = provider.transactions.skip(i).take(batchSize).map((t) => {
             'id': t.id,
             'user_id': user.id,
-            'title': t.title,
-            'amount': t.amount,
+            'title': EncryptionService.encryptString(t.title, user.id),
+            'amount': EncryptionService.encryptAmount(t.amount, user.id),
             'type': t.type.name,
             'category_id': t.categoryId,
             'category_name': t.categoryName,
             'wallet_id': t.walletId,
             'from_wallet_id': t.fromWalletId,
             'to_wallet_id': t.toWalletId,
-            'note': t.note,
+            'note': t.note.isNotEmpty ? EncryptionService.encryptString(t.note, user.id) : '',
             'timestamp': t.timestamp.toIso8601String(),
             'updated_at': now,
           }).toList();
@@ -156,7 +156,6 @@ class SupabaseSyncService {
       // 0. Fetch Profile
       String? profileName;
       String? profilePhone;
-      String? profileGender;
       try {
         final profileRes = await _client!
             .from('profiles')
@@ -166,7 +165,6 @@ class SupabaseSyncService {
         if (profileRes != null) {
           profileName = profileRes['name'] as String?;
           profilePhone = profileRes['phone'] as String?;
-          profileGender = profileRes['gender'] as String?;
         }
       } catch (e) {
         debugPrint('[SupabaseSyncService] Error fetching profile: $e');
@@ -206,29 +204,39 @@ class SupabaseSyncService {
               ))
           .toList();
 
-      // 3. Fetch Transactions
+      // 3. Fetch Transactions (decrypt title, amount, and note)
+      bool hadUnencryptedData = false;
       final txRes = await _client!
           .from('transactions')
           .select()
           .eq('user_id', user.id)
           .order('timestamp', ascending: false);
       final List<TransactionModel> fetchedTransactions = (txRes as List)
-          .map((row) => TransactionModel(
-                id: row['id'] as String,
-                title: row['title'] as String,
-                amount: (row['amount'] as num).toDouble(),
-                type: TransactionType.values.firstWhere(
-                  (t) => t.name == (row['type'] as String? ?? 'expense'),
-                  orElse: () => TransactionType.expense,
-                ),
-                categoryId: row['category_id'] as String,
-                categoryName: row['category_name'] as String,
-                walletId: row['wallet_id'] as String,
-                fromWalletId: row['from_wallet_id'] as String?,
-                toWalletId: row['to_wallet_id'] as String?,
-                note: row['note'] as String? ?? '',
-                timestamp: DateTime.tryParse(row['timestamp'] as String? ?? '') ?? DateTime.now(),
-              ))
+          .map((row) {
+            final rawTitle = row['title'] as String?;
+            final rawAmount = row['amount'];
+            if ((rawTitle != null && rawTitle.isNotEmpty && !rawTitle.startsWith(EncryptionService.prefix)) ||
+                (rawAmount is String && !rawAmount.startsWith(EncryptionService.prefix)) ||
+                rawAmount is num) {
+              hadUnencryptedData = true;
+            }
+            return TransactionModel(
+              id: row['id'] as String,
+              title: EncryptionService.decryptString(rawTitle, user.id),
+              amount: EncryptionService.decryptAmount(rawAmount, user.id),
+              type: TransactionType.values.firstWhere(
+                (t) => t.name == (row['type'] as String? ?? 'expense'),
+                orElse: () => TransactionType.expense,
+              ),
+              categoryId: row['category_id'] as String,
+              categoryName: row['category_name'] as String,
+              walletId: row['wallet_id'] as String,
+              fromWalletId: row['from_wallet_id'] as String?,
+              toWalletId: row['to_wallet_id'] as String?,
+              note: EncryptionService.decryptString(row['note'] as String?, user.id),
+              timestamp: DateTime.tryParse(row['timestamp'] as String? ?? '') ?? DateTime.now(),
+            );
+          })
           .toList();
 
       // 4. Fetch Budget
@@ -265,8 +273,13 @@ class SupabaseSyncService {
         budget: budgetRes != null ? fetchedBudget : null,
         userName: profileName,
         userPhone: profilePhone,
-        userGender: profileGender,
       );
+
+      // Auto-encrypt legacy data in background if any unencrypted transactions were detected
+      if (hadUnencryptedData && fetchedTransactions.isNotEmpty) {
+        debugPrint('[SupabaseSyncService] Mendeteksi data lama belum terenkripsi. Mengunggah versi terenkripsi ke cloud...');
+        await uploadAllLocalData(provider);
+      }
 
       debugPrint('[SupabaseSyncService] Berhasil menarik data cloud.');
       return true;
@@ -296,15 +309,15 @@ class SupabaseSyncService {
         await _client!.from('transactions').upsert({
           'id': tx.id,
           'user_id': user.id,
-          'title': tx.title,
-          'amount': tx.amount,
+          'title': EncryptionService.encryptString(tx.title, user.id),
+          'amount': EncryptionService.encryptAmount(tx.amount, user.id),
           'type': tx.type.name,
           'category_id': tx.categoryId,
           'category_name': tx.categoryName,
           'wallet_id': tx.walletId,
           'from_wallet_id': tx.fromWalletId,
           'to_wallet_id': tx.toWalletId,
-          'note': tx.note,
+          'note': tx.note.isNotEmpty ? EncryptionService.encryptString(tx.note, user.id) : '',
           'timestamp': tx.timestamp.toIso8601String(),
           'updated_at': DateTime.now().toIso8601String(),
         });

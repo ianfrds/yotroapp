@@ -82,6 +82,7 @@ money-tracker/
 │   │   └── transaction_provider.dart # State manager, mutasi saldo, kalkulasi budget, tema (system/light/dark), pembaca notifikasi, I/O
 │   ├── services/
 │   │   ├── app_update_service.dart # Layanan pemeriksaan pembaruan OTA in-app via GitHub Releases API, stream unduhan & installer
+│   │   ├── encryption_service.dart # Layanan enkripsi transparan Zero-Knowledge (AES-256-CBC, PBKDF2/HMAC-SHA256 user key derivation, prefix enc:v1:)
 │   │   ├── voice_transaction_parser_service.dart # Mesin parsing suara NLP on-device multi-item bahasa Indonesia
 │   │   ├── storage_service.dart    # Helper abstraksi penyimpanan lokal
 │   │   ├── supabase_auth_service.dart # Otentikasi Supabase (Daftar manual Email+Password+Nama, Masuk Email, Google OAuth, status sesi, sign out & error formatting)
@@ -135,7 +136,9 @@ money-tracker/
 │       ├── balance_card.dart       # Kartu metrik finansial
 │       ├── category_chip.dart      # Chip pemilihan kategori
 │       └── receipt_adjustment_sheet.dart # Modal sheet penyesuaian/persetujuan hasil scan OCR struk
-├── test/                           # Unit & Widget test suite (192 tests passed)
+├── test/                           # Unit & Widget test suite (206 tests passed)
+│   ├── spending_calendar_sheet_test.dart   # Test interaksi ketuk sel kalender & bottom sheet mutasi harian, empty state & integrasi form
+│   ├── encryption_service_test.dart        # Test unit enkripsi AES-256, derivasi kunci HMAC-SHA256, format enc:v1: & backward compatibility
 │   ├── category_budget_rollup_test.dart    # Test akumulasi roll-up anggaran kategori, kalkulasi terpakai & UI
 │   ├── budget_cycle_reset_test.dart        # Test kalkulasi siklus anggaran bulanan kustom, clamping tanggal & modal picker
 │   ├── profile_streak_test.dart            # Test perhitungan streak beruntun pencatatan transaksi & widget streak bar profil
@@ -157,7 +160,9 @@ money-tracker/
 ├── supabase/
 │   ├── config.toml                 # Konfigurasi Supabase project ref njjcviwihzvzjgfbzitg
 │   └── migrations/
-│       └── 20261113000000_init_yotro_schema.sql # Skema PostgreSQL 5 tabel, index FK, trigger & RLS
+│       ├── 20261113000000_init_yotro_schema.sql # Skema PostgreSQL 5 tabel, index FK, trigger & RLS
+│       ├── 20261113000001_delete_user_account.sql # RPC PostgreSQL untuk cascade hapus akun auth & relational data
+│       └── 20261116000000_encrypt_transactions_and_drop_gender.sql # Migrasi alter amount ke TEXT & drop gender dari profiles
 ├── .agents/skills/                 # Skills agent resmi Supabase (supabase & supabase-postgres-best-practices)
 ├── design.md                       # Spesifikasi sistem desain & token visual
 ├── AGENTS.md                       # Aturan wajib agent & auto-sync context.md
@@ -213,7 +218,14 @@ money-tracker/
   - Inner card berisi grid 7 kolom yang bersih tanpa background kartu rounded di setiap tanggalnya (mengurangi distraction/visual clutter secara UX).
   - Khusus hari ini (`Today`): Diberi aksen rounded card outline halus (`Border.all(color: Colors.white.withOpacity(0.35), width: 1.2)`), menjadi fokus utama tanpa mengaburkan angka tanggal dan nominal.
   - Menampilkan tanggal dalam bulan dan nominal pengeluaran ringkas (contoh: `13K`, `25K`, `120K`).
-  - Klik pada tanggal menampilkan detail pengeluaran hari tersebut di bagian bawah grid.
+  - **Interaksi Bottom Sheet Mutasi Harian (`_showDailyTransactionsSheet`):** Mengetuk tanggal berapapun pada grid langsung membuka modal bottom sheet mutasi harian (`showModalCardSheet`) tanpa memerlukan bilah ringkasan bawah:
+    1. Header bar menyajikan ikon kalender, tanggal terpilih (misal: "15 November 2026"), dan tombol tutup `(✕)`.
+    2. Teks jumlah mutasi (`X Mutasi`) diletakkan di atas kartu pengeluaran & pemasukan.
+    3. Padding sheet dirampingkan (`innerPadding: fromLTRB(10, 10, 10, 12)`, tanpa double-padding 16px berlapis).
+    4. Bilah ringkasan metrik simetris 50/50: Total Pengeluaran (`- Rp XX.XXX` atau `Rp 0`) dan Total Pemasukan (`+ Rp YY.YYY` atau `Rp 0`) dipisahkan divider vertikal tipis, dengan `FittedBox` scale down.
+    5. Jarak antar-elemen dipadatkan menjadi `8px` (`SizedBox(height: 8)`).
+    6. Daftar riwayat transaksi menggunakan `TransactionTile` di dalam kontainer ber-radius `12px`.
+    7. State kosong (*empty state*) ringkas dengan tombol `+ Catat Transaksi` yang langsung membuka form dengan tanggal terpilih (`initialDate`).
 
 ### 3.2 Transaction Management & Riwayat Transaksi (`TransactionsScreen`)
 - **Layar Riwayat Transaksi (`lib/screens/transactions_screen.dart`):**
@@ -960,6 +972,37 @@ money-tracker/
   4. `lib/screens/financial_analysis_screen.dart`:
      - Mempertahankan kalkulasi panduan anggaran yang konsisten dengan batas bulanan.
 - **Validasi Uji:** Dibuat test suite komprehensif di `test/category_budget_rollup_test.dart` (4 tests) yang menguji agregasi total kategori, isolasi pengeluaran siklus pada kategori terbudgetkan, tampilan kartu roll-up, dan navigasi tombol tambah. Seluruh test suite (192 tests) lulus 100%.
+
+### 3.37 Transparent Client-Side Encryption (Zero-Knowledge E2EE) & Pembersihan Skema Gender
+- **Kebutuhan:** Mengamankan data finansial pengguna di Supabase agar judul transaksi (`title`), nominal (`amount`), dan catatan (`note`) tersimpan dalam bentuk string terenkripsi (*ciphertext*) yang tidak dapat dibaca di Supabase Dashboard (Table Editor / SQL Editor). Bekerja otomatis tanpa memerlukan input PIN pengguna. Sekaligus menghapus kolom `gender` usang dari tabel `public.profiles` di Supabase.
+- **Implementasi Solusi:**
+  1. `lib/services/encryption_service.dart`:
+     - Algoritma AES-256-CBC dengan padding PKCS7 dan initialization vector (IV) acak 16 byte.
+     - Derivasi kunci AES 32-byte deterministik per-user menggunakan `HMAC-SHA256(user.id, app_salt)`.
+     - Format ciphertext: `enc:v1:<base64-iv>:<base64-ciphertext>`.
+     - Kompatibilitas mundur: fungsi `decryptString` dan `decryptAmount` mengenali data legacy angka polos (`num`) dan teks tanpa prefix `enc:v1:` secara aman tanpa crash.
+  2. `lib/services/supabase_sync_service.dart`:
+     - `uploadAllLocalData`: mengenkripsi `title`, `amount`, dan `note` (jika ada) sebelum batch `upsert` ke tabel `transactions`. Menghapus pengiriman field `gender` pada tabel `profiles`.
+     - `syncSingleTransaction`: mengenkripsi `title`, `amount`, dan `note` saat sinkronisasi background transaksi baru/edit.
+     - `pullCloudData`: mendekripsi `title`, `amount`, dan `note` secara transparan saat memetakan baris cloud ke `TransactionModel`. Menghapus pembacaan `profileGender`.
+  3. `supabase/migrations/20261116000000_encrypt_transactions_and_drop_gender.sql`:
+     - Mengubah kolom `amount` pada `public.transactions` menjadi bertipe `TEXT` (`USING amount::TEXT`).
+     - Menghapus kolom `gender` dari `public.profiles` (`DROP COLUMN IF EXISTS gender;`).
+- **Validasi Uji:** Dibuat test suite unit di `test/encryption_service_test.dart` (9 tests) yang menguji derivasi kunci, format ciphertext, roundtrip enkripsi/dekripsi teks dan nominal, isolasi antar-user, dan kompatibilitas mundur. Seluruh test suite (203 tests) lulus 100%.
+
+### 3.38 Interaksi Bottom Sheet Riwayat Transaksi Harian pada Kalender Beranda
+- **Kebutuhan:** Memungkinkan pengguna melihat mutasi riwayat transaksi secara terperinci pada tanggal tertentu dengan mengetuk sel tanggal kalender di Beranda (`SpendingCalendarCard`).
+- **Implementasi Solusi:**
+  1. `lib/widgets/spending_calendar_card.dart`:
+     - Menambahkan method `_showDailyTransactionsSheet(BuildContext context, DateTime date, TransactionProvider provider)` memanfaatkan komponen `showModalCardSheet`.
+     - Header: Tanggal lengkap format Bahasa Indonesia (misal: `"15 November 2026"` atau `"Hari Ini · 16 Nov 2026"`), ikon `Icons.calendar_today_outlined`, dan tombol close X.
+     - Pods Metrik Anti-Slop (Side-by-side): Total Pengeluaran (`- Rp XX.XXX` warna merah `#FF5A65`), Total Pemasukan (`+ Rp YY.YYY` warna hijau `#39D98A` jika ada), dan badge jumlah mutasi (`X Mutasi`).
+     - Daftar Transaksi: Menggunakan `TransactionTile` interaktif; ketukan pada tile membuka `AddTransactionScreen` (mode ubah transaksi).
+     - Empty State Bersih: Ikon monokrom `Icons.receipt_long_outlined`, teks informatif *"Belum Ada Transaksi"*, dan tombol primer elevated oceanic `+ Catat Transaksi` yang menyetel form transaksi ke tanggal terpilih (`initialDate`).
+     - Trigger: Mengetuk sel tanggal manapun di `GridView.builder` atau bilah ringkasan bawah (*Selected Day Summary bar*) membuka sheet transaksi harian tersebut.
+  2. `lib/screens/add_transaction_screen.dart`:
+     - Menambahkan parameter opsional `DateTime? initialDate` pada konstruktor dan `AddTransactionScreen.route(...)` agar form dapat dibuka dengan tanggal awal kustom.
+- **Validasi Uji:** Dibuat test suite baru di `test/spending_calendar_sheet_test.dart` (3 tests) yang memvalidasi pembukaan sheet pada tanggal bertransaksi, verifikasi daftar tile dan ringkasan metrik, pembukaan empty state dan navigasi ke form catat transaksi, serta pembukaan kembali via pil ringkasan bawah. Seluruh test suite (206 tests) lulus 100%.
 
 ---
 
@@ -1901,12 +1944,36 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
 - [x] Perbaikan Grafik Batang Mengambang pada Rincian Anggaran ([`lib/screens/budget_detail_screen.dart`](lib/screens/budget_detail_screen.dart)):
   - **Penyebab Batang Mengambang**: Pada layer plot batang `_buildUsageBarChart`, widget batang dibungkus dengan `child: Center(` di dalam `Expanded`, sehingga batang harian terpusat secara vertikal di tengah area plot dan melayang di udara tanpa menyentuh garis baseline 0.
   - **Solusi**: Mengganti `child: Center(` dengan `child: Align(alignment: Alignment.bottomCenter, ...)` dan menyetel sudut bawah bar `bottom: Radius.circular(1)` sehingga batang berdiri kokoh tepat di atas garis baseline 0 dan tumbuh ke atas sesuai proporsi nominal.
+- [x] Rilis Versi 2.0.8 (Build +16) & Pembaruan Catatan Rilis:
+  - Menaikkan versi aplikasi di [`pubspec.yaml`](pubspec.yaml) ke `2.0.8+16`.
+  - Menambahkan metadata rilis v2.0.8 pada [`lib/models/changelog_model.dart`](lib/models/changelog_model.dart) (`ChangelogData.currentVersion = '2.0.8'`).
+  - Memperbarui manifest rilis lokal di [`version.json`](version.json) ke `v2.0.8` (build 16).
+  - Fitur utama v2.0.8: Transparent Client-Side Encryption (Zero-Knowledge E2EE via AES-256-CBC), Detail Mutasi Harian pada Kalender Beranda, Pembersihan Kolom Gender di Supabase & Profil, serta Refinement Layout Anti-Slop.
+  - Mengompilasi split-per-abi release APK yang terkompresi di [`yotro-app.apk`](yotro-app.apk), [`yotro-app-arm64.apk`](yotro-app-arm64.apk), dan [`yotro-app-armv7.apk`](yotro-app-armv7.apk).
+  - Tervalidasi lulus 206 unit & widget tests (`flutter test`).
 - [x] Rilis Versi 2.0.7 (Build +15) & Pembaruan Catatan Rilis:
   - Menaikkan versi aplikasi di [`pubspec.yaml`](pubspec.yaml) ke `2.0.7+15`.
   - Menambahkan metadata rilis v2.0.7 pada [`lib/models/changelog_model.dart`](lib/models/changelog_model.dart) (`ChangelogData.currentVersion = '2.0.7'`).
   - Fitur utama v2.0.7: Akumulasi Anggaran Kategori (Roll-up Envelope Budgeting), Kustomisasi Tanggal Reset Anggaran Bulanan (1–31) di Profil, Streak Pencatatan Finansial di Profil, dan Redesain Anti-Slop Rincian Anggaran (tahan angka besar, bebas tombol edit langsung pada kartu, dan batang grafik grounded di baseline 0).
   - Mengompilasi split-per-abi release APK yang terkompresi (dari 103 MB turun ke **40 MB** untuk ARM64 dan **34 MB** untuk ARMv7) di [`yotro-app.apk`](yotro-app.apk), [`yotro-app-arm64.apk`](yotro-app-arm64.apk), dan [`yotro-app-armv7.apk`](yotro-app-armv7.apk).
   - Tervalidasi lulus 194 unit & widget tests (`flutter test`).
+- [x] Transparent Client-Side Encryption (Zero-Knowledge E2EE) & Pembersihan Kolom Gender di Supabase:
+  - Membuat [`lib/services/encryption_service.dart`](lib/services/encryption_service.dart): implementasi AES-256-CBC dengan padding PKCS7, format prefix `enc:v1:`, dan derivasi kunci 32-byte per-user via `HMAC-SHA256(user.id, app_salt)` tanpa input PIN dari pengguna.
+  - Memperbarui [`lib/services/supabase_sync_service.dart`](lib/services/supabase_sync_service.dart):
+    - `uploadAllLocalData`: mengenkripsi `title`, `amount`, dan `note` pada setiap transaksi sebelum upsert, serta menghapus pengiriman field `gender` pada tabel `profiles`.
+    - `syncSingleTransaction`: mengenkripsi `title`, `amount`, dan `note` saat sinkronisasi background transaksi baru atau edit.
+    - `pullCloudData`: mendekripsi `title`, `amount`, dan `note` secara transparan, menghapus pembacaan `profileGender`, serta otomatis mendeteksi jika data cloud masih unencrypted lalu mengunggah balik versi terenkripsi secara otomatis (*self-healing cloud migration*).
+  - Membuat berkas migrasi PostgreSQL di [`supabase/migrations/20261116000000_encrypt_transactions_and_drop_gender.sql`](supabase/migrations/20261116000000_encrypt_transactions_and_drop_gender.sql) (`ALTER TABLE public.transactions ALTER COLUMN amount TYPE TEXT USING amount::TEXT;` dan `ALTER TABLE public.profiles DROP COLUMN IF EXISTS gender;`). Migrasi telah sukses dieksekusi langsung pada database remote Supabase produksi `njjcviwihzvzjgfbzitg`.
+  - Menambahkan dependensi `encrypt: ^5.0.3` pada `pubspec.yaml`.
+  - Teruji dengan test suite komprehensif di `test/encryption_service_test.dart` (9 tests) dan seluruh 203 unit & widget tests lulus 100%.
+- [x] Interaksi Bottom Sheet Riwayat Transaksi Harian pada Kalender Beranda:
+  - Mengembangkan `_showDailyTransactionsSheet` pada [`lib/widgets/spending_calendar_card.dart`](lib/widgets/spending_calendar_card.dart) menggunakan `showModalCardSheet`.
+  - Menampilkan ringkasan metrik pods (Total Pengeluaran, Total Pemasukan, dan jumlah transaksi).
+  - Menampilkan daftar transaksi hari tersebut dengan `TransactionTile` interaktif (mengetuk membuka form edit).
+  - Menampilkan empty state bersih dengan tombol `+ Catat Transaksi` yang menyetel form `AddTransactionScreen` ke tanggal terpilih (`initialDate`).
+  - Menambahkan parameter `initialDate` pada [`lib/screens/add_transaction_screen.dart`](lib/screens/add_transaction_screen.dart).
+  - Trigger interaksi aktif pada setiap sel tanggal di `GridView` kalender dan bilah ringkasan nominal bawah.
+  - Tervalidasi dengan test suite baru di `test/spending_calendar_sheet_test.dart` (3 tests) dan seluruh 206 unit & widget tests lulus 100%.
 - [x] File handover AI context di `context.md`.
 - [x] Aturan otomatisasi workspace agent di `AGENTS.md` dan `GEMINI.md` (auto-sync `context.md`).
 
@@ -1944,7 +2011,7 @@ Saat melanjutkan proyek ini:
 8. **In-App OTA Updater & Changelog Invariants:**
    - Model rilis GitHub: `ianfrds/yotroapp`.
    - `package_info_plus: ^10.2.2` & `open_filex: ^4.7.0` mengelola deteksi versi dan instalasi paket.
-   - Versi saat ini di `pubspec.yaml` adalah `2.0.7+15` dengan `ChangelogData.currentVersion = '2.0.7'`.
+   - Versi saat ini di `pubspec.yaml` adalah `2.0.8+16` dengan `ChangelogData.currentVersion = '2.0.8'`.
    - Workflow `.github/workflows/build-apk.yml` hanya membangun branch/PR/manual-dispatch untuk validasi dengan keystore sementara. Workflow tidak merespons tag dan tidak menerbitkan GitHub Release.
    - Jangan distribusikan artifact GitHub Actions atau rilis `v2.0.3`; keduanya memakai keystore CI sementara. Produksi memakai APK lokal yang ditandatangani keystore produksi dan sudah diuji langsung di perangkat.
    - Publikasi produksi dilakukan manual melalui GitHub Release UI: tag harus cocok dengan versi, release non-draft/non-prerelease/latest, dan asset wajib bernama `yotro-app.apk`.
@@ -1964,4 +2031,12 @@ Saat melanjutkan proyek ini:
     - GitHub CI tidak mengompilasi release Web dan hanya memvalidasi universal Android APK. APK produksi diterbitkan manual dari hasil build lokal yang sudah diuji.
 14. **Invarian Kontras Switch Toggle:**
     - Seluruh `Switch.adaptive` wajib mempertahankan `activeThumbColor: Colors.white` dengan `activeTrackColor: Color(0xFF02539A)` baik di mode terang maupun mode gelap. Dilarang menyamakan warna `activeThumbColor` dan `activeTrackColor` agar knob/thumb tidak lenyap ke dalam lintasan oval.
+15. **Enkripsi Client-Side Zero-Knowledge (E2EE):**
+    - `EncryptionService` mengenkripsi `title`, `amount`, dan `note` pada tabel `transactions` menggunakan AES-256-CBC dengan prefix `enc:v1:<iv>:<ciphertext>`.
+    - Kunci diturunkan secara deterministik dari `user.id` tanpa meminta PIN pengguna.
+    - Kolom `amount` di Supabase bertipe `TEXT`. Dekripsi cloud selalu toleran terhadap tipe data `num` lama dan string tanpa prefix enkripsi (kompatibel mundur).
+16. **Interaksi Kalender Mutasi Harian:**
+    - Mengetuk tanggal berapapun pada `SpendingCalendarCard` memunculkan `_showDailyTransactionsSheet` dengan `showModalCardSheet`.
+    - Modal dibungkus dengan `ChangeNotifierProvider.value(value: provider)` untuk menjaga konteks provider.
+    - Mengetuk tombol `+ Catat Transaksi` pada empty state kalender meneruskan `initialDate` ke `AddTransactionScreen`.
 

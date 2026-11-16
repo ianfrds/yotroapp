@@ -29,17 +29,18 @@ void main() {
 
   group('ChangelogModel & Semantic Versioning Tests', () {
     test('ChangelogData history contains accurate metadata', () {
-      expect(ChangelogData.currentVersion, '2.0.7');
+      expect(ChangelogData.currentVersion, '2.0.8');
       expect(ChangelogData.history, isNotEmpty);
 
       final current = ChangelogData.history.first;
-      expect(current.version, '2.0.7');
+      expect(current.version, '2.0.8');
       expect(current.isCurrent, isTrue);
       expect(current.features, isNotEmpty);
       expect(current.improvements, isNotEmpty);
 
       // Verify past versions exist
       final versions = ChangelogData.history.map((e) => e.version).toList();
+      expect(versions, contains('2.0.8'));
       expect(versions, contains('2.0.7'));
       expect(versions, contains('2.0.6'));
       expect(versions, contains('2.0.5'));

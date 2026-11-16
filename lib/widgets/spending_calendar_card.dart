@@ -3,8 +3,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../models/category_model.dart';
+import '../models/transaction_model.dart';
 import '../providers/transaction_provider.dart';
+import '../screens/add_transaction_screen.dart';
+import 'modal_card_sheet.dart';
 import 'nested_card.dart';
+import 'transaction_tile.dart';
 
 class SpendingCalendarCard extends StatefulWidget {
   final ValueChanged<DateTime>? onDateSelected;
@@ -72,6 +76,264 @@ class _SpendingCalendarCardState extends State<SpendingCalendarCard> {
     });
   }
 
+  void _showDailyTransactionsSheet(
+    BuildContext context,
+    DateTime date,
+    TransactionProvider provider,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final monthName = _monthNames[date.month - 1];
+    final now = DateTime.now();
+    final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+    final dateTitle = isToday
+        ? 'Hari Ini · ${date.day} $monthName ${date.year}'
+        : '${date.day} $monthName ${date.year}';
+
+    final dayTransactions = provider.transactions.where((tx) =>
+      tx.timestamp.year == date.year &&
+      tx.timestamp.month == date.month &&
+      tx.timestamp.day == date.day,
+    ).toList()
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+    final dayExpense = dayTransactions
+        .where((tx) => tx.type == TransactionType.expense)
+        .fold(0.0, (sum, tx) => sum + tx.amount);
+    final dayIncome = dayTransactions
+        .where((tx) => tx.type == TransactionType.income)
+        .fold(0.0, (sum, tx) => sum + tx.amount);
+
+    final cardBg = isDark ? const Color(0xFF131A26) : const Color(0xFFFFFFFF);
+    final borderColor = isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFE2E8F0);
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final mutedColor = isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B);
+
+    showModalCardSheet(
+      context: context,
+      title: dateTitle,
+      titleIcon: Icons.calendar_today_outlined,
+      innerPadding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
+      child: ChangeNotifierProvider.value(
+        value: provider,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Daily Summary Pods (Anti-Slop tiered metric row)
+            if (dayTransactions.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.only(left: 2, bottom: 6),
+                child: Text(
+                  '${dayTransactions.length} Mutasi',
+                  style: GoogleFonts.manrope(
+                    color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withOpacity(0.035) : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: borderColor),
+                ),
+                child: Row(
+                  children: [
+                    // Expense Pod
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Total Pengeluaran',
+                            style: GoogleFonts.manrope(
+                              color: mutedColor,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              dayExpense > 0
+                                  ? '- ${provider.formatCurrency(dayExpense)}'
+                                  : 'Rp 0',
+                              style: GoogleFonts.interTight(
+                                color: dayExpense > 0
+                                    ? const Color(0xFFFF5A65)
+                                    : mutedColor,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 26,
+                      margin: const EdgeInsets.symmetric(horizontal: 10),
+                      color: borderColor,
+                    ),
+                    // Income Pod
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Total Pemasukan',
+                            style: GoogleFonts.manrope(
+                              color: mutedColor,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              dayIncome > 0
+                                  ? '+ ${provider.formatCurrency(dayIncome)}'
+                                  : 'Rp 0',
+                              style: GoogleFonts.interTight(
+                                color: dayIncome > 0
+                                    ? const Color(0xFF39D98A)
+                                    : mutedColor,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Transaction list
+              Container(
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: borderColor),
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: EdgeInsets.zero,
+                  itemCount: dayTransactions.length,
+                  separatorBuilder: (_, __) => Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: borderColor,
+                  ),
+                  itemBuilder: (ctx, index) {
+                    final tx = dayTransactions[index];
+                    return TransactionTile(
+                      transaction: tx,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        Navigator.push(
+                          context,
+                          AddTransactionScreen.route(initialTransaction: tx),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ] else ...[
+              // Clean Empty State
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withOpacity(0.02) : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: borderColor),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF1F5F9),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: borderColor),
+                      ),
+                      child: Icon(
+                        Icons.receipt_long_outlined,
+                        size: 22,
+                        color: mutedColor,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Belum Ada Transaksi',
+                      style: GoogleFonts.interTight(
+                        color: textColor,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Tidak ada mutasi yang dicatat pada ${date.day} $monthName',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.manrope(
+                        color: mutedColor,
+                        fontSize: 11.5,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      height: 38,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            AddTransactionScreen.route(initialDate: date),
+                          );
+                        },
+                        icon: const Icon(Icons.add_rounded, size: 16),
+                        label: Text(
+                          'Catat Transaksi',
+                          style: GoogleFonts.manrope(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF02539A),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<TransactionProvider>();
@@ -119,12 +381,6 @@ class _SpendingCalendarCardState extends State<SpendingCalendarCard> {
         dayExpenseMap[key] = (dayExpenseMap[key] ?? 0.0) + tx.amount;
       }
     }
-
-    // Selected date details
-    final selectedKey = _selectedDate != null
-        ? '${_selectedDate!.year}-${_selectedDate!.month}-${_selectedDate!.day}'
-        : null;
-    final selectedExpense = selectedKey != null ? (dayExpenseMap[selectedKey] ?? 0.0) : 0.0;
 
     return NestedCard(
       title: monthName,
@@ -240,6 +496,7 @@ class _SpendingCalendarCardState extends State<SpendingCalendarCard> {
                       _selectedDate = date;
                     });
                     widget.onDateSelected?.call(date);
+                    _showDailyTransactionsSheet(context, date, provider);
                   },
                   borderRadius: BorderRadius.circular(10),
                   child: Container(
@@ -291,43 +548,6 @@ class _SpendingCalendarCardState extends State<SpendingCalendarCard> {
                 );
               },
             ),
-
-            // Selected Day Summary (if expense exists)
-            if (_selectedDate != null && selectedExpense > 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1A222E) : const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFE2E8F0),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '${_selectedDate!.day} ${_monthNames[_selectedDate!.month - 1]}',
-                        style: GoogleFonts.manrope(
-                          color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF475569),
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      Text(
-                        provider.formatCurrency(selectedExpense),
-                        style: GoogleFonts.interTight(
-                          color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
           ],
         ),
       ),

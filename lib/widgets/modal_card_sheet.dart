@@ -7,6 +7,7 @@ Future<T?> showModalCardSheet<T>({
   IconData? titleIcon,
   Color? titleIconColor,
   Widget? headerAction,
+  Widget? badge,
   EdgeInsetsGeometry innerPadding = const EdgeInsets.all(16),
   required Widget child,
   bool isScrollControlled = true,
@@ -77,14 +78,26 @@ Future<T?> showModalCardSheet<T>({
                         const SizedBox(width: 10),
                       ],
                       Expanded(
-                        child: Text(
-                          title,
-                          style: GoogleFonts.interTight(
-                            color: isDark ? Colors.white : const Color(0xFF0F172A),
-                            fontSize: 16.5,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: -0.2,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                title,
+                                style: GoogleFonts.interTight(
+                                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                  fontSize: 16.5,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: -0.2,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (badge != null) ...[
+                              const SizedBox(width: 8),
+                              badge,
+                            ],
+                          ],
                         ),
                       ),
                       if (headerAction != null)

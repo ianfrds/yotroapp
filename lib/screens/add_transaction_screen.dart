@@ -23,12 +23,14 @@ class AddTransactionScreen extends StatefulWidget {
   final TransactionModel? initialTransaction;
   final TransactionType? initialType;
   final String? initialCategory;
+  final DateTime? initialDate;
 
   const AddTransactionScreen({
     super.key,
     this.initialTransaction,
     this.initialType,
     this.initialCategory,
+    this.initialDate,
   });
 
   /// Static helper for smooth bottom-to-top swipe-up route transition
@@ -36,12 +38,14 @@ class AddTransactionScreen extends StatefulWidget {
     TransactionModel? initialTransaction,
     TransactionType? initialType,
     String? initialCategory,
+    DateTime? initialDate,
   }) {
     return SlideUpRoute(
       page: AddTransactionScreen(
         initialTransaction: initialTransaction,
         initialType: initialType,
         initialCategory: initialCategory,
+        initialDate: initialDate,
       ),
     );
   }
@@ -84,7 +88,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     _selectedWalletId = tx?.walletId ?? 'w_bank';
     _fromWalletId = tx?.fromWalletId ?? 'w_bank';
     _toWalletId = tx?.toWalletId ?? 'w_cash';
-    _selectedDate = tx?.timestamp ?? DateTime.now();
+    _selectedDate = tx?.timestamp ?? widget.initialDate ?? DateTime.now();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
