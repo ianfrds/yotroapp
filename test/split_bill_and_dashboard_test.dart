@@ -29,7 +29,7 @@ void main() {
   }
 
   group('DashboardScreen & Quick Actions Tests', () {
-    testWidgets('Dashboard renders 4 quick action items: Dompet, Budget, Analisis, Split Bill', (tester) async {
+    testWidgets('Dashboard renders 4 quick action items: Dompet, Budget, Analisis, Tagihan', (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -44,7 +44,7 @@ void main() {
       expect(find.text('Dompet'), findsWidgets);
       expect(find.text('Budget'), findsWidgets);
       expect(find.text('Analisis'), findsOneWidget);
-      expect(find.text('Split Bill'), findsOneWidget);
+      expect(find.text('Tagihan'), findsOneWidget);
       expect(find.byType(SvgPicture), findsNWidgets(4));
 
       // Verify Masuk and Keluar quick action buttons are gone

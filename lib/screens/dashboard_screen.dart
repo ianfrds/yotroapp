@@ -23,6 +23,7 @@ import 'budget_screen.dart';
 import 'wallets_screen.dart';
 import 'financial_analysis_screen.dart';
 import 'split_bill_screen.dart';
+import 'subscriptions_screen.dart';
 import 'notifications_center_screen.dart';
 import 'onboarding_profile_screen.dart';
 
@@ -1101,10 +1102,10 @@ class _HeroBalancePanelState extends State<_HeroBalancePanel> {
                 Expanded(
                   child: _buildQuickActionItem(
                     context: context,
-                    svgAsset: 'assets/icon/Split Bill.svg',
-                    label: 'Split Bill',
+                    svgAsset: 'assets/icon/Tagihan.svg',
+                    label: 'Tagihan',
                     onTap: () {
-                      Navigator.push(context, SplitBillScreen.route());
+                      Navigator.push(context, SubscriptionsScreen.route());
                     },
                   ),
                 ),

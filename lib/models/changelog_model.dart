@@ -17,7 +17,7 @@ class ChangelogItem {
 }
 
 class ChangelogData {
-  static const String currentVersion = '2.0.8';
+  static const String currentVersion = '2.0.9';
 
   static ChangelogItem? getRelease(String tagOrVersion) {
     final clean =
@@ -30,10 +30,28 @@ class ChangelogData {
 
   static const List<ChangelogItem> history = [
     ChangelogItem(
+      version: '2.0.9',
+      date: '20 November 2026',
+      title: 'Fitur Tagihan & Langganan Rutin (Subscriptions) & Smart Reminder',
+      isCurrent: true,
+      features: [
+        'Fitur Tagihan & Layanan Langganan Rutin: catat komitmen pengeluaran berulang (Bulanan, Mingguan, Tahunan) lengkap dengan preset populer Indonesia (Netflix, Spotify, WiFi, PLN, BPJS, Kos, iCloud, ChatGPT Plus, Gym).',
+        'Bayar tagihan 1-tap: otomatis potong saldo dompet pilihan, catat mutasi pengeluaran, dan tandai lunas pada periode berjalan.',
+        'Pengingat jatuh tempo tagihan otomatis (H-1 & Hari H) serta status jatuh tempo cerdas.',
+        'Pengingat transaksi harian cerdas: alarm OS dan kartu Beranda otomatis tidak akan muncul jika pada hari tersebut pengguna sudah mencatat transaksi.',
+        'Sinkronisasi filter bulan Laporan Keuangan: breakdown kategori dan jumlah mutasi 100% konsisten dengan periode bulan yang dipilih.',
+      ],
+      improvements: [
+        'Ikon baru menu Tagihan berdesain solid filled shape seirama dengan Dompet, Budget, dan Analisis.',
+        'Penyempurnaan ergonomi tombol formulir tagihan dengan tinggi standar 52px yang nyaman disentuh.',
+        'Fitur Split Bill tetap dipertahankan aman di codebase.',
+      ],
+    ),
+    ChangelogItem(
       version: '2.0.8',
       date: '16 November 2026',
       title: 'Enkripsi Client-Side (Zero-Knowledge) & Kalender Mutasi Harian',
-      isCurrent: true,
+      isCurrent: false,
       features: [
         'Enkripsi data transaksi (judul, nominal, catatan) menggunakan AES-256-CBC sebelum dikirim ke cloud Supabase tanpa meminta PIN pengguna.',
         'Riwayat mutasi harian kalender: ketuk tanggal berapapun di kalender Beranda untuk membuka detail transaksi hari tersebut.',

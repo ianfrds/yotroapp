@@ -157,7 +157,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final provider = context.watch<TransactionProvider>();
     final isExpense = provider.analyticsTab == TransactionType.expense;
-    final breakdownRaw = provider.getCategoryBreakdown();
+    final breakdownRaw = provider.getCategoryBreakdown(month: _selectedMonth);
 
     // Sort categories descending by amount
     final sortedBreakdown = breakdownRaw.entries.toList()
@@ -214,6 +214,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     onSelected: (date) {
                       setState(() {
                         _selectedMonth = date;
+                        _selectedCategoryIndex = 0;
                       });
                     },
                   ),
@@ -450,9 +451,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
                     final txCount = provider.transactions
                         .where(
-                          (t) =>
-                              t.type == provider.analyticsTab &&
-                              t.categoryName == item.key,
+                          (t) {
+                            final local = t.timestamp.toLocal();
+                            return t.type == provider.analyticsTab &&
+                                t.categoryName == item.key &&
+                                local.year == _selectedMonth.year &&
+                                local.month == _selectedMonth.month;
+                          },
                         )
                         .length;
 

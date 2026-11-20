@@ -34,7 +34,7 @@ money-tracker/
 │   ├── app/proguard-rules.pro      # Aturan ProGuard terdokumentasi; release pemulihan tidak menjalankan minify/shrink R8
 │   └── key.properties.example      # Template konfigurasi signing; key asli wajib private/diabaikan Git
 ├── assets/
-│   ├── icon/                       # Quick action vector SVGs (Analisis.svg, Budget.svg, Dompet.svg, Split Bill.svg)
+│   ├── icon/                       # Quick action vector SVGs (Analisis.svg, Budget.svg, Dompet.svg, Split Bill.svg, Tagihan.svg)
 │   └── images/                     # Master assets (app_icon.png, google_logo.png, logo.png, logo_splash.png, onboarding_bg.png, onboarding_bg.jpg)
 ├── web/
 │   ├── favicon.png                 # Official brand 32x32 favicon
@@ -58,6 +58,7 @@ money-tracker/
 │   │   ├── donut_chart_painter.dart # Reusable Annular Wedge Donut Chart CustomPainter berfillet lingkaran halus
 │   │   ├── semicircle_budget_gauge.dart # Semicircular speedometer gauge 180° untuk monitoring batas budget bulanan
 │   │   ├── receipt_adjustment_sheet.dart # Modal sheet penyesuaian data struk OCR & persetujuan catat transaksi
+│   │   ├── add_subscription_sheet.dart # Modal sheet tambah/edit tagihan & langganan rutin (quick presets, nominal, tanggal tempo, switch reminder, tombol tinggi 52px)
 │   │   ├── weekly_activity_chart.dart # Grafik batang aktivitas mingguan (single / dual bar)
 │   │   ├── spending_calendar_card.dart # Kalender pengeluaran harian
 │   │   ├── nested_card.dart        # Reusable card-inside-card container
@@ -71,6 +72,7 @@ money-tracker/
 │   │   └── app_theme.dart          # Integrasi Forui & Google Fonts ThemeData
 │   ├── models/
 │   │   ├── transaction_model.dart  # Model data transaksi (Income, Expense, Transfer)
+│   │   ├── subscription_model.dart # Model tagihan & langganan rutin berulang (billingDay, cycle, isPaidInMonth, nextDueDate, getStatus)
 │   │   ├── category_model.dart     # Kategori pengeluaran & pemasukan default/kustom
 │   │   ├── wallet_model.dart       # Model dompet/rekening (Bank, Cash, E-Wallet, dsb)
 │   │   ├── budget_model.dart       # Model anggaran bulanan & anggaran per kategori
@@ -113,7 +115,8 @@ money-tracker/
 │   │   ├── wallets_screen.dart     # Manajemen multi-dompet & transfer antar-dompet
 │   │   ├── analytics_screen.dart   # Laporan Keuangan murni dengan AppMonthFilterPill serasi kartu saldo (Donut/Bar toggle & breakdown)
 │   │   ├── financial_analysis_screen.dart # Fitur Analisis Keuangan mandiri dengan filter bulan di bawah title (Skor kesehatan, meter, diagnosa cerdas & kurva arus kas)
-│   │   ├── split_bill_screen.dart  # Fitur Split Bill pembagian tagihan, pajak/tip, status bayar & catat ke transaksi
+│   │   ├── subscriptions_screen.dart # Layar Tagihan & Langganan Rutin (Hero commitment card, smart due date grouping, 1-tap bayar & catat transaksi)
+│   │   ├── split_bill_screen.dart  # Fitur Split Bill pembagian tagihan, pajak/tip, status bayar & catat ke transaksi (dormant di codebase)
 │   │   ├── settings_screen.dart    # Layar Profil & Pengaturan (Mode Tampilan 3 opsi: Sistem, Light Mode, Dark Mode via modal sheet)
 │   │   ├── display_preferences_screen.dart # Layar Baru Pemilihan Preferensi Tampilan (Complete View, Income/Expense, Expense Only dengan wireframe live preview)
 │   │   ├── manage_categories_screen.dart # Layar Kelola Kategori (Daftar kategori Pengeluaran & Pemasukan, navigasi ke form layar baru, modal hapus kartu)
@@ -135,8 +138,11 @@ money-tracker/
 │       ├── transaction_tile.dart   # Baris transaksi dengan badge warna kategori
 │       ├── balance_card.dart       # Kartu metrik finansial
 │       ├── category_chip.dart      # Chip pemilihan kategori
+│       ├── add_subscription_sheet.dart # Modal sheet tambah/ubah tagihan rutin dengan preset populer & pengingat
 │       └── receipt_adjustment_sheet.dart # Modal sheet penyesuaian/persetujuan hasil scan OCR struk
-├── test/                           # Unit & Widget test suite (206 tests passed)
+├── test/                           # Unit & Widget test suite (215 tests passed)
+│   ├── subscriptions_test.dart             # Test tagihan rutin berulang, kalkulasi komitmen, status jatuh tempo & 1-tap bayar
+│   ├── analytics_month_filter_and_reminder_test.dart # Test filter bulanan Laporan Keuangan (getCategoryBreakdown) & toggle kondisional pengingat harian
 │   ├── spending_calendar_sheet_test.dart   # Test interaksi ketuk sel kalender & bottom sheet mutasi harian, empty state & integrasi form
 │   ├── encryption_service_test.dart        # Test unit enkripsi AES-256, derivasi kunci HMAC-SHA256, format enc:v1: & backward compatibility
 │   ├── category_budget_rollup_test.dart    # Test akumulasi roll-up anggaran kategori, kalkulasi terpakai & UI
@@ -203,7 +209,7 @@ money-tracker/
     - `Dompet` -> Navigasi ke halaman Dompet (`WalletsScreen.route()`).
     - `Budget` -> Navigasi ke halaman Anggaran (`BudgetScreen.route()`).
     - `Analisis` -> Navigasi ke halaman Analisis Keuangan (`AnalyticsScreen.route()`).
-    - `Split Bill` -> Navigasi ke halaman kalkulator pembagian tagihan (`SplitBillScreen.route()`).
+    - `Tagihan` -> Navigasi ke halaman Tagihan & Layanan Langganan Rutin (`SubscriptionsScreen.route()`), menggunakan filled icon solid terisi `assets/icon/Tagihan.svg`. *(Fitur Split Bill tetap disimpan utuh di codebase `SplitBillScreen.route()`)*.
 - **Transaksi Terbaru (Recent Transactions — NestedCard Layout):**
   - Dibatasi menampilkan **maksimal 3 transaksi terbaru** (`math.min(3, transactions.length)`), menjaga ketinggian layar beranda tetap ringkas dan elegan.
   - Tautan "Lihat semua" di header kartu langsung mengarahkan pengguna ke tab Riwayat Transaksi.
@@ -308,7 +314,8 @@ money-tracker/
 - **Default View Mode:** Saat layar Laporan pertama kali dibuka, visualisasi default adalah **Donut Chart** (`ChartViewMode.donut`), dengan tombol toggle cepat untuk beralih ke Bar Chart.
 - **Top App Bar (Anti-Slop):**
   - Judul `Laporan Keuangan` (20px, `w600`, Inter Tight) di kiri tanpa tombol back (karena merupakan tab root bottom dock, bukan subpage).
-  - Pill dropdown pemilih bulan (contoh: "November 2026 ∨") di kanan atas dengan modal bottom-sheet pemilih bulan.
+  - Pill dropdown pemilih bulan (`AppMonthFilterPill`, contoh: "Nov 2026 ∨") di kanan atas dengan modal bottom-sheet pemilih bulan (`showAppMonthFilterSheet`).
+  - **Scoping Filter Bulan 100% Responsif:** Pemilihan bulan memfilter data `provider.getCategoryBreakdown(month: _selectedMonth)` dan daftar rincian kategori di bawahnya (`txCount`). Donut chart, bar chart mingguan, dan seluruh metrik langsung tersinkronisasi presisi sesuai bulan yang dipilih. Jika bulan kosong, antarmuka otomatis menampilkan empty state yang rapi.
 - **Segmented Control Tipe Transaksi:**
   - Kapsul pill konsisten bahasa: `Pengeluaran` (aktif: putih solid, teks hitam) vs `Pemasukan` (transparan, teks slate).
 - **Hero Report Card (Aktivitas Pengeluaran / Aktivitas Pemasukan — `NestedCard`):**
@@ -1003,6 +1010,32 @@ money-tracker/
   2. `lib/screens/add_transaction_screen.dart`:
      - Menambahkan parameter opsional `DateTime? initialDate` pada konstruktor dan `AddTransactionScreen.route(...)` agar form dapat dibuka dengan tanggal awal kustom.
 - **Validasi Uji:** Dibuat test suite baru di `test/spending_calendar_sheet_test.dart` (3 tests) yang memvalidasi pembukaan sheet pada tanggal bertransaksi, verifikasi daftar tile dan ringkasan metrik, pembukaan empty state dan navigasi ke form catat transaksi, serta pembukaan kembali via pil ringkasan bawah. Seluruh test suite (206 tests) lulus 100%.
+
+### 3.39 Fitur Tagihan & Langganan Rutin Berulang (`SubscriptionsScreen`)
+- **Kebutuhan:** Menggantikan tombol Quick Action ke-4 di Beranda dari `Split Bill` menjadi `Tagihan` (Langganan & Tagihan Rutin Berulang) untuk membantu pengguna mencatat dan memantau pengeluaran berulang bulanan (seperti Netflix, Spotify, WiFi IndiHome/Biznet, Listrik PLN, BPJS Kesehatan, Kos, cicilan, dan gym) dengan pengingat cerdas.
+- **Implementasi Solusi:**
+  1. `lib/models/subscription_model.dart`:
+     - `SubscriptionModel` menyimpan `id`, `name`, `amount`, `billingDay` (1–31), `cycle` (`monthly`, `yearly`, `weekly`), `categoryId`, `categoryName`, `walletId`, `reminderEnabled`, `reminderDaysBefore`, `lastPaidDate`, dan `createdAt`.
+     - Helper getters: `isPaidInMonth(DateTime month)`, `daysUntilDue(DateTime now)`, `nextDueDate(DateTime now)`, dan `getStatus(DateTime now)` (`paid`, `dueToday`, `dueSoon`, `overdue`, `upcoming`).
+  2. `lib/providers/transaction_provider.dart`:
+     - Menambahkan daftar `_subscriptions`, getter `totalMonthlySubscriptions`, `totalPaidSubscriptionsThisMonth`, `totalUnpaidSubscriptionsThisMonth`, dan `unpaidSubscriptionsCount`.
+     - CRUD: `addSubscription`, `updateSubscription`, `deleteSubscription`.
+     - Aksi 1-Tap Bayar `paySubscription(String id, {required String walletId, DateTime? date})`: otomatis memotong saldo dompet, membuat mutasi pengeluaran (`TransactionType.expense`), dan menandai tagihan sebagai lunas untuk bulan tersebut.
+     - `unpaySubscription(String id)`: membatalkan status lunas jika diperlukan.
+     - Persistensi lokal di `SharedPreferences` dan ekspor data backup JSON.
+  3. `lib/widgets/add_subscription_sheet.dart`:
+     - Sheet `showModalCardSheet` dengan chip pintas sekali-klik (Quick Presets) untuk layanan populer Indonesia: Netflix, Spotify, YouTube Premium, WiFi, Listrik PLN, BPJS, Kos, iCloud, ChatGPT Plus, dan Gym.
+     - Input form rapi berformat ribuan, pemilih tanggal jatuh tempo 1–31, pemilih siklus berulang, kategori, dompet default, dan sakelar pengingat alarm H-1.
+  4. `lib/screens/subscriptions_screen.dart`:
+     - Layar `StandardScreenHeader` bertajuk "Tagihan & Langganan" dengan tombol tambah `(+)`.
+     - Hero Commitment Card (Total komitmen bulanan, progress bar pelunasan, sub-pod simetris Belum Bayar vs Sudah Dibayar).
+     - Segmented tabs filter: `Semua`, `Belum Bayar`, `Lunas`.
+     - Kartu tagihan responsif berdasar status jatuh tempo dengan tombol 1-tap **Bayar** (memunculkan modal konfirmasi cepat dompet & tanggal) dan badge status hijau "Lunas (d MMM)".
+     - Bottom sheet tindakan saat kartu diketuk (ubah data, batalkan lunas, hapus tagihan).
+  5. `lib/screens/dashboard_screen.dart`:
+     - Mengubah Quick Action slot ke-4 dari `Split Bill` (`Split Bill.svg`) menjadi `Tagihan` (`assets/icon/Tagihan.svg`) yang mengarahkan langsung ke `SubscriptionsScreen.route()`.
+     - Berkas [split_bill_screen.dart](split_bill_screen.dart) tetap aman dan utuh dalam codebase.
+- **Validasi Uji:** Dibuat test suite baru di `test/subscriptions_test.dart` (6 tests) yang menguji serialisasi model, kalkulasi status jatuh tempo, mutasi provider, eksekusi pembayaran otomatis, render UI widget hero commitment pod dan navigasi quick action Beranda. Seluruh test suite (215 tests) lulus 100%.
 
 ---
 
@@ -1974,6 +2007,39 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
   - Menambahkan parameter `initialDate` pada [`lib/screens/add_transaction_screen.dart`](lib/screens/add_transaction_screen.dart).
   - Trigger interaksi aktif pada setiap sel tanggal di `GridView` kalender dan bilah ringkasan nominal bawah.
   - Tervalidasi dengan test suite baru di `test/spending_calendar_sheet_test.dart` (3 tests) dan seluruh 206 unit & widget tests lulus 100%.
+- [x] Perbaikan Filter Bulan Laporan Keuangan & Pengingat Transaksi Harian Cerdas:
+  - **Filter Bulan Laporan Keuangan (`AnalyticsScreen`)**:
+    - Memperbarui `TransactionProvider.getCategoryBreakdown({DateTime? month})` untuk menerima parameter bulan opsional dan memfilter data berdasarkan tahun dan bulan menggunakan `tx.timestamp.toLocal()`.
+    - Menghubungkan `_selectedMonth` di `AnalyticsScreen` ke pemanggilan `provider.getCategoryBreakdown(month: _selectedMonth)`.
+    - Memfilter penghitungan jumlah transaksi per kategori (`txCount`) agar hanya menghitung transaksi pada bulan terpilih.
+    - Menambahkan reset `_selectedCategoryIndex = 0` saat `_selectedMonth` diganti agar indeks irisan donut tetap valid.
+  - **Pengingat Transaksi Harian Cerdas (In-App Card & Native Notification)**:
+    - Memperkuat evaluasi `hasTransactionToday` dan `recordingStreak` menggunakan `tx.timestamp.toLocal()` agar kebal perbedaan zona waktu UTC/lokal.
+    - Menambahkan parameter `bool skipToday = false` pada `NativeNotificationService.scheduleDailyReminder(...)`. Jika `skipToday == true` (karena hari ini sudah mencatat transaksi), alarm OS dijadwalkan mulai besok, sehingga hari ini tidak ada lagi notifikasi yang mengganggu.
+    - Memicu pembaruan jadwal alarm OS otomatis (`unawaited(_rescheduleDailyReminder())`) setiap kali transaksi ditambahkan (`addTransaction`) atau dihapus (`deleteTransaction`).
+    - Card `Pengingat Transaksi Harian` di Beranda otomatis hilang seketika saat ada transaksi tercatat hari ini (`shouldShowDailyReminder = _isDailyReminderEnabled && !hasTransactionToday`).
+  - **Testing & Parity**:
+    - Membuat test suite baru di `test/analytics_month_filter_and_reminder_test.dart` (3 tests).
+    - Seluruh **209 tests** unit & widget lulus 100% tanpa regresi (`flutter test`).
+    - Build Web release berhasil dikompilasi ke `build/web/`.
+- [x] Fitur Tagihan & Langganan Rutin Berulang (`SubscriptionsScreen` & `add_subscription_sheet.dart`):
+  - Menggantikan slot Quick Action ke-4 di Beranda dari `Split Bill` menjadi `Tagihan` (`assets/icon/Tagihan.svg`).
+  - Model `SubscriptionModel` menyimpan data komitmen berulang bulanan/tahunan/mingguan, due date, status jatuh tempo (`dueToday`, `dueSoon`, `overdue`, `upcoming`, `paid`), dan pelunasan bulanan.
+  - CRUD lengkap di `TransactionProvider` beserta kalkulasi total komitmen bulanan, beban terbayar, dan sisa belum dibayar.
+  - Fitur 1-Tap `paySubscription()`: langsung memotong saldo dompet yang dipilih dan mencatat transaksi pengeluaran otomatis di Yotro tanpa ketik ulang.
+  - Sheet `showAddOrEditSubscriptionSheet` dengan quick presets layanan populer Indonesia (Netflix, Spotify, YouTube, WiFi, Listrik PLN, BPJS, Kos, iCloud, ChatGPT Plus, Gym).
+  - Test suite komprehensif di `test/subscriptions_test.dart` (6 tests). Seluruh **215 tests** unit & widget aplikasi lulus 100%.
+  - Build Web release berhasil dikompilasi ke `build/web/`.
+- [x] Rilis Produksi v2.0.9+17 (Signed Android Release APK & Web Parity):
+  - Kenaikan versi aplikasi ke **`2.0.9+17`** (`pubspec.yaml`, `ChangelogData.currentVersion = '2.0.9'`).
+  - Pembaruan ikon `Tagihan.svg` menjadi *filled icon* solid terisi putih bertema kalender & recurring cycle, serasi 100% dengan `Dompet.svg`, `Budget.svg`, dan `Analisis.svg`.
+  - Peningkatan tinggi tombol submit formulir tagihan menjadi `52px` (ergonomis dan proporsional).
+  - Kompilasi signed split-per-abi release APK sukses via OpenJDK 17 & Android SDK 36:
+    - ARM64: `yotro-app-arm64.apk` / `yotro-app.apk` (43.0 MB, SHA-256: `ac788cffb85aec7a76b60404c3afba48b004deea591ac2d1a2067966e6c387d5`).
+    - ARMv7: `yotro-app-armv7.apk` (36.7 MB, SHA-256: `450b5aa6b59f1e4ed8c4e70ac677ed26b3fa9773929e7bc5b57e68ed7ae4c101`).
+    - Tervalidasi lulus verifikasi `apksigner verify` (v2 & v3 schemes) dengan production release keystore.
+  - Kompilasi Flutter Web release diperbarui ke `build/web/` dan binary disinkronkan ke `build/web/yotro-app.apk`.
+  - Seluruh **215 tests** unit & widget lulus 100% (`flutter test`).
 - [x] File handover AI context di `context.md`.
 - [x] Aturan otomatisasi workspace agent di `AGENTS.md` dan `GEMINI.md` (auto-sync `context.md`).
 
@@ -2011,7 +2077,7 @@ Saat melanjutkan proyek ini:
 8. **In-App OTA Updater & Changelog Invariants:**
    - Model rilis GitHub: `ianfrds/yotroapp`.
    - `package_info_plus: ^10.2.2` & `open_filex: ^4.7.0` mengelola deteksi versi dan instalasi paket.
-   - Versi saat ini di `pubspec.yaml` adalah `2.0.8+16` dengan `ChangelogData.currentVersion = '2.0.8'`.
+   - Versi saat ini di `pubspec.yaml` adalah `2.0.9+17` dengan `ChangelogData.currentVersion = '2.0.9'`.
    - Workflow `.github/workflows/build-apk.yml` hanya membangun branch/PR/manual-dispatch untuk validasi dengan keystore sementara. Workflow tidak merespons tag dan tidak menerbitkan GitHub Release.
    - Jangan distribusikan artifact GitHub Actions atau rilis `v2.0.3`; keduanya memakai keystore CI sementara. Produksi memakai APK lokal yang ditandatangani keystore produksi dan sudah diuji langsung di perangkat.
    - Publikasi produksi dilakukan manual melalui GitHub Release UI: tag harus cocok dengan versi, release non-draft/non-prerelease/latest, dan asset wajib bernama `yotro-app.apk`.
@@ -2039,4 +2105,21 @@ Saat melanjutkan proyek ini:
     - Mengetuk tanggal berapapun pada `SpendingCalendarCard` memunculkan `_showDailyTransactionsSheet` dengan `showModalCardSheet`.
     - Modal dibungkus dengan `ChangeNotifierProvider.value(value: provider)` untuk menjaga konteks provider.
     - Mengetuk tombol `+ Catat Transaksi` pada empty state kalender meneruskan `initialDate` ke `AddTransactionScreen`.
+17. **Invarian Pengingat Transaksi Harian:**
+    - Card `Pengingat Transaksi Harian` di Beranda dikendalikan oleh getter `shouldShowDailyReminder` (`_isDailyReminderEnabled && !hasTransactionToday`).
+    - Penambahan atau penghapusan transaksi hari ini otomatis memanggil `_rescheduleDailyReminder()`.
+    - `NativeNotificationService.scheduleDailyReminder(...)` menerima `skipToday`. Jika hari ini sudah ada transaksi (`hasTransactionToday == true`), alarm OS dijadwalkan mulai besok pada jam yang ditentukan, menjamin tidak ada notifikasi yang berbunyi pada hari yang sudah mencatat transaksi.
+18. **Invarian Filter Bulan Laporan Keuangan:**
+    - `TransactionProvider.getCategoryBreakdown({DateTime? month})` wajib menerima parameter `month`. Jika diisi, transaksi difilter berdasarkan tahun dan bulan menggunakan `tx.timestamp.toLocal()`.
+    - `AnalyticsScreen` wajib meneruskan `_selectedMonth` ke `provider.getCategoryBreakdown(month: _selectedMonth)` dan menghitung `txCount` khusus pada bulan yang bersangkutan.
+19. **Invarian Tagihan & Langganan Rutin Berulang:**
+    - Slot ke-4 Quick Action Beranda adalah **Tagihan** (`assets/icon/Tagihan.svg`, mengarah ke `SubscriptionsScreen.route()`).
+    - Berkas `SplitBillScreen` tetap aman dipertahankan dalam codebase dan tidak dihapus.
+    - Pembayaran tagihan via `paySubscription()` wajib memotong saldo dompet, membuat mutasi pengeluaran (`TransactionType.expense`), dan menandai tagihan lunas pada bulan berjalan (`isPaidInMonth(now) == true`).
+    - Form penambahan tagihan memanfaatkan `showAddOrEditSubscriptionSheet` dengan quick presets layanan populer Indonesia.
+20. **Desain Ikon & Tombol Lembar Tagihan:**
+    - `assets/icon/Tagihan.svg` wajib bertipe *solid filled shape* (`fill="white"`, `fill-rule="evenodd"`) bersiluet kalender tagihan dengan aksen cutout recurring arrows loop, seirama dan se-tema dengan `Dompet.svg`, `Budget.svg`, dan `Analisis.svg`.
+    - Tombol aksi utama formulir tagihan (`add_subscription_sheet.dart`) dan modal pembayaran berukuran tinggi standar `height: 52px` (dan `50px` pada modal) dengan `fontSize: 15px` agar proporsional, nyaman disentuh, dan konsisten dengan form input lainnya.
+
+
 

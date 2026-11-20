@@ -161,6 +161,7 @@ class NativeNotificationService {
     required int minute,
     required String title,
     required String body,
+    bool skipToday = false,
   }) async {
     if (!_isSupportedMobile) return;
     if (!_isInitialized) await initialize();
@@ -177,7 +178,7 @@ class NativeNotificationService {
         hour,
         minute,
       );
-      if (scheduledDate.isBefore(now)) {
+      if (skipToday || scheduledDate.isBefore(now)) {
         scheduledDate = scheduledDate.add(const Duration(days: 1));
       }
 

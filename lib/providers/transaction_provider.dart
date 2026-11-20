@@ -13,6 +13,7 @@ import '../models/category_model.dart';
 import '../models/wallet_model.dart';
 import '../models/budget_model.dart';
 import '../models/notification_rule_model.dart';
+import '../models/subscription_model.dart';
 import '../services/native_notification_service.dart';
 import '../services/supabase_auth_service.dart';
 import '../services/supabase_sync_service.dart';
@@ -85,6 +86,7 @@ class TransactionProvider with ChangeNotifier {
   static const String _storageKey = 'money_tracker_pro_v2_1';
 
   List<TransactionModel> _transactions = [];
+  List<SubscriptionModel> _subscriptions = [];
   List<WalletModel> _wallets = [
     WalletModel(
         id: 'w_bank',
@@ -132,6 +134,46 @@ class TransactionProvider with ChangeNotifier {
   List<TransactionModel> get transactions => _transactions;
   List<WalletModel> get wallets => _wallets;
   List<CategoryModel> get categories => _categories;
+  List<SubscriptionModel> get subscriptions => List.unmodifiable(_subscriptions);
+
+  double get totalMonthlySubscriptions {
+    return _subscriptions.fold(0.0, (sum, s) {
+      switch (s.cycle) {
+        case SubscriptionCycle.monthly:
+          return sum + s.amount;
+        case SubscriptionCycle.yearly:
+          return sum + (s.amount / 12);
+        case SubscriptionCycle.weekly:
+          return sum + (s.amount * 4.33);
+      }
+    });
+  }
+
+  double get totalPaidSubscriptionsThisMonth {
+    final now = DateTime.now();
+    return _subscriptions
+        .where((s) => s.isPaidInMonth(now))
+        .fold(0.0, (sum, s) {
+      switch (s.cycle) {
+        case SubscriptionCycle.monthly:
+          return sum + s.amount;
+        case SubscriptionCycle.yearly:
+          return sum + (s.amount / 12);
+        case SubscriptionCycle.weekly:
+          return sum + (s.amount * 4.33);
+      }
+    });
+  }
+
+  double get totalUnpaidSubscriptionsThisMonth {
+    final diff = totalMonthlySubscriptions - totalPaidSubscriptionsThisMonth;
+    return diff < 0 ? 0.0 : diff;
+  }
+
+  int get unpaidSubscriptionsCount {
+    final now = DateTime.now();
+    return _subscriptions.where((s) => !s.isPaidInMonth(now)).length;
+  }
   List<CategoryModel> getCategories(TransactionType type) =>
       _categories.where((c) => c.type == type).toList();
   CategoryModel? getCategoryByName(String name) {
@@ -171,10 +213,12 @@ class TransactionProvider with ChangeNotifier {
   List<String> get dailyReminderTimes => List.unmodifiable(_dailyReminderTimes);
   bool get hasTransactionToday {
     final now = DateTime.now();
-    return _transactions.any((tx) =>
-        tx.timestamp.year == now.year &&
-        tx.timestamp.month == now.month &&
-        tx.timestamp.day == now.day);
+    return _transactions.any((tx) {
+      final local = tx.timestamp.toLocal();
+      return local.year == now.year &&
+          local.month == now.month &&
+          local.day == now.day;
+    });
   }
 
   int get recordingStreak {
@@ -186,7 +230,8 @@ class TransactionProvider with ChangeNotifier {
 
     final recordedDates = <DateTime>{};
     for (final t in _transactions) {
-      recordedDates.add(DateTime(t.timestamp.year, t.timestamp.month, t.timestamp.day));
+      final local = t.timestamp.toLocal();
+      recordedDates.add(DateTime(local.year, local.month, local.day));
     }
 
     DateTime checkDate;
@@ -299,9 +344,17 @@ class TransactionProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Map<String, double> getCategoryBreakdown() {
+  Map<String, double> getCategoryBreakdown({DateTime? month}) {
     final map = <String, double>{};
-    for (final tx in _transactions.where((t) => t.type == _analyticsTab)) {
+    final filtered = _transactions.where((t) {
+      if (t.type != _analyticsTab) return false;
+      if (month != null) {
+        final local = t.timestamp.toLocal();
+        return local.year == month.year && local.month == month.month;
+      }
+      return true;
+    });
+    for (final tx in filtered) {
       map[tx.categoryName] = (map[tx.categoryName] ?? 0.0) + tx.amount;
     }
     return map;
@@ -636,6 +689,11 @@ class TransactionProvider with ChangeNotifier {
                     (t) => TransactionModel.fromJson(t as Map<String, dynamic>))
                 .toList() ??
             [];
+        _subscriptions = (data['subscriptions'] as List<dynamic>?)
+                ?.map((s) =>
+                    SubscriptionModel.fromJson(s as Map<String, dynamic>))
+                .toList() ??
+            [];
         reconcileWalletBalances();
         if (data['activityNotifications'] != null) {
           _activityNotifications =
@@ -774,6 +832,7 @@ class TransactionProvider with ChangeNotifier {
         await NativeNotificationService.instance
             .cancelDailyReminder(id: 8880 + i);
       }
+      final skipToday = hasTransactionToday;
       for (int i = 0; i < _dailyReminderTimes.length; i++) {
         final parts = _dailyReminderTimes[i].split(':');
         final hour = int.tryParse(parts[0]) ?? 18;
@@ -785,6 +844,7 @@ class TransactionProvider with ChangeNotifier {
           title: 'Pengingat Transaksi Harian',
           body:
               'Kamu belum mencatat transaksi hari ini. Yuk catat pengeluaran & pemasukanmu di Yotro!',
+          skipToday: skipToday,
         );
       }
     } catch (_) {}
@@ -831,6 +891,7 @@ class TransactionProvider with ChangeNotifier {
       categoryBudgets: {},
     );
     _transactions = [];
+    _subscriptions = [];
     _pendingNotifications = [];
   }
 
@@ -1065,6 +1126,35 @@ class TransactionProvider with ChangeNotifier {
         timestamp: now.subtract(const Duration(days: 7, hours: 3)),
       ),
     ];
+    _subscriptions = [
+      SubscriptionModel(
+        id: 'sub_demo_1',
+        name: 'Netflix Premium',
+        amount: 186000.0,
+        billingDay: 25,
+        cycle: SubscriptionCycle.monthly,
+        categoryId: 'entertainment',
+        categoryName: 'Hiburan',
+        walletId: 'w_bank',
+        reminderEnabled: true,
+        reminderDaysBefore: 1,
+        createdAt: now.subtract(const Duration(days: 30)),
+      ),
+      SubscriptionModel(
+        id: 'sub_demo_2',
+        name: 'WiFi IndiHome',
+        amount: 350000.0,
+        billingDay: 15,
+        cycle: SubscriptionCycle.monthly,
+        categoryId: 'bills',
+        categoryName: 'Tagihan & Utilitas',
+        walletId: 'w_bank',
+        reminderEnabled: true,
+        reminderDaysBefore: 1,
+        lastPaidDate: DateTime(now.year, now.month, 15),
+        createdAt: now.subtract(const Duration(days: 60)),
+      ),
+    ];
   }
 
   Future<void> saveData() async {
@@ -1098,6 +1188,7 @@ class TransactionProvider with ChangeNotifier {
         'categories': _categories.map((c) => c.toJson()).toList(),
         'wallets': _wallets.map((w) => w.toJson()).toList(),
         'transactions': _transactions.map((t) => t.toJson()).toList(),
+        'subscriptions': _subscriptions.map((s) => s.toJson()).toList(),
       };
       await prefs.setString(_storageKey, jsonEncode(map));
     } catch (_) {}
@@ -1127,6 +1218,7 @@ class TransactionProvider with ChangeNotifier {
       'categories': _categories.map((c) => c.toJson()).toList(),
       'wallets': _wallets.map((w) => w.toJson()).toList(),
       'transactions': _transactions.map((t) => t.toJson()).toList(),
+      'subscriptions': _subscriptions.map((s) => s.toJson()).toList(),
     };
     return const JsonEncoder.withIndent('  ').convert(map);
   }
@@ -2298,6 +2390,7 @@ class TransactionProvider with ChangeNotifier {
 
     notifyListeners();
     await saveData();
+    unawaited(_rescheduleDailyReminder());
     unawaited(SupabaseSyncService.syncSingleTransaction(tx));
 
     if (type == TransactionType.transfer &&
@@ -2365,6 +2458,7 @@ class TransactionProvider with ChangeNotifier {
 
     notifyListeners();
     await saveData();
+    unawaited(_rescheduleDailyReminder());
     unawaited(SupabaseSyncService.syncSingleTransaction(tx, isDelete: true));
 
     if (tx.type == TransactionType.transfer &&
@@ -2543,6 +2637,85 @@ class TransactionProvider with ChangeNotifier {
 
   Future<void> updateBudgetResetDay(int day) async {
     _budget.monthlyResetDay = day.clamp(1, 31);
+    notifyListeners();
+    await saveData();
+  }
+
+  // 4.6 Subscriptions & Recurring Bills
+  Future<void> addSubscription({
+    required String name,
+    required double amount,
+    required int billingDay,
+    SubscriptionCycle cycle = SubscriptionCycle.monthly,
+    required String categoryId,
+    required String categoryName,
+    required String walletId,
+    bool reminderEnabled = true,
+    int reminderDaysBefore = 1,
+  }) async {
+    final sub = SubscriptionModel(
+      id: 'sub_${DateTime.now().microsecondsSinceEpoch}_${_subscriptions.length}',
+      name: name.trim(),
+      amount: amount,
+      billingDay: billingDay.clamp(1, 31),
+      cycle: cycle,
+      categoryId: categoryId,
+      categoryName: categoryName,
+      walletId: walletId,
+      reminderEnabled: reminderEnabled,
+      reminderDaysBefore: reminderDaysBefore,
+      createdAt: DateTime.now(),
+    );
+    _subscriptions.add(sub);
+    notifyListeners();
+    await saveData();
+  }
+
+  Future<void> updateSubscription(SubscriptionModel sub) async {
+    final idx = _subscriptions.indexWhere((s) => s.id == sub.id);
+    if (idx != -1) {
+      _subscriptions[idx] = sub;
+      notifyListeners();
+      await saveData();
+    }
+  }
+
+  Future<void> deleteSubscription(String id) async {
+    _subscriptions.removeWhere((s) => s.id == id);
+    notifyListeners();
+    await saveData();
+  }
+
+  Future<void> paySubscription(
+    String id, {
+    required String walletId,
+    DateTime? date,
+  }) async {
+    final idx = _subscriptions.indexWhere((s) => s.id == id);
+    if (idx == -1) return;
+    final sub = _subscriptions[idx];
+    final payDate = date ?? DateTime.now();
+
+    await addTransaction(
+      title: 'Tagihan ${sub.name}',
+      amount: sub.amount,
+      type: TransactionType.expense,
+      categoryName: sub.categoryName,
+      categoryId: sub.categoryId,
+      walletId: walletId,
+      date: payDate,
+      note: 'Pembayaran tagihan rutin ${sub.cycle.label.toLowerCase()}',
+    );
+
+    _subscriptions[idx] = sub.copyWith(lastPaidDate: payDate);
+    notifyListeners();
+    await saveData();
+  }
+
+  Future<void> unpaySubscription(String id) async {
+    final idx = _subscriptions.indexWhere((s) => s.id == id);
+    if (idx == -1) return;
+    _subscriptions[idx] = _subscriptions[idx].copyWith(clearLastPaidDate: true);
     notifyListeners();
     await saveData();
   }
