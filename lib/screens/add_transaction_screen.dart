@@ -207,7 +207,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         ? _titleController.text.trim()
         : (_type == TransactionType.transfer ? 'Transfer' : _selectedCategory);
 
-    final categoryId = _selectedCategory.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+    final matchingCat = provider.categories.cast<CategoryModel?>().firstWhere(
+      (c) => c?.name.toLowerCase() == _selectedCategory.toLowerCase() && c?.type == _type,
+      orElse: () => null,
+    );
+    final categoryId = matchingCat?.id ??
+        _selectedCategory.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
 
     final newTx = await provider.addTransaction(
       title: title,

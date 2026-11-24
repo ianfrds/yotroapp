@@ -2040,6 +2040,23 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
     - Tervalidasi lulus verifikasi `apksigner verify` (v2 & v3 schemes) dengan production release keystore.
   - Kompilasi Flutter Web release diperbarui ke `build/web/` dan binary disinkronkan ke `build/web/yotro-app.apk`.
   - Seluruh **215 tests** unit & widget lulus 100% (`flutter test`).
+- [x] Resolusi Bug Kategori Kustom Hilang di Hari Berikutnya (`SupabaseSyncService`, `TransactionProvider`, `AddTransactionScreen`):
+  - **Akar Masalah**: Penambahan kategori kustom (`addCategory`) hanya tersimpan lokal dan tidak disinkronkan ke Supabase (`categories` table). Pada startup/hari berikutnya, `SplashScreen` memanggil `pullCloudData()`, lalu `applyCloudSnapshot()` menimpa seluruh `_categories` lokal dengan data cloud yang belum memiliki kategori kustom tersebut, menyebabkannya terhapus permanen dari memori dan SharedPreferences.
+  - **Sinkronisasi Realtime**: Menambahkan `syncCategory()`, `syncCategories()`, dan `deleteCategoryFromCloud()` pada `SupabaseSyncService` dan mengintegrasikannya ke `addCategory()`, `updateCategory()`, `deleteCategory()`, serta `setSelectedCategories()`.
+  - **Intelligent Merging & Cloud Upload**: `applyCloudSnapshot()` kini mempertahankan kategori kustom lokal yang belum ada di cloud dan otomatis mengunggahnya ke Supabase.
+  - **Self-Healing Otomatis**: Menambahkan rekonsiliasi kategori di `_loadData()` dan `applyCloudSnapshot()`. Jika ada transaksi yang pernah mencatat kategori kustom namun kategorinya hilang, sistem otomatis merekonstruksi kategori tersebut dan menyimpannya kembali ke daftar kategori aktif.
+  - **ID Preservation**: `AddTransactionScreen` kini memetakan `categoryId` ke ID kategori asli (`matchingCat?.id`) alih-alih slug generik.
+  - **Testing**: Menambahkan test suite `test/category_sync_and_persistence_test.dart` (4 tests). Seluruh **219 tests** lulus 100%.
+- [x] Sinkronisasi Cloud Realtime untuk Tagihan Rutin, Budget, dan Profil (`SupabaseSyncService`, `TransactionProvider`, `supabase/migrations/20261124000000_add_subscriptions_table.sql`):
+  - **Subscriptions / Tagihan Rutin**: Menambahkan migrasi tabel `public.subscriptions` (RLS aktif + trigger `updated_at` + index `user_id`) serta `syncSubscription()`, `syncSubscriptions()`, `deleteSubscriptionFromCloud()`, `uploadAllLocalData`, dan `pullCloudData` (dengan graceful fallback jika tabel belum dimigrasi di remote). `applyCloudSnapshot()` menerapkan intelligent merge sehingga tagihan lokal dan `lastPaidDate` terbaru tidak tertimpa.
+  - **Mutasi Anggaran (Budget)**: Menambahkan `syncBudget()` dan memanggilnya secara realtime pada `updateOverallBudget()`, `deleteOverallBudget()`, `updateCategoryBudget()`, `deleteCategoryBudget()`, dan `updateBudgetResetDay()`.
+  - **Profil Pengguna**: Menambahkan `syncProfile()` dan memanggilnya pada `updateProfile()` dan `completeOnboarding()` untuk sinkronisasi realtime ke tabel `profiles` (`name`, `phone`, `currency`, `sync_wallet_to_transactions`).
+  - **Testing**: Menambahkan test suite `test/critical_sync_persistence_test.dart` (4 tests).
+- [x] Rilis Produksi v2.0.10+18 (Universal Signed Release APK & Web Parity):
+  - Kenaikan versi aplikasi ke **`2.0.10+18`** (`pubspec.yaml`, `ChangelogData.currentVersion = '2.0.10'`).
+  - Kompilasi universal signed release APK sukses (`yotro-app.apk`, 103.3 MB / ~99M, SHA-256: `ecee18e3b0234954f3cb71b7066d3e388fbe0d5011fee22e82639811b6f69d84`).
+  - Kompilasi Flutter Web release diperbarui ke `build/web/` dan binary disinkronkan ke `build/web/yotro-app.apk`.
+  - Seluruh **223 tests** unit & widget lulus 100% (`flutter test`).
 - [x] File handover AI context di `context.md`.
 - [x] Aturan otomatisasi workspace agent di `AGENTS.md` dan `GEMINI.md` (auto-sync `context.md`).
 
@@ -2077,7 +2094,7 @@ Saat melanjutkan proyek ini:
 8. **In-App OTA Updater & Changelog Invariants:**
    - Model rilis GitHub: `ianfrds/yotroapp`.
    - `package_info_plus: ^10.2.2` & `open_filex: ^4.7.0` mengelola deteksi versi dan instalasi paket.
-   - Versi saat ini di `pubspec.yaml` adalah `2.0.9+17` dengan `ChangelogData.currentVersion = '2.0.9'`.
+   - Versi saat ini di `pubspec.yaml` adalah `2.0.10+18` dengan `ChangelogData.currentVersion = '2.0.10'`.
    - Workflow `.github/workflows/build-apk.yml` hanya membangun branch/PR/manual-dispatch untuk validasi dengan keystore sementara. Workflow tidak merespons tag dan tidak menerbitkan GitHub Release.
    - Jangan distribusikan artifact GitHub Actions atau rilis `v2.0.3`; keduanya memakai keystore CI sementara. Produksi memakai APK lokal yang ditandatangani keystore produksi dan sudah diuji langsung di perangkat.
    - Publikasi produksi dilakukan manual melalui GitHub Release UI: tag harus cocok dengan versi, release non-draft/non-prerelease/latest, dan asset wajib bernama `yotro-app.apk`.
@@ -2120,6 +2137,14 @@ Saat melanjutkan proyek ini:
 20. **Desain Ikon & Tombol Lembar Tagihan:**
     - `assets/icon/Tagihan.svg` wajib bertipe *solid filled shape* (`fill="white"`, `fill-rule="evenodd"`) bersiluet kalender tagihan dengan aksen cutout recurring arrows loop, seirama dan se-tema dengan `Dompet.svg`, `Budget.svg`, dan `Analisis.svg`.
     - Tombol aksi utama formulir tagihan (`add_subscription_sheet.dart`) dan modal pembayaran berukuran tinggi standar `height: 52px` (dan `50px` pada modal) dengan `fontSize: 15px` agar proporsional, nyaman disentuh, dan konsisten dengan form input lainnya.
+21. **Preservasi Kategori Kustom & Sinkronisasi Cloud (Anti-Data Loss):**
+    - Setiap mutasi kategori kustom (`addCategory`, `updateCategory`, `deleteCategory`, `setSelectedCategories`) WAJIB memicu sinkronisasi real-time ke tabel `categories` Supabase via `SupabaseSyncService.syncCategory(...)` dan `deleteCategoryFromCloud(...)`.
+    - `applyCloudSnapshot(...)` DILARANG mengganti mentah-mentah `_categories = categories;`. Wajib melakukan intelligent merge untuk mempertahankan kategori kustom lokal yang belum sempat tersinkron ke cloud, sekaligus mengunggahnya ke cloud.
+    - Mekanisme **Self-Healing Otomatis**: Baik saat startup (`_loadData`) maupun penarikan snapshot cloud (`applyCloudSnapshot`), sistem wajib memeriksa riwayat transaksi (`_transactions`). Jika ditemukan transaksi dengan kategori kustom yang tidak lagi ada di memori/cloud, sistem otomatis merekonstruksi kategori tersebut ke dalam daftar kategori aktif dan menyimpannya persisten.
+22. **Sinkronisasi Cloud Realtime untuk Tagihan, Anggaran, dan Profil:**
+    - `subscriptions` disinkronkan melalui tabel `public.subscriptions` (`supabase/migrations/20261124000000_add_subscriptions_table.sql`). Mutasi `addSubscription`, `updateSubscription`, `deleteSubscription`, `paySubscription`, dan `unpaySubscription` memicu `SupabaseSyncService.syncSubscription` / `deleteSubscriptionFromCloud`, dan `applyCloudSnapshot` mempertahankan tagihan lokal serta `lastPaidDate` yang lebih baru.
+    - Mutasi anggaran (`updateOverallBudget`, `deleteOverallBudget`, `updateCategoryBudget`, `deleteCategoryBudget`, `updateBudgetResetDay`) memicu `SupabaseSyncService.syncBudget(_budget)`.
+    - Pembaruan profil (`updateProfile`, `completeOnboarding`) memicu `SupabaseSyncService.syncProfile(...)` ke tabel `profiles` (kolom `gender` telah dihapus di migrasi `20261116000000_encrypt_transactions_and_drop_gender.sql`).
 
 
 

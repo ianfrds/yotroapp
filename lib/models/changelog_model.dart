@@ -17,7 +17,7 @@ class ChangelogItem {
 }
 
 class ChangelogData {
-  static const String currentVersion = '2.0.9';
+  static const String currentVersion = '2.0.10';
 
   static ChangelogItem? getRelease(String tagOrVersion) {
     final clean =
@@ -30,10 +30,25 @@ class ChangelogData {
 
   static const List<ChangelogItem> history = [
     ChangelogItem(
+      version: '2.0.10',
+      date: '24 November 2026',
+      title: 'Sinkronisasi Cloud Realtime & Pemulihan Otomatis Kategori Kustom',
+      isCurrent: true,
+      features: [
+        'Sinkronisasi cloud realtime untuk kategori kustom: pembuatan, ubah, dan hapus kategori langsung tersimpan ke akun cloud sehingga tidak hilang di hari berikutnya.',
+        'Mekanisme Self-Healing kategori: kategori kustom dari riwayat transaksi lama otomatis dipulihkan jika sempat terhapus saat sinkronisasi.',
+        'Sinkronisasi cloud realtime untuk Tagihan & Langganan Rutin (Subscriptions), perubahan limit Anggaran (Budget), serta pembaruan Profil.',
+      ],
+      improvements: [
+        'Proteksi Intelligent Merge pada snapshot cloud agar data lokal terbaru (kategori kustom, tagihan rutin, dan status lunas) tidak tertimpa data cloud lama.',
+        'Pemetaan ID kategori yang lebih presisi saat mencatat transaksi baru.',
+      ],
+    ),
+    ChangelogItem(
       version: '2.0.9',
       date: '20 November 2026',
       title: 'Fitur Tagihan & Langganan Rutin (Subscriptions) & Smart Reminder',
-      isCurrent: true,
+      isCurrent: false,
       features: [
         'Fitur Tagihan & Layanan Langganan Rutin: catat komitmen pengeluaran berulang (Bulanan, Mingguan, Tahunan) lengkap dengan preset populer Indonesia (Netflix, Spotify, WiFi, PLN, BPJS, Kos, iCloud, ChatGPT Plus, Gym).',
         'Bayar tagihan 1-tap: otomatis potong saldo dompet pilihan, catat mutasi pengeluaran, dan tandai lunas pada periode berjalan.',

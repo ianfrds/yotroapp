@@ -5,6 +5,7 @@ import '../models/transaction_model.dart';
 import '../models/category_model.dart';
 import '../models/wallet_model.dart';
 import '../models/budget_model.dart';
+import '../models/subscription_model.dart';
 import '../providers/transaction_provider.dart';
 import 'encryption_service.dart';
 import 'supabase_auth_service.dart';
@@ -95,6 +96,18 @@ class SupabaseSyncService {
         'category_budgets': catBudgetsWithMeta,
         'updated_at': now,
       });
+
+      // 6. Upsert Subscriptions (isolated try-catch in case table migration is pending)
+      if (provider.subscriptions.isNotEmpty) {
+        try {
+          final subRows = provider.subscriptions
+              .map((s) => _subscriptionToRow(s, user.id, now))
+              .toList();
+          await _client!.from('subscriptions').upsert(subRows);
+        } catch (e) {
+          debugPrint('[SupabaseSyncService] Skip/Error upsert subscriptions: $e');
+        }
+      }
 
       debugPrint('[SupabaseSyncService] Berhasil mengunggah data lokal ke Supabase.');
       return true;
@@ -265,12 +278,27 @@ class SupabaseSyncService {
         );
       }
 
+      // 5. Fetch Subscriptions (isolated try-catch in case table migration is pending)
+      List<SubscriptionModel>? fetchedSubscriptions;
+      try {
+        final subRes = await _client!
+            .from('subscriptions')
+            .select()
+            .eq('user_id', user.id);
+        fetchedSubscriptions = (subRes as List)
+            .map((row) => _subscriptionFromRow(row as Map<String, dynamic>))
+            .toList();
+      } catch (e) {
+        debugPrint('[SupabaseSyncService] Skip/Error fetching subscriptions: $e');
+      }
+
       // Merge / Apply to Provider
       provider.applyCloudSnapshot(
         wallets: fetchedWallets.isNotEmpty ? fetchedWallets : null,
         categories: fetchedCategories.isNotEmpty ? fetchedCategories : null,
         transactions: fetchedTransactions.isNotEmpty ? fetchedTransactions : null,
         budget: budgetRes != null ? fetchedBudget : null,
+        subscriptions: fetchedSubscriptions,
         userName: profileName,
         userPhone: profilePhone,
       );
@@ -386,6 +414,219 @@ class SupabaseSyncService {
       debugPrint('[SupabaseSyncService] Deleted wallet $walletId from cloud');
     } catch (e) {
       debugPrint('[SupabaseSyncService] Error saat deleteWalletFromCloud: $e');
+    }
+  }
+
+  /// Sync single category row to Supabase in background
+  static Future<void> syncCategory(CategoryModel category) async {
+    if (!canSync) return;
+    final user = SupabaseAuthService.currentUser;
+    if (user == null) return;
+
+    try {
+      await _client!.from('categories').upsert({
+        'id': category.id,
+        'user_id': user.id,
+        'name': category.name,
+        'type': category.type.name,
+        'icon_name': category.iconName,
+        'emoji': category.emoji,
+        'color_value': category.colorValue,
+        'is_default': category.isDefault,
+      });
+      debugPrint('[SupabaseSyncService] Synced category ${category.name} (${category.id})');
+    } catch (e) {
+      debugPrint('[SupabaseSyncService] Error saat syncCategory: $e');
+    }
+  }
+
+  /// Batch sync all categories to Supabase in background
+  static Future<void> syncCategories(List<CategoryModel> categories) async {
+    if (!canSync || categories.isEmpty) return;
+    final user = SupabaseAuthService.currentUser;
+    if (user == null) return;
+
+    try {
+      final categoryRows = categories.map((c) => {
+        'id': c.id,
+        'user_id': user.id,
+        'name': c.name,
+        'type': c.type.name,
+        'icon_name': c.iconName,
+        'emoji': c.emoji,
+        'color_value': c.colorValue,
+        'is_default': c.isDefault,
+      }).toList();
+      await _client!.from('categories').upsert(categoryRows);
+      debugPrint('[SupabaseSyncService] Synced ${categories.length} categories to cloud');
+    } catch (e) {
+      debugPrint('[SupabaseSyncService] Error saat syncCategories: $e');
+    }
+  }
+
+  /// Delete category from Supabase in background
+  static Future<void> deleteCategoryFromCloud(String categoryId) async {
+    if (!canSync) return;
+    final user = SupabaseAuthService.currentUser;
+    if (user == null) return;
+
+    try {
+      await _client!
+          .from('categories')
+          .delete()
+          .eq('id', categoryId)
+          .eq('user_id', user.id);
+      debugPrint('[SupabaseSyncService] Deleted category $categoryId from cloud');
+    } catch (e) {
+      debugPrint('[SupabaseSyncService] Error saat deleteCategoryFromCloud: $e');
+    }
+  }
+
+  /// Sync user budget limits and reset day to Supabase in background
+  static Future<void> syncBudget(BudgetModel budget) async {
+    if (!canSync) return;
+    final user = SupabaseAuthService.currentUser;
+    if (user == null) return;
+
+    try {
+      final catBudgetsWithMeta = Map<String, dynamic>.from(budget.categoryBudgets);
+      catBudgetsWithMeta['_meta_reset_day'] = budget.monthlyResetDay;
+      await _client!.from('budgets').upsert({
+        'user_id': user.id,
+        'overall_monthly_limit': budget.overallMonthlyLimit,
+        'category_budgets': catBudgetsWithMeta,
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+      debugPrint('[SupabaseSyncService] Synced budget (limit: ${budget.overallMonthlyLimit}, categories: ${budget.categoryBudgets.length})');
+    } catch (e) {
+      debugPrint('[SupabaseSyncService] Error saat syncBudget: $e');
+    }
+  }
+
+  /// Sync user profile details to Supabase in background
+  static Future<void> syncProfile({
+    required String name,
+    required String phone,
+    String? currency,
+    bool? syncWalletToTransactions,
+  }) async {
+    if (!canSync) return;
+    final user = SupabaseAuthService.currentUser;
+    if (user == null) return;
+
+    try {
+      final payload = <String, dynamic>{
+        'id': user.id,
+        'email': user.email ?? '',
+        'name': name,
+        'phone': phone,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+      if (currency != null) payload['currency'] = currency;
+      if (syncWalletToTransactions != null) {
+        payload['sync_wallet_to_transactions'] = syncWalletToTransactions;
+      }
+      await _client!.from('profiles').upsert(payload);
+      debugPrint('[SupabaseSyncService] Synced profile for ${user.id}');
+    } catch (e) {
+      debugPrint('[SupabaseSyncService] Error saat syncProfile: $e');
+    }
+  }
+
+  static Map<String, dynamic> _subscriptionToRow(
+    SubscriptionModel sub,
+    String userId,
+    String nowIso,
+  ) {
+    return {
+      'id': sub.id,
+      'user_id': userId,
+      'name': sub.name,
+      'amount': sub.amount,
+      'billing_day': sub.billingDay,
+      'cycle': sub.cycle.name,
+      'category_id': sub.categoryId,
+      'category_name': sub.categoryName,
+      'wallet_id': sub.walletId,
+      'reminder_enabled': sub.reminderEnabled,
+      'reminder_days_before': sub.reminderDaysBefore,
+      'last_paid_date': sub.lastPaidDate?.toIso8601String(),
+      'created_at': sub.createdAt.toIso8601String(),
+      'updated_at': nowIso,
+    };
+  }
+
+  static SubscriptionModel _subscriptionFromRow(Map<String, dynamic> row) {
+    return SubscriptionModel(
+      id: row['id'] as String,
+      name: row['name'] as String,
+      amount: (row['amount'] as num).toDouble(),
+      billingDay: (row['billing_day'] as num?)?.toInt() ?? 1,
+      cycle: SubscriptionCycle.values.firstWhere(
+        (c) => c.name == (row['cycle'] as String? ?? 'monthly'),
+        orElse: () => SubscriptionCycle.monthly,
+      ),
+      categoryId: row['category_id'] as String? ?? '',
+      categoryName: row['category_name'] as String? ?? 'Tagihan & Utilitas',
+      walletId: row['wallet_id'] as String? ?? '',
+      reminderEnabled: row['reminder_enabled'] as bool? ?? true,
+      reminderDaysBefore: (row['reminder_days_before'] as num?)?.toInt() ?? 1,
+      lastPaidDate: row['last_paid_date'] != null
+          ? DateTime.tryParse(row['last_paid_date'] as String)
+          : null,
+      createdAt: row['created_at'] != null
+          ? (DateTime.tryParse(row['created_at'] as String) ?? DateTime.now())
+          : DateTime.now(),
+    );
+  }
+
+  /// Sync single subscription to Supabase in background
+  static Future<void> syncSubscription(SubscriptionModel sub) async {
+    if (!canSync) return;
+    final user = SupabaseAuthService.currentUser;
+    if (user == null) return;
+
+    try {
+      await _client!
+          .from('subscriptions')
+          .upsert(_subscriptionToRow(sub, user.id, DateTime.now().toIso8601String()));
+      debugPrint('[SupabaseSyncService] Synced subscription ${sub.name} (${sub.id})');
+    } catch (e) {
+      debugPrint('[SupabaseSyncService] Error saat syncSubscription: $e');
+    }
+  }
+
+  /// Batch sync all subscriptions to Supabase in background
+  static Future<void> syncSubscriptions(List<SubscriptionModel> subs) async {
+    if (!canSync || subs.isEmpty) return;
+    final user = SupabaseAuthService.currentUser;
+    if (user == null) return;
+
+    try {
+      final now = DateTime.now().toIso8601String();
+      final rows = subs.map((s) => _subscriptionToRow(s, user.id, now)).toList();
+      await _client!.from('subscriptions').upsert(rows);
+      debugPrint('[SupabaseSyncService] Synced ${subs.length} subscriptions to cloud');
+    } catch (e) {
+      debugPrint('[SupabaseSyncService] Error saat syncSubscriptions: $e');
+    }
+  }
+
+  /// Delete subscription from Supabase in background
+  static Future<void> deleteSubscriptionFromCloud(String subscriptionId) async {
+    if (!canSync) return;
+    final user = SupabaseAuthService.currentUser;
+    if (user == null) return;
+
+    try {
+      await _client!
+          .from('subscriptions')
+          .delete()
+          .eq('id', subscriptionId)
+          .eq('user_id', user.id);
+      debugPrint('[SupabaseSyncService] Deleted subscription $subscriptionId from cloud');
+    } catch (e) {
+      debugPrint('[SupabaseSyncService] Error saat deleteSubscriptionFromCloud: $e');
     }
   }
 }

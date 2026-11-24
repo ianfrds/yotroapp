@@ -694,6 +694,40 @@ class TransactionProvider with ChangeNotifier {
                     SubscriptionModel.fromJson(s as Map<String, dynamic>))
                 .toList() ??
             [];
+
+        // Self-heal: Pastikan seluruh kategori kustom yang pernah digunakan di transaksi tetap hadir
+        final existingCatKeys = _categories
+            .map((c) => '${c.name.toLowerCase()}_${c.type.name}')
+            .toSet();
+        final existingCatIds = _categories.map((c) => c.id).toSet();
+        bool healedAnyCategory = false;
+        for (final t in _transactions) {
+          if (t.type != TransactionType.transfer &&
+              t.categoryName.trim().isNotEmpty) {
+            final key =
+                '${t.categoryName.trim().toLowerCase()}_${t.type.name}';
+            if (!existingCatKeys.contains(key) &&
+                !existingCatIds.contains(t.categoryId)) {
+              final recovered = CategoryModel(
+                id: t.categoryId.isNotEmpty
+                    ? t.categoryId
+                    : 'cat_${DateTime.now().millisecondsSinceEpoch}_${_categories.length}',
+                name: t.categoryName.trim(),
+                type: t.type,
+                emoji: CategoryModel.fallbackEmojiFor(t.categoryName.trim()),
+                isDefault: false,
+              );
+              _categories.add(recovered);
+              existingCatKeys.add(key);
+              existingCatIds.add(recovered.id);
+              healedAnyCategory = true;
+            }
+          }
+        }
+        if (healedAnyCategory) {
+          saveData();
+        }
+
         reconcileWalletBalances();
         if (data['activityNotifications'] != null) {
           _activityNotifications =
@@ -1379,6 +1413,12 @@ class TransactionProvider with ChangeNotifier {
     _isOnboardingCompleted = true;
     notifyListeners();
     await saveData();
+    unawaited(SupabaseSyncService.syncProfile(
+      name: _userName,
+      phone: _userPhone,
+      currency: _currency,
+      syncWalletToTransactions: _syncWalletToTransactions,
+    ));
     final granted = await requestNotificationPermission();
     if (granted || _hasNotificationPermission) {
       await toggleDailyReminder(true);
@@ -1397,6 +1437,12 @@ class TransactionProvider with ChangeNotifier {
     }
     notifyListeners();
     await saveData();
+    unawaited(SupabaseSyncService.syncProfile(
+      name: _userName,
+      phone: _userPhone,
+      currency: _currency,
+      syncWalletToTransactions: _syncWalletToTransactions,
+    ));
   }
 
   Future<void> continueAsGuest({String? name}) async {
@@ -2026,6 +2072,7 @@ class TransactionProvider with ChangeNotifier {
     _categories = List.from(selectedCategories);
     notifyListeners();
     await saveData();
+    unawaited(SupabaseSyncService.syncCategories(selectedCategories));
   }
 
   Future<CategoryModel> addCategory({
@@ -2053,6 +2100,7 @@ class TransactionProvider with ChangeNotifier {
     _categories.add(cat);
     notifyListeners();
     await saveData();
+    unawaited(SupabaseSyncService.syncCategory(cat));
     return cat;
   }
 
@@ -2109,6 +2157,7 @@ class TransactionProvider with ChangeNotifier {
 
     notifyListeners();
     await saveData();
+    unawaited(SupabaseSyncService.syncCategory(updated));
   }
 
   Future<void> deleteCategory(String id) async {
@@ -2151,6 +2200,7 @@ class TransactionProvider with ChangeNotifier {
     _categories.removeAt(idx);
     notifyListeners();
     await saveData();
+    unawaited(SupabaseSyncService.deleteCategoryFromCloud(id));
   }
 
   void toggleHideBalanceSection() {
@@ -2245,6 +2295,7 @@ class TransactionProvider with ChangeNotifier {
     List<CategoryModel>? categories,
     List<TransactionModel>? transactions,
     BudgetModel? budget,
+    List<SubscriptionModel>? subscriptions,
     String? userName,
     String? userPhone,
     String? userGender,
@@ -2272,8 +2323,82 @@ class TransactionProvider with ChangeNotifier {
       _wallets = wallets;
     }
 
-    if (categories != null && categories.isNotEmpty) _categories = categories;
+    if (categories != null && categories.isNotEmpty) {
+      final Map<String, CategoryModel> mergedMap = {};
+
+      // 1. Masukkan semua kategori dari cloud
+      for (final cloudCat in categories) {
+        mergedMap[cloudCat.id] = cloudCat;
+      }
+
+      // 2. Pertahankan kategori kustom lokal yang belum ada di cloud
+      for (final localCat in _categories) {
+        if (!localCat.isDefault && !mergedMap.containsKey(localCat.id)) {
+          final nameMatch = mergedMap.values.any((c) =>
+              c.name.toLowerCase() == localCat.name.toLowerCase() &&
+              c.type == localCat.type);
+          if (!nameMatch) {
+            mergedMap[localCat.id] = localCat;
+            unawaited(SupabaseSyncService.syncCategory(localCat));
+          }
+        }
+      }
+
+      // 3. Self-healing: Pulihkan kategori transaksi jika ada mutasi yang mereferensikannya
+      final allTxs = transactions ?? _transactions;
+      for (final tx in allTxs) {
+        if (tx.type != TransactionType.transfer &&
+            tx.categoryName.trim().isNotEmpty) {
+          final nameMatch = mergedMap.values.any((c) =>
+              c.name.toLowerCase() == tx.categoryName.trim().toLowerCase() &&
+              c.type == tx.type);
+          if (!nameMatch) {
+            final catId = tx.categoryId.isNotEmpty
+                ? tx.categoryId
+                : 'cat_${DateTime.now().millisecondsSinceEpoch}_${mergedMap.length}';
+            final recovered = CategoryModel(
+              id: catId,
+              name: tx.categoryName.trim(),
+              type: tx.type,
+              emoji: CategoryModel.fallbackEmojiFor(tx.categoryName.trim()),
+              isDefault: false,
+            );
+            mergedMap[catId] = recovered;
+            unawaited(SupabaseSyncService.syncCategory(recovered));
+          }
+        }
+      }
+
+      _categories = mergedMap.values.toList();
+    } else {
+      // Jika cloud belum memiliki kategori sama sekali, unggah kategori lokal ke cloud
+      unawaited(SupabaseSyncService.syncCategories(_categories));
+    }
     if (budget != null) _budget = budget;
+
+    if (subscriptions != null && subscriptions.isNotEmpty) {
+      final Map<String, SubscriptionModel> mergedSubMap = {};
+      for (final cloudSub in subscriptions) {
+        mergedSubMap[cloudSub.id] = cloudSub;
+      }
+      for (final localSub in _subscriptions) {
+        final existing = mergedSubMap[localSub.id];
+        if (existing == null) {
+          mergedSubMap[localSub.id] = localSub;
+          unawaited(SupabaseSyncService.syncSubscription(localSub));
+        } else if (localSub.lastPaidDate != null &&
+            (existing.lastPaidDate == null ||
+                localSub.lastPaidDate!.isAfter(existing.lastPaidDate!))) {
+          mergedSubMap[localSub.id] =
+              existing.copyWith(lastPaidDate: localSub.lastPaidDate);
+          unawaited(SupabaseSyncService.syncSubscription(mergedSubMap[localSub.id]!));
+        }
+      }
+      _subscriptions = mergedSubMap.values.toList();
+    } else if (_subscriptions.isNotEmpty) {
+      unawaited(SupabaseSyncService.syncSubscriptions(_subscriptions));
+    }
+
     _lastCloudSyncTime = DateTime.now();
 
     // Auto-reconcile in case cloud had 0 balance but transactions exist
@@ -2615,30 +2740,35 @@ class TransactionProvider with ChangeNotifier {
     _budget.overallMonthlyLimit = newLimit;
     notifyListeners();
     await saveData();
+    unawaited(SupabaseSyncService.syncBudget(_budget));
   }
 
   Future<void> deleteOverallBudget() async {
     _budget.overallMonthlyLimit = 0.0;
     notifyListeners();
     await saveData();
+    unawaited(SupabaseSyncService.syncBudget(_budget));
   }
 
   Future<void> updateCategoryBudget(String category, double limit) async {
     _budget.categoryBudgets[category] = limit;
     notifyListeners();
     await saveData();
+    unawaited(SupabaseSyncService.syncBudget(_budget));
   }
 
   Future<void> deleteCategoryBudget(String category) async {
     _budget.categoryBudgets.remove(category);
     notifyListeners();
     await saveData();
+    unawaited(SupabaseSyncService.syncBudget(_budget));
   }
 
   Future<void> updateBudgetResetDay(int day) async {
     _budget.monthlyResetDay = day.clamp(1, 31);
     notifyListeners();
     await saveData();
+    unawaited(SupabaseSyncService.syncBudget(_budget));
   }
 
   // 4.6 Subscriptions & Recurring Bills
@@ -2669,6 +2799,7 @@ class TransactionProvider with ChangeNotifier {
     _subscriptions.add(sub);
     notifyListeners();
     await saveData();
+    unawaited(SupabaseSyncService.syncSubscription(sub));
   }
 
   Future<void> updateSubscription(SubscriptionModel sub) async {
@@ -2677,6 +2808,7 @@ class TransactionProvider with ChangeNotifier {
       _subscriptions[idx] = sub;
       notifyListeners();
       await saveData();
+      unawaited(SupabaseSyncService.syncSubscription(sub));
     }
   }
 
@@ -2684,6 +2816,7 @@ class TransactionProvider with ChangeNotifier {
     _subscriptions.removeWhere((s) => s.id == id);
     notifyListeners();
     await saveData();
+    unawaited(SupabaseSyncService.deleteSubscriptionFromCloud(id));
   }
 
   Future<void> paySubscription(
@@ -2707,17 +2840,21 @@ class TransactionProvider with ChangeNotifier {
       note: 'Pembayaran tagihan rutin ${sub.cycle.label.toLowerCase()}',
     );
 
-    _subscriptions[idx] = sub.copyWith(lastPaidDate: payDate);
+    final updated = sub.copyWith(lastPaidDate: payDate);
+    _subscriptions[idx] = updated;
     notifyListeners();
     await saveData();
+    unawaited(SupabaseSyncService.syncSubscription(updated));
   }
 
   Future<void> unpaySubscription(String id) async {
     final idx = _subscriptions.indexWhere((s) => s.id == id);
     if (idx == -1) return;
-    _subscriptions[idx] = _subscriptions[idx].copyWith(clearLastPaidDate: true);
+    final updated = _subscriptions[idx].copyWith(clearLastPaidDate: true);
+    _subscriptions[idx] = updated;
     notifyListeners();
     await saveData();
+    unawaited(SupabaseSyncService.syncSubscription(updated));
   }
 
   // Formatting helpers
