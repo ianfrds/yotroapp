@@ -39,6 +39,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
         ? sub.walletId
         : (provider.wallets.isNotEmpty ? provider.wallets.first.id : '');
     DateTime selectedDate = DateTime.now();
+    bool isPaying = false;
 
     showModalCardSheet(
       context: context,
@@ -183,26 +184,35 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                     ),
                     elevation: 0,
                   ),
-                  onPressed: () async {
-                    if (selectedWalletId.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Pilih dompet pembayaran.')),
-                      );
-                      return;
-                    }
-                    await provider.paySubscription(
-                      sub.id,
-                      walletId: selectedWalletId,
-                      date: selectedDate,
-                    );
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Tagihan ${sub.name} berhasil dibayar & dicatat ke transaksi.'),
-                        backgroundColor: const Color(0xFF10B981),
-                      ),
-                    );
-                  },
+                  onPressed: isPaying
+                      ? null
+                      : () async {
+                          if (selectedWalletId.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Pilih dompet pembayaran.')),
+                            );
+                            return;
+                          }
+                          setDialogState(() => isPaying = true);
+                          try {
+                            await provider.paySubscription(
+                              sub.id,
+                              walletId: selectedWalletId,
+                              date: selectedDate,
+                            );
+                            if (ctx.mounted) Navigator.pop(ctx);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Tagihan ${sub.name} berhasil dibayar & dicatat ke transaksi.'),
+                                  backgroundColor: const Color(0xFF10B981),
+                                ),
+                              );
+                            }
+                          } finally {
+                            if (ctx.mounted) setDialogState(() => isPaying = false);
+                          }
+                        },
                   child: Text(
                     'Konfirmasi Pembayaran',
                     style: GoogleFonts.manrope(
@@ -219,6 +229,190 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     );
   }
 
+  Widget _buildActionSheetRow({
+    required bool isDark,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    String? subtitle,
+    Color? titleColor,
+    required VoidCallback onTap,
+  }) {
+    final defaultText = isDark ? Colors.white : const Color(0xFF0F172A);
+    final mutedText = isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.14),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              alignment: Alignment.center,
+              child: Icon(icon, color: iconColor, size: 19),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.manrope(
+                      color: titleColor ?? defaultText,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.manrope(
+                        color: mutedText,
+                        fontSize: 11,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: mutedText,
+              size: 18,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showConfirmDeleteSubscriptionSheet(
+    BuildContext context,
+    SubscriptionModel sub,
+    TransactionProvider provider,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final mutedColor = isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B);
+
+    showModalCardSheet(
+      context: context,
+      title: 'Hapus Tagihan',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF43F5E).withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Color(0xFFF43F5E),
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Hapus "${sub.name}"?',
+                  style: GoogleFonts.interTight(
+                    color: textColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Tagihan ini akan dihapus dari daftar pengingat rutin. Riwayat transaksi masa lalu tidak akan terpengaruh.',
+            style: GoogleFonts.manrope(
+              color: mutedColor,
+              fontSize: 12.5,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: textColor,
+                      side: BorderSide(
+                        color: isDark
+                            ? Colors.white.withOpacity(0.12)
+                            : const Color(0xFFCBD5E1),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      'Batal',
+                      style: GoogleFonts.manrope(
+                        color: textColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      await provider.deleteSubscription(sub.id);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFF43F5E),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'Hapus Tagihan',
+                      style: GoogleFonts.manrope(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showSubscriptionActionSheet(
     BuildContext context,
     SubscriptionModel sub,
@@ -227,113 +421,178 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final now = DateTime.now();
     final isPaid = sub.isPaidInMonth(now);
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final mutedColor = isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B);
+    final cardBg = isDark ? const Color(0xFF131A26) : const Color(0xFFF8FAFC);
+    final borderColor =
+        isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFE2E8F0);
+    final accentColor =
+        isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A);
 
     showModalCardSheet(
       context: context,
       title: sub.name,
-      titleIcon: Icons.tune_rounded,
+      titleIcon: Icons.receipt_long_rounded,
+      titleIconColor: accentColor,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (isPaid) ...[
-            ListTile(
-              leading: const Icon(Icons.undo_rounded, color: Color(0xFFE58B29)),
-              title: Text(
-                'Batalkan Status Lunas',
-                style: GoogleFonts.manrope(
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              subtitle: Text(
-                'Ubah kembali status menjadi belum bayar bulan ini',
-                style: GoogleFonts.manrope(fontSize: 11),
-              ),
-              onTap: () async {
-                await provider.unpaySubscription(sub.id);
-                Navigator.pop(context);
-              },
+          // Summary Header Pod
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: borderColor),
             ),
-          ] else ...[
-            ListTile(
-              leading: const Icon(Icons.check_circle_outline, color: Color(0xFF10B981)),
-              title: Text(
-                'Bayar & Catat Transaksi',
-                style: GoogleFonts.manrope(
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _showPaymentConfirmationDialog(context, sub, provider);
-              },
-            ),
-          ],
-          ListTile(
-            leading: Icon(
-              Icons.edit_outlined,
-              color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
-            ),
-            title: Text(
-              'Ubah Data Tagihan',
-              style: GoogleFonts.manrope(
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              showAddOrEditSubscriptionSheet(
-                context: context,
-                existingSubscription: sub,
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444)),
-            title: Text(
-              'Hapus Tagihan',
-              style: GoogleFonts.manrope(
-                color: const Color(0xFFEF4444),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            onTap: () async {
-              Navigator.pop(context);
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (dCtx) => AlertDialog(
-                  backgroundColor: isDark ? const Color(0xFF131A26) : Colors.white,
-                  title: Text(
-                    'Hapus Tagihan?',
-                    style: GoogleFonts.interTight(fontWeight: FontWeight.w600),
-                  ),
-                  content: Text(
-                    'Tagihan "${sub.name}" akan dihapus dari daftar. Riwayat mutasi transaksi masa lalu tidak akan terpengaruh.',
-                    style: GoogleFonts.manrope(fontSize: 13),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(dCtx, false),
-                      child: const Text('Batal'),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFEF4444),
-                        foregroundColor: Colors.white,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            provider.formatCurrency(sub.amount),
+                            style: GoogleFonts.interTight(
+                              color: textColor,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            sub.cycle.shortUnit,
+                            style: GoogleFonts.manrope(
+                              color: mutedColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
-                      onPressed: () => Navigator.pop(dCtx, true),
-                      child: const Text('Hapus'),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        '${sub.categoryName} · Jatuh tempo tgl ${sub.billingDay}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.manrope(
+                          color: mutedColor,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              );
-              if (confirm == true) {
-                await provider.deleteSubscription(sub.id);
-              }
-            },
+                const SizedBox(width: 10),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: (isPaid
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFE58B29))
+                        .withOpacity(0.14),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    isPaid ? 'Lunas' : 'Belum Bayar',
+                    style: GoogleFonts.manrope(
+                      color: isPaid
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFFE58B29),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Action List Container
+          Container(
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: borderColor),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isPaid)
+                  _buildActionSheetRow(
+                    isDark: isDark,
+                    icon: Icons.undo_rounded,
+                    iconColor: const Color(0xFFE58B29),
+                    title: 'Batalkan Status Lunas',
+                    subtitle:
+                        'Kembalikan ke belum bayar & hapus transaksi pembayaran',
+                    onTap: () async {
+                      await provider.unpaySubscription(sub.id);
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                  )
+                else
+                  _buildActionSheetRow(
+                    isDark: isDark,
+                    icon: Icons.check_circle_outline_rounded,
+                    iconColor: const Color(0xFF10B981),
+                    title: 'Bayar & Catat Transaksi',
+                    subtitle:
+                        'Potong saldo dompet & tandai tagihan sudah dibayar',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _showPaymentConfirmationDialog(context, sub, provider);
+                    },
+                  ),
+                Divider(
+                  color: borderColor,
+                  height: 1,
+                  indent: 62,
+                  endIndent: 14,
+                ),
+                _buildActionSheetRow(
+                  isDark: isDark,
+                  icon: Icons.edit_outlined,
+                  iconColor: accentColor,
+                  title: 'Ubah Data Tagihan',
+                  subtitle: 'Edit nominal, tanggal jatuh tempo, atau dompet',
+                  onTap: () {
+                    Navigator.pop(context);
+                    showAddOrEditSubscriptionSheet(
+                      context: context,
+                      existingSubscription: sub,
+                    );
+                  },
+                ),
+                Divider(
+                  color: borderColor,
+                  height: 1,
+                  indent: 62,
+                  endIndent: 14,
+                ),
+                _buildActionSheetRow(
+                  isDark: isDark,
+                  icon: Icons.delete_outline_rounded,
+                  iconColor: const Color(0xFFF43F5E),
+                  title: 'Hapus Tagihan',
+                  titleColor: const Color(0xFFF43F5E),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showConfirmDeleteSubscriptionSheet(
+                      context,
+                      sub,
+                      provider,
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -375,37 +634,27 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF1C2229) : const Color(0xFFF4F5F7),
+      floatingActionButton: FloatingActionButton(
+        key: const Key('fab_add_subscription'),
+        heroTag: null,
+        onPressed: () => showAddOrEditSubscriptionSheet(context: context),
+        backgroundColor: const Color(0xFF02539A),
+        foregroundColor: Colors.white,
+        elevation: 3,
+        tooltip: 'Tambah Tagihan',
+        child: const Icon(Icons.add_rounded, size: 26),
+      ),
       body: Stack(
         children: [
           if (isDark) const AmbientTopGlow(),
           SafeArea(
             bottom: false,
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 100),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
               children: [
-                // 1. Standard Header with Add Button
-                StandardScreenHeader(
+                // 1. Standard Header
+                const StandardScreenHeader(
                   title: 'Tagihan & Langganan',
-                  actionWidget: InkWell(
-                    onTap: () => showAddOrEditSubscriptionSheet(context: context),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFE2E8F0),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: isDark ? Colors.white.withOpacity(0.12) : const Color(0xFFCBD5E1),
-                        ),
-                      ),
-                      child: Icon(
-                        Icons.add_rounded,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
-                        size: 20,
-                      ),
-                    ),
-                  ),
                 ),
                 const SizedBox(height: 12),
 
@@ -617,17 +866,41 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
 
                 // 4. List Tagihan / Empty State
                 if (filteredSubscriptions.isEmpty) ...[
-                  _buildEmptyState(context, isDark, subscriptions.isEmpty),
+                  NestedCard(
+                    title: 'Daftar Tagihan',
+                    action: '0 Item',
+                    child: _buildEmptyState(context, isDark, subscriptions.isEmpty),
+                  ),
                 ] else ...[
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: filteredSubscriptions.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) {
-                      final sub = filteredSubscriptions[index];
-                      return _buildSubscriptionCard(context, sub, provider, isDark, now);
-                    },
+                  NestedCard(
+                    title: 'Daftar Tagihan',
+                    action: '${filteredSubscriptions.length} Item',
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: filteredSubscriptions.length,
+                        separatorBuilder: (_, __) => Divider(
+                          color: isDark
+                              ? Colors.white.withOpacity(0.06)
+                              : const Color(0xFFE2E8F0),
+                          height: 1,
+                          indent: 68,
+                          endIndent: 16,
+                        ),
+                        itemBuilder: (context, index) {
+                          final sub = filteredSubscriptions[index];
+                          return _buildSubscriptionRow(
+                            context,
+                            sub,
+                            provider,
+                            isDark,
+                            now,
+                          );
+                        },
+                      ),
+                    ),
                   ),
                 ],
               ],
@@ -668,7 +941,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     );
   }
 
-  Widget _buildSubscriptionCard(
+  Widget _buildSubscriptionRow(
     BuildContext context,
     SubscriptionModel sub,
     TransactionProvider provider,
@@ -678,9 +951,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     final isPaid = sub.isPaidInMonth(now);
     final status = sub.getStatus(now);
     final daysUntil = sub.daysUntilDue(now);
-
-    final cardBg = isDark ? const Color(0xFF131A26) : Colors.white;
-    final cardBorder = isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFCBD5E1);
+    final accentColor = isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A);
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final mutedColor = isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B);
 
     Color statusColor;
     String statusText;
@@ -693,25 +966,25 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
       ];
       final paidDateStr = sub.lastPaidDate != null
           ? '${sub.lastPaidDate!.day} ${monthNames[sub.lastPaidDate!.month - 1]}'
-          : 'Bulan ini';
-      statusText = 'Lunas ($paidDateStr)';
+          : 'Periode ini';
+      statusText = 'Lunas · $paidDateStr';
     } else {
       switch (status) {
         case SubscriptionStatus.dueToday:
-          statusColor = const Color(0xFFEF4444);
-          statusText = 'Jatuh Tempo Hari Ini!';
+          statusColor = const Color(0xFFF43F5E);
+          statusText = 'Jatuh tempo hari ini';
           break;
         case SubscriptionStatus.overdue:
-          statusColor = const Color(0xFFEF4444);
-          statusText = 'Terlewat (${daysUntil.abs()} hari lalu)';
+          statusColor = const Color(0xFFF43F5E);
+          statusText = 'Terlewat ${daysUntil.abs()} hari';
           break;
         case SubscriptionStatus.dueSoon:
           statusColor = const Color(0xFFE58B29);
-          statusText = daysUntil == 1 ? 'Jatuh tempo besok' : 'Jatuh tempo $daysUntil hari lagi';
+          statusText = daysUntil == 1 ? 'Besok jatuh tempo' : '$daysUntil hari lagi';
           break;
         default:
-          statusColor = isDark ? const Color(0xFF7F91A7) : const Color(0xFF64748B);
-          statusText = 'Tgl ${sub.billingDay} (${daysUntil} hari lagi)';
+          statusColor = mutedColor;
+          statusText = 'Tgl ${sub.billingDay} · $daysUntil hari lagi';
           break;
       }
     }
@@ -720,36 +993,34 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
 
     return InkWell(
       onTap: () => _showSubscriptionActionSheet(context, sub, provider),
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: !isPaid && (status == SubscriptionStatus.dueToday || status == SubscriptionStatus.overdue)
-                ? const Color(0xFFEF4444).withOpacity(0.35)
-                : cardBorder,
-          ),
-        ),
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
-            // Category Icon Badge
             Container(
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFF1F5F9),
+                color: isDark ? const Color(0xFF131A26) : const Color(0xFFF1F5F9),
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: !isPaid &&
+                          (status == SubscriptionStatus.dueToday ||
+                              status == SubscriptionStatus.overdue)
+                      ? const Color(0xFFF43F5E).withOpacity(0.4)
+                      : (isDark
+                          ? Colors.white.withOpacity(0.08)
+                          : const Color(0xFFCBD5E1)),
+                ),
               ),
               alignment: Alignment.center,
               child: categoryModel != null
                   ? categoryModel.buildIconWidget(size: 20)
-                  : const Icon(Icons.repeat_rounded, size: 20, color: Color(0xFF02539A)),
+                  : Icon(Icons.repeat_rounded, size: 20, color: accentColor),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
 
-            // Main Info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -762,10 +1033,19 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.manrope(
-                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                            color: textColor,
                             fontSize: 13.5,
                             fontWeight: FontWeight.w600,
                           ),
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        sub.cycle.shortUnit,
+                        style: GoogleFonts.manrope(
+                          color: mutedColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                       if (sub.reminderEnabled) ...[
@@ -773,55 +1053,39 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                         Icon(
                           Icons.notifications_active_outlined,
                           size: 13,
-                          color: isDark ? const Color(0xFF55C7FF) : const Color(0xFF02539A),
+                          color: accentColor,
                         ),
                       ],
                     ],
                   ),
                   const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: statusColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          statusText,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.manrope(
-                            color: statusColor,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
+                  Text(
+                    statusText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.manrope(
+                      color: statusColor,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 10),
 
-            // Amount & Action Button
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
                   provider.formatCurrency(sub.amount),
                   style: GoogleFonts.interTight(
-                    color: isDark ? Colors.white : const Color(0xFF0F172A),
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w700,
+                    color: textColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 5),
                 if (isPaid) ...[
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -832,13 +1096,17 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF10B981)),
+                        const Icon(
+                          Icons.check_circle_rounded,
+                          size: 12,
+                          color: Color(0xFF10B981),
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           'Lunas',
                           style: GoogleFonts.manrope(
                             color: const Color(0xFF10B981),
-                            fontSize: 10.5,
+                            fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -850,14 +1118,15 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF02539A),
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       minimumSize: const Size(0, 28),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                       elevation: 0,
                     ),
-                    onPressed: () => _showPaymentConfirmationDialog(context, sub, provider),
+                    onPressed: () =>
+                        _showPaymentConfirmationDialog(context, sub, provider),
                     child: Text(
                       'Bayar',
                       style: GoogleFonts.manrope(

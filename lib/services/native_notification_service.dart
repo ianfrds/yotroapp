@@ -5,6 +5,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import '../config/app_capabilities.dart';
+import '../models/subscription_model.dart';
 
 typedef NotificationReceivedCallback = void Function({
   required String sourceApp,
@@ -23,6 +24,7 @@ class NativeNotificationService {
   StreamSubscription? _subscription;
 
   static const String _reminderChannelId = 'yotro_daily_reminder';
+  static const String _subscriptionChannelId = 'yotro_subscription_reminders';
   static const String _detectedChannelId = 'yotro_detected_tx';
   static const int _dailyReminderId = 8888;
 
@@ -42,10 +44,24 @@ class NativeNotificationService {
     try {
       tz.initializeTimeZones();
       try {
-        final location = tz.getLocation('Asia/Jakarta');
-        tz.setLocalLocation(location);
+        final offsetMs = DateTime.now().timeZoneOffset.inMilliseconds;
+        const preferredZones = {
+          7 * 3600 * 1000: 'Asia/Jakarta',
+          8 * 3600 * 1000: 'Asia/Makassar',
+          9 * 3600 * 1000: 'Asia/Jayapura',
+        };
+        final preferred = preferredZones[offsetMs];
+        if (preferred != null) {
+          tz.setLocalLocation(tz.getLocation(preferred));
+        } else {
+          final match = tz.timeZoneDatabase.locations.values.firstWhere(
+            (loc) => loc.currentTimeZone.offset == offsetMs,
+            orElse: () => tz.getLocation('Asia/Jakarta'),
+          );
+          tz.setLocalLocation(match);
+        }
       } catch (_) {
-        // Fallback to local default if timezone database lacks Asia/Jakarta
+        // Fallback to local default if timezone database lookup fails
       }
 
       const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -222,6 +238,103 @@ class NativeNotificationService {
       debugPrint('Daily reminder #$id cancelled');
     } catch (e) {
       debugPrint('Error cancelling daily reminder: $e');
+    }
+  }
+
+  Future<void> cancelAllDailyReminders({int maxCount = 20}) async {
+    if (!_isSupportedMobile) return;
+    try {
+      await _localNotifications.cancel(id: _dailyReminderId);
+      await _localNotifications.cancel(id: 8889);
+      for (int i = 0; i < maxCount; i++) {
+        await _localNotifications.cancel(id: 8880 + i);
+      }
+      debugPrint('All daily reminders (8880..${8880 + maxCount - 1}) cancelled');
+    } catch (e) {
+      debugPrint('Error cancelling all daily reminders: $e');
+    }
+  }
+
+  static int _subscriptionNotifBaseId(String subId) {
+    return 100000 + (subId.hashCode.abs() % 40000000);
+  }
+
+  Future<void> scheduleSubscriptionReminders(SubscriptionModel sub) async {
+    if (!_isSupportedMobile) return;
+    if (!_isInitialized) await initialize();
+
+    final baseId = _subscriptionNotifBaseId(sub.id);
+    final hMinus1Id = baseId * 2;
+    final dueDayId = baseId * 2 + 1;
+
+    try {
+      await _localNotifications.cancel(id: hMinus1Id);
+      await _localNotifications.cancel(id: dueDayId);
+
+      if (!sub.reminderEnabled) return;
+
+      final now = tz.TZDateTime.now(tz.local);
+      final nextDue = sub.nextDueDate(now);
+      final dueAt9am = tz.TZDateTime(
+        tz.local,
+        nextDue.year,
+        nextDue.month,
+        nextDue.day,
+        9,
+        0,
+      );
+      final hMinus1At9am = dueAt9am.subtract(Duration(days: sub.reminderDaysBefore));
+
+      const androidDetails = AndroidNotificationDetails(
+        _subscriptionChannelId,
+        'Pengingat Tagihan Rutin',
+        importance: Importance.max,
+        priority: Priority.high,
+        icon: '@mipmap/ic_launcher',
+        enableVibration: true,
+        playSound: true,
+      );
+      const darwinDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+      const details =
+          NotificationDetails(android: androidDetails, iOS: darwinDetails);
+
+      if (hMinus1At9am.isAfter(now)) {
+        await _localNotifications.zonedSchedule(
+          id: hMinus1Id,
+          title: 'Besok Jatuh Tempo: ${sub.name}',
+          body: 'Jangan lupa siapkan pembayaran tagihan ${sub.name} besok.',
+          scheduledDate: hMinus1At9am,
+          notificationDetails: details,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        );
+      }
+      if (dueAt9am.isAfter(now)) {
+        await _localNotifications.zonedSchedule(
+          id: dueDayId,
+          title: 'Jatuh Tempo Hari Ini: ${sub.name}',
+          body: 'Tagihan ${sub.name} jatuh tempo hari ini. Ketuk untuk catat bayar.',
+          scheduledDate: dueAt9am,
+          notificationDetails: details,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error scheduling subscription reminders: $e');
+    }
+  }
+
+  Future<void> cancelSubscriptionReminders(String subId) async {
+    if (!_isSupportedMobile) return;
+    final baseId = _subscriptionNotifBaseId(subId);
+    try {
+      await _localNotifications.cancel(id: baseId * 2);
+      await _localNotifications.cancel(id: baseId * 2 + 1);
+    } catch (e) {
+      debugPrint('Error cancelling subscription reminders: $e');
     }
   }
 

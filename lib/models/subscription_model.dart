@@ -78,59 +78,100 @@ class SubscriptionModel {
     required this.createdAt,
   });
 
-  bool isPaidInMonth(DateTime month) {
+  DateTime _currentCycleDueDate(DateTime now) {
+    switch (cycle) {
+      case SubscriptionCycle.monthly:
+        final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+        return DateTime(now.year, now.month, billingDay.clamp(1, daysInMonth));
+      case SubscriptionCycle.yearly:
+        final dueMonth = createdAt.month;
+        final daysInMonth = DateTime(now.year, dueMonth + 1, 0).day;
+        return DateTime(now.year, dueMonth, billingDay.clamp(1, daysInMonth));
+      case SubscriptionCycle.weekly:
+        final targetWeekday = createdAt.weekday;
+        final today = DateTime(now.year, now.month, now.day);
+        final diff = targetWeekday - today.weekday;
+        return today.add(Duration(days: diff));
+    }
+  }
+
+  bool isPaidInMonth(DateTime referenceDate) {
     if (lastPaidDate == null) return false;
     final local = lastPaidDate!.toLocal();
-    return local.year == month.year && local.month == month.month;
+    switch (cycle) {
+      case SubscriptionCycle.monthly:
+        return local.year == referenceDate.year &&
+            local.month == referenceDate.month;
+      case SubscriptionCycle.yearly:
+        return local.year == referenceDate.year;
+      case SubscriptionCycle.weekly:
+        final refDay =
+            DateTime(referenceDate.year, referenceDate.month, referenceDate.day);
+        final paidDay = DateTime(local.year, local.month, local.day);
+        final refWeekStart =
+            refDay.subtract(Duration(days: refDay.weekday - 1));
+        final paidWeekStart =
+            paidDay.subtract(Duration(days: paidDay.weekday - 1));
+        return refWeekStart.isAtSameMomentAs(paidWeekStart);
+    }
   }
 
   DateTime nextDueDate(DateTime now) {
-    final daysInThisMonth = DateTime(now.year, now.month + 1, 0).day;
-    final clampedDay = billingDay.clamp(1, daysInThisMonth);
-    final thisMonthDue = DateTime(now.year, now.month, clampedDay);
+    final currentDue = _currentCycleDueDate(now);
     final today = DateTime(now.year, now.month, now.day);
 
-    if (thisMonthDue.isBefore(today) && isPaidInMonth(now)) {
-      // Already paid this month, so next due is next month
-      final nextMonth = now.month == 12
-          ? DateTime(now.year + 1, 1, 1)
-          : DateTime(now.year, now.month + 1, 1);
-      final daysInNextMonth =
-          DateTime(nextMonth.year, nextMonth.month + 1, 0).day;
-      return DateTime(
-        nextMonth.year,
-        nextMonth.month,
-        billingDay.clamp(1, daysInNextMonth),
-      );
+    if (isPaidInMonth(now) || currentDue.isBefore(today)) {
+      if (isPaidInMonth(now)) {
+        switch (cycle) {
+          case SubscriptionCycle.monthly:
+            final nextMonth = now.month == 12
+                ? DateTime(now.year + 1, 1, 1)
+                : DateTime(now.year, now.month + 1, 1);
+            final daysInNextMonth =
+                DateTime(nextMonth.year, nextMonth.month + 1, 0).day;
+            return DateTime(
+              nextMonth.year,
+              nextMonth.month,
+              billingDay.clamp(1, daysInNextMonth),
+            );
+          case SubscriptionCycle.yearly:
+            final dueMonth = createdAt.month;
+            final daysInNextYearMonth =
+                DateTime(now.year + 1, dueMonth + 1, 0).day;
+            return DateTime(
+              now.year + 1,
+              dueMonth,
+              billingDay.clamp(1, daysInNextYearMonth),
+            );
+          case SubscriptionCycle.weekly:
+            return currentDue.add(const Duration(days: 7));
+        }
+      }
     }
-    return thisMonthDue;
+    return currentDue;
   }
 
   SubscriptionStatus getStatus(DateTime now) {
     if (isPaidInMonth(now)) return SubscriptionStatus.paid;
 
-    final daysInThisMonth = DateTime(now.year, now.month + 1, 0).day;
-    final clampedDay = billingDay.clamp(1, daysInThisMonth);
-    final thisMonthDue = DateTime(now.year, now.month, clampedDay);
+    final currentDue = _currentCycleDueDate(now);
     final today = DateTime(now.year, now.month, now.day);
 
-    if (thisMonthDue.isBefore(today)) {
+    if (currentDue.isBefore(today)) {
       return SubscriptionStatus.overdue;
-    } else if (thisMonthDue.isAtSameMomentAs(today)) {
+    } else if (currentDue.isAtSameMomentAs(today)) {
       return SubscriptionStatus.dueToday;
     } else {
-      final diff = thisMonthDue.difference(today).inDays;
+      final diff = currentDue.difference(today).inDays;
       if (diff <= 3) return SubscriptionStatus.dueSoon;
       return SubscriptionStatus.upcoming;
     }
   }
 
   int daysUntilDue(DateTime now) {
-    final daysInThisMonth = DateTime(now.year, now.month + 1, 0).day;
-    final clampedDay = billingDay.clamp(1, daysInThisMonth);
-    final thisMonthDue = DateTime(now.year, now.month, clampedDay);
+    final currentDue = _currentCycleDueDate(now);
     final today = DateTime(now.year, now.month, now.day);
-    return thisMonthDue.difference(today).inDays;
+    return currentDue.difference(today).inDays;
   }
 
   SubscriptionModel copyWith({

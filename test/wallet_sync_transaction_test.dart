@@ -197,8 +197,8 @@ void main() {
     });
   });
 
-  group('WalletsScreen UI Toggle Tests', () {
-    testWidgets('Renders Otomatisasi Transaksi card with toggle switch', (tester) async {
+  group('WalletsScreen UI Tests', () {
+    testWidgets('WalletsScreen omits Otomatisasi Transaksi toggle and renders Transfer card', (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -212,22 +212,12 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('Otomatisasi Transaksi'), findsOneWidget);
-      expect(find.text('Sinkronkan ke Transaksi'), findsOneWidget);
-
-      final switchFinder = find.byWidgetPredicate(
-        (widget) => widget is Switch && widget.value == true,
-      );
-      expect(switchFinder, findsOneWidget);
-
-      // Tap toggle to disable
-      await tester.tap(switchFinder);
-      await tester.pumpAndSettle();
-
-      expect(provider.syncWalletToTransactions, isFalse);
+      expect(find.text('Otomatisasi Transaksi'), findsNothing);
+      expect(find.text('Sinkronkan ke Transaksi'), findsNothing);
+      expect(find.text('Transfer Antar Dompet'), findsOneWidget);
     });
 
-    testWidgets('Switch in WalletsScreen has distinct white thumb and sapphire track in light mode', (tester) async {
+    testWidgets('Add wallet modal sheet omits Catat ke Transaksi toggle and enforces sync', (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -241,42 +231,19 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      final switchWidget = tester.widget<Switch>(find.byWidgetPredicate(
-        (widget) => widget is Switch && widget.value == true,
-      ));
-
-      expect(switchWidget.activeThumbColor, Colors.white);
-      expect(switchWidget.activeTrackColor, const Color(0xFF02539A));
-      // Invariant: activeThumbColor must NOT equal activeTrackColor
-      expect(switchWidget.activeThumbColor != switchWidget.activeTrackColor, isTrue);
-    });
-
-    testWidgets('Add wallet modal sheet includes Catat ke Transaksi toggle', (tester) async {
-      tester.view.physicalSize = const Size(800, 1600);
-      tester.view.devicePixelRatio = 2.0;
-      addTearDown(() => tester.view.resetPhysicalSize());
-
-      final provider = TransactionProvider();
-      await provider.loadData();
-
-      await tester.pumpWidget(buildTestWidget(
-        child: const WalletsScreen(),
-        provider: provider,
-      ));
-      await tester.pumpAndSettle();
-
-      // Tap 'Tambah' button in header
-      await tester.tap(find.text('Tambah'));
+      // Tap FAB 'Tambah Dompet'
+      expect(find.byKey(const Key('fab_add_wallet')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('fab_add_wallet')));
       await tester.pumpAndSettle();
 
       expect(find.text('Tambah Dompet / Akun'), findsOneWidget);
-      expect(find.text('Catat ke Transaksi'), findsOneWidget);
-      expect(find.text('Buat transaksi pemasukan saldo awal otomatis'), findsOneWidget);
+      expect(find.text('Catat ke Transaksi'), findsNothing);
+      expect(find.text('Buat transaksi pemasukan saldo awal otomatis'), findsNothing);
       // Account type defaults to Cash / Tunai
       expect(find.text('Cash / Tunai'), findsOneWidget);
     });
 
-    testWidgets('Edit wallet modal normalizes legacy Dompet type to Cash / Tunai cleanly', (tester) async {
+    testWidgets('Tapping wallet navigates to WalletDetailScreen showing wallet transactions and edit modal', (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -285,8 +252,16 @@ void main() {
       await provider.loadData();
 
       // Ensure we have a wallet with legacy type 'Dompet'
-      final legacyWallet = provider.wallets.first;
-      legacyWallet.type = 'Dompet';
+      final targetWallet = provider.wallets.first;
+      targetWallet.type = 'Dompet';
+      await provider.addTransaction(
+        title: 'Gaji Khusus Dompet Ini',
+        amount: 350000,
+        type: TransactionType.income,
+        categoryName: 'Gaji',
+        categoryId: 'salary',
+        walletId: targetWallet.id,
+      );
 
       await tester.pumpWidget(buildTestWidget(
         child: const WalletsScreen(),
@@ -294,8 +269,16 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // Tap on the wallet card to open edit modal
-      await tester.tap(find.text(legacyWallet.name).first);
+      // Tap on the wallet card to navigate to WalletDetailScreen
+      await tester.tap(find.text(targetWallet.name).first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Informasi Dompet'), findsOneWidget);
+      expect(find.text('Riwayat Transaksi Dompet'), findsOneWidget);
+      expect(find.text('Gaji Khusus Dompet Ini'), findsOneWidget);
+
+      // Tap Edit button in WalletDetailScreen header
+      await tester.tap(find.byKey(const Key('btn_edit_wallet')));
       await tester.pumpAndSettle();
 
       expect(find.text('Ubah Dompet / Akun'), findsOneWidget);

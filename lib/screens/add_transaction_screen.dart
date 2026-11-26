@@ -65,6 +65,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   String? _fromWalletId;
   String? _toWalletId;
   late DateTime _selectedDate;
+  bool _isSaving = false;
 
   bool get _isEdit => widget.initialTransaction != null;
 
@@ -168,6 +169,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   }
 
   Future<void> _save() async {
+    if (_isSaving) return;
     final amount = _currentAmount;
     if (amount <= 0) {
       AppSnackBar.show(
@@ -179,17 +181,19 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     }
 
     final provider = context.read<TransactionProvider>();
+    String? effectiveFromId;
+    String? effectiveToId;
 
     if (_type == TransactionType.transfer) {
       final wallets = provider.wallets;
-      final effectiveFrom = wallets.any((w) => w.id == _fromWalletId)
+      effectiveFromId = wallets.any((w) => w.id == _fromWalletId)
           ? _fromWalletId
           : (wallets.isNotEmpty ? wallets.first.id : null);
-      final effectiveTo = wallets.any((w) => w.id == _toWalletId)
+      effectiveToId = wallets.any((w) => w.id == _toWalletId)
           ? _toWalletId
           : (wallets.length > 1 ? wallets[1].id : (wallets.isNotEmpty ? wallets.first.id : null));
 
-      if (effectiveFrom == null || effectiveTo == null || effectiveFrom == effectiveTo) {
+      if (effectiveFromId == null || effectiveToId == null || effectiveFromId == effectiveToId) {
         AppSnackBar.show(
           context,
           'Dompet asal dan tujuan tidak boleh sama',
@@ -199,52 +203,59 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       }
     }
 
-    if (_isEdit) {
-      await provider.deleteTransaction(widget.initialTransaction!.id);
-    }
+    setState(() => _isSaving = true);
+    try {
+      if (_isEdit) {
+        await provider.deleteTransaction(widget.initialTransaction!.id);
+      }
 
-    final title = _titleController.text.trim().isNotEmpty
-        ? _titleController.text.trim()
-        : (_type == TransactionType.transfer ? 'Transfer' : _selectedCategory);
+      final title = _titleController.text.trim().isNotEmpty
+          ? _titleController.text.trim()
+          : (_type == TransactionType.transfer ? 'Transfer' : _selectedCategory);
 
-    final matchingCat = provider.categories.cast<CategoryModel?>().firstWhere(
-      (c) => c?.name.toLowerCase() == _selectedCategory.toLowerCase() && c?.type == _type,
-      orElse: () => null,
-    );
-    final categoryId = matchingCat?.id ??
-        _selectedCategory.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
-
-    final newTx = await provider.addTransaction(
-      title: title,
-      amount: amount,
-      type: _type,
-      categoryName: _type == TransactionType.transfer ? 'Transfer' : _selectedCategory,
-      categoryId: categoryId,
-      walletId: _selectedWalletId,
-      fromWalletId: _type == TransactionType.transfer ? _fromWalletId : null,
-      toWalletId: _type == TransactionType.transfer ? _toWalletId : null,
-      note: _noteController.text.trim(),
-      date: _selectedDate,
-    );
-
-    if (!mounted) return;
-
-    if (_isEdit) {
-      AppSnackBar.show(
-        context,
-        'Perubahan transaksi berhasil disimpan',
-        type: SnackBarType.success,
+      final matchingCat = provider.categories.cast<CategoryModel?>().firstWhere(
+        (c) => c?.name.toLowerCase() == _selectedCategory.toLowerCase() && c?.type == _type,
+        orElse: () => null,
       );
-      Navigator.pop(context);
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => TransactionSuccessScreen(
-            transaction: newTx,
+      final categoryId = matchingCat?.id ??
+          _selectedCategory.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+
+      final newTx = await provider.addTransaction(
+        title: title,
+        amount: amount,
+        type: _type,
+        categoryName: _type == TransactionType.transfer ? 'Transfer' : _selectedCategory,
+        categoryId: categoryId,
+        walletId: _type == TransactionType.transfer
+            ? (effectiveFromId ?? _selectedWalletId)
+            : _selectedWalletId,
+        fromWalletId: _type == TransactionType.transfer ? effectiveFromId : null,
+        toWalletId: _type == TransactionType.transfer ? effectiveToId : null,
+        note: _noteController.text.trim(),
+        date: _selectedDate,
+      );
+
+      if (!mounted) return;
+
+      if (_isEdit) {
+        AppSnackBar.show(
+          context,
+          'Perubahan transaksi berhasil disimpan',
+          type: SnackBarType.success,
+        );
+        Navigator.pop(context);
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TransactionSuccessScreen(
+              transaction: newTx,
+            ),
           ),
-        ),
-      );
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -1374,7 +1385,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     height: 48,
                     child: ElevatedButton(
                       key: const Key('btn_save_transaction'),
-                      onPressed: _save,
+                      onPressed: _isSaving ? null : _save,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: isDark ? Colors.white : const Color(0xFF02539A),
                         foregroundColor: isDark ? Colors.black : Colors.white,
@@ -1431,7 +1442,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     height: 48,
                     child: ElevatedButton(
                       key: const Key('btn_save_transaction'),
-                      onPressed: _save,
+                      onPressed: _isSaving ? null : _save,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: isDark ? Colors.white : const Color(0xFF02539A),
                         foregroundColor: isDark ? Colors.black : Colors.white,

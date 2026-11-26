@@ -132,6 +132,7 @@ Future<void> showAddOrEditSubscriptionSheet({
       (wallets.isNotEmpty ? wallets.first.id : '');
 
   bool reminderEnabled = existingSubscription?.reminderEnabled ?? true;
+  bool isSaving = false;
 
   await showModalCardSheet(
     context: context,
@@ -628,50 +629,57 @@ Future<void> showAddOrEditSubscriptionSheet({
                   ),
                   elevation: 0,
                 ),
-                onPressed: () async {
-                  final name = nameController.text.trim();
-                  final cleanAmount = amountController.text.replaceAll('.', '').trim();
-                  final amount = double.tryParse(cleanAmount) ?? 0.0;
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        final name = nameController.text.trim();
+                        final cleanAmount = amountController.text.replaceAll('.', '').trim();
+                        final amount = double.tryParse(cleanAmount) ?? 0.0;
 
-                  if (name.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Nama tagihan tidak boleh kosong.')),
-                    );
-                    return;
-                  }
-                  if (amount <= 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Nominal tagihan harus lebih dari 0.')),
-                    );
-                    return;
-                  }
+                        if (name.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Nama tagihan tidak boleh kosong.')),
+                          );
+                          return;
+                        }
+                        if (amount <= 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Nominal tagihan harus lebih dari 0.')),
+                          );
+                          return;
+                        }
 
-                  if (isEdit) {
-                    final updated = existingSubscription.copyWith(
-                      name: name,
-                      amount: amount,
-                      billingDay: selectedDay,
-                      cycle: selectedCycle,
-                      categoryId: selectedCategoryId,
-                      categoryName: selectedCategoryName,
-                      walletId: selectedWalletId,
-                      reminderEnabled: reminderEnabled,
-                    );
-                    await provider.updateSubscription(updated);
-                  } else {
-                    await provider.addSubscription(
-                      name: name,
-                      amount: amount,
-                      billingDay: selectedDay,
-                      cycle: selectedCycle,
-                      categoryId: selectedCategoryId,
-                      categoryName: selectedCategoryName,
-                      walletId: selectedWalletId,
-                      reminderEnabled: reminderEnabled,
-                    );
-                  }
-                  Navigator.pop(ctx);
-                },
+                        setState(() => isSaving = true);
+                        try {
+                          if (isEdit) {
+                            final updated = existingSubscription.copyWith(
+                              name: name,
+                              amount: amount,
+                              billingDay: selectedDay,
+                              cycle: selectedCycle,
+                              categoryId: selectedCategoryId,
+                              categoryName: selectedCategoryName,
+                              walletId: selectedWalletId,
+                              reminderEnabled: reminderEnabled,
+                            );
+                            await provider.updateSubscription(updated);
+                          } else {
+                            await provider.addSubscription(
+                              name: name,
+                              amount: amount,
+                              billingDay: selectedDay,
+                              cycle: selectedCycle,
+                              categoryId: selectedCategoryId,
+                              categoryName: selectedCategoryName,
+                              walletId: selectedWalletId,
+                              reminderEnabled: reminderEnabled,
+                            );
+                          }
+                          if (ctx.mounted) Navigator.pop(ctx);
+                        } finally {
+                          if (ctx.mounted) setState(() => isSaving = false);
+                        }
+                      },
                 child: Text(
                   isEdit ? 'Simpan Perubahan' : 'Tambah Tagihan Rutin',
                   style: GoogleFonts.manrope(

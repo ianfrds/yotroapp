@@ -2051,12 +2051,58 @@ Gunakan hanya `yotro-safe-release.apk` (v1.0.3+4). APK legacy `yotro-release.apk
   - **Subscriptions / Tagihan Rutin**: Menambahkan migrasi tabel `public.subscriptions` (RLS aktif + trigger `updated_at` + index `user_id`) serta `syncSubscription()`, `syncSubscriptions()`, `deleteSubscriptionFromCloud()`, `uploadAllLocalData`, dan `pullCloudData` (dengan graceful fallback jika tabel belum dimigrasi di remote). `applyCloudSnapshot()` menerapkan intelligent merge sehingga tagihan lokal dan `lastPaidDate` terbaru tidak tertimpa.
   - **Mutasi Anggaran (Budget)**: Menambahkan `syncBudget()` dan memanggilnya secara realtime pada `updateOverallBudget()`, `deleteOverallBudget()`, `updateCategoryBudget()`, `deleteCategoryBudget()`, dan `updateBudgetResetDay()`.
   - **Profil Pengguna**: Menambahkan `syncProfile()` dan memanggilnya pada `updateProfile()` dan `completeOnboarding()` untuk sinkronisasi realtime ke tabel `profiles` (`name`, `phone`, `currency`, `sync_wallet_to_transactions`).
-  - **Testing**: Menambahkan test suite `test/critical_sync_persistence_test.dart` (4 tests).
+  - **Testing**: Menambahkan test suite `test/critical_sync_persistence_test.dart` (6 tests).
+- [x] Rekonsiliasi Otomatis Saldo Dompet & Eliminasi Tombol Manual (`TransactionProvider`, `WalletsScreen`):
+  - `TransactionProvider` kini menjalankan `reconcileWalletBalances(force: _syncWalletToTransactions)` otomatis setiap `_loadData()`, `importDataFromJson()`, dan `applyCloudSnapshot()`.
+  - `addTransaction()` dan `deleteTransaction()` menyinkronkan `syncSingleTransaction` dan `syncWallet` secara berurutan di background agar tidak terjadi race condition atau desync.
+  - Banner peringatan & tombol manual **"Sinkronkan"** di `WalletsScreen` dihapus karena rekonsiliasi kini berjalan otomatis 100% di belakang layar.
+- [x] Audit & Perbaikan 7 Celah Transaksi, Nominal Saldo, dan Dompet (`SupabaseSyncService`, `TransactionProvider`, `AddTransactionScreen`, `WalletsScreen`):
+  - **Batch Reassignment Cloud di `deleteWallet()`**: Menambahkan `SupabaseSyncService.syncTransactions()` sehingga seluruh transaksi yang dipindahkan ke `fallbackWallet` otomatis di-upsert ulang ke Supabase sebelum dompet dihapus.
+  - **Proteksi Manual Wallet Override (`_manualWalletIds`)**: Dompet yang eksplisit dibuat/diedit dengan `syncToTransaction: false` dicatat di `_manualWalletIds` agar saldo manualnya tidak tertimpa oleh auto-reconcile saat restart.
+  - **ID Generator Anti-Tabrakan (`_nextId`)**: ID `tx_` dan `w_` kini memakai `microsecondsSinceEpoch` + `_idSequence++`.
+  - **Preservasi Wallet Fallback (`addTransaction`)**: Jika `walletId` sudah dihapus/tidak ditemukan, `TransactionModel.walletId` kini menyimpan ID dompet fallback yang sebenarnya dimutasi.
+  - **Transfer & Form Guards**: `_save()` di `AddTransactionScreen` meneruskan `effectiveFromId`/`effectiveToId` hasil validasi dan dilindungi `_isSaving` anti double-tap. Lembar dompet di `WalletsScreen` dilengkapi guard `isSaving` anti double-tap dan pesan error validasi nama kosong serta nominal saldo tidak valid. `OnboardingProfileScreen` kini mengikuti `provider.syncWalletToTransactions` saat menambah dompet.
+  - **Testing**: Menambahkan 4 skenario uji baru di `test/critical_sync_persistence_test.dart` (total 10 tests di suite tersebut).
 - [x] Rilis Produksi v2.0.10+18 (Universal Signed Release APK & Web Parity):
+- [x] Rilis Produksi v2.0.10+18 (Split-per-ABI Signed Release APK & Web Parity):
   - Kenaikan versi aplikasi ke **`2.0.10+18`** (`pubspec.yaml`, `ChangelogData.currentVersion = '2.0.10'`).
   - Kompilasi universal signed release APK sukses (`yotro-app.apk`, 103.3 MB / ~99M, SHA-256: `ecee18e3b0234954f3cb71b7066d3e388fbe0d5011fee22e82639811b6f69d84`).
   - Kompilasi Flutter Web release diperbarui ke `build/web/` dan binary disinkronkan ke `build/web/yotro-app.apk`.
+  - Kompilasi split-per-abi signed release APK sukses:
+    - ARM64 (`yotro-app.apk`): **41.2 MB** (`SHA-256: ff08a4479aec71b8a3579d83436e25d751ed67fb877e653d4f836a131d5fc599`).
+    - ARMv7 (`yotro-app-armv7.apk`): **35.0 MB** (`SHA-256: 7390bb946fac1fc55b80acf310eba355afa098280e2f564bb6d4768eaba8c8b5`).
+  - Kompilasi Flutter Web release diperbarui ke `build/web/` dan binary `yotro-app.apk` disinkronkan ke `build/web/yotro-app.apk`.
   - Seluruh **223 tests** unit & widget lulus 100% (`flutter test`).
+- [x] Penghapusan Toggle Otomatisasi Transaksi di Menu Dompet (`WalletsScreen`, `wallet_sync_transaction_test.dart`):
+  - Menghapus section toggle **Otomatisasi Transaksi** dari `WalletsScreen` dan toggle **Catat ke Transaksi** dari modal Tambah/Ubah Dompet.
+  - Seluruh penambahan dan perubahan saldo dompet di `WalletsScreen` kini wajib memicu `syncToTransaction: true` secara otomatis.
+- [x] FAB Tambah Dompet & Halaman Detail Dompet (`WalletsScreen`, `WalletDetailScreen`, `TransactionProvider`):
+  - Tombol tambah dompet dipindahkan dari header atas `WalletsScreen` ke **Floating Action Button ikon `+` (`Key('fab_add_wallet')`)** tanpa teks di pojok kanan bawah.
+  - Menambahkan halaman baru `lib/screens/wallet_detail_screen.dart` (`WalletDetailScreen.route(walletId)`) yang terbuka saat mengetuk kartu dompet: menampilkan info saldo, ringkasan Total Masuk & Total Keluar dompet, filter transaksi (`Semua`, `Pemasukan`, `Pengeluaran`, `Transfer`), tombol cepat single-line Catat Transaksi & Transfer, tombol Edit dompet di kanan atas (`Key('btn_edit_wallet')`), serta daftar riwayat transaksi dompet via `TransactionProvider.getTransactionsForWallet(walletId)`.
+- [x] Perbaikan 5 Celah Menu Tagihan & Langganan (`SubscriptionModel`, `NativeNotificationService`, `TransactionProvider`, `SubscriptionsScreen`, `add_subscription_sheet.dart`):
+  - **Cycle-Aware Status (`yearly` & `weekly`)**: `isPaidInMonth()`, `nextDueDate()`, `getStatus()`, dan `daysUntilDue()` kini membedakan siklus bulanan, tahunan, dan mingguan.
+  - **OS Alarm H-1 & Hari H**: Menambahkan `scheduleSubscriptionReminders()` & `cancelSubscriptionReminders()` pada `NativeNotificationService` serta menghubungkannya ke seluruh CRUD/bayar tagihan di `TransactionProvider`.
+  - **Rollback `unpaySubscription` & Guard Pembayaran Ganda**: `unpaySubscription()` kini menghapus transaksi pengeluaran tagihan terkait dan mengembalikan saldo dompet; `paySubscription()` menolak pembayaran ganda di periode sama.
+  - **UI Guards**: Guard anti double-tap (`isPaying`/`isSaving`) serta `mounted` checks setelah `await` di `SubscriptionsScreen` dan `add_subscription_sheet.dart`.
+- [x] Perbaikan Card List Tagihan, FAB Tambah Tagihan, & Fix HeroTag FAB Dompet (`SubscriptionsScreen`, `WalletsScreen`):
+  - Menambahkan `heroTag: null` pada `FloatingActionButton` di `WalletsScreen` dan `SubscriptionsScreen` agar tidak terjadi animasi Hero nyantol dengan FAB navigasi `MainShell` saat kembali ke Beranda.
+  - Memindahkan tombol tambah di `SubscriptionsScreen` ke `FloatingActionButton` ikon `+` (`Key('fab_add_subscription')`) di pojok kanan bawah.
+  - Merapikan daftar tagihan di `SubscriptionsScreen` ke dalam `NestedCard` dengan `Divider`, menghilangkan dot dekoratif, menyatukan tampilan ringkas siklus dan status, serta merapikan bottom sheet aksi tagihan (`_showSubscriptionActionSheet` + `_showConfirmDeleteSubscriptionSheet`) dengan summary pod dan action rows ber-divider sesuai `antislop-ui` & `design.md`.
+- [x] Perbaikan 6 Celah Pengingat Transaksi Harian & Notifikasi (`NativeNotificationService`, `TransactionProvider`):
+  - **Anti-Spam Notifikasi Dobel**: `_startReminderPeriodicTimer()` tidak lagi menembak `showPushNotification(id: 8889)` di foreground saat `canUseNativePermission` aktif (mengandalkan `zonedSchedule` OS).
+  - **Cancel Lengkap ID `8880+` & > 10 Jam**: Menambahkan `cancelAllDailyReminders({int maxCount = 20})` pada `NativeNotificationService` dan memanggilnya di `_rescheduleDailyReminder()`, `toggleDailyReminder(false)`, serta `revokeNotificationPermission()`.
+  - **Sync Jadwal Setelah Cloud Pull**: `applyCloudSnapshot()` kini otomatis memanggil `_rescheduleDailyReminder()` dan `scheduleSubscriptionReminders()` agar alarm lokal ikut menyesuaikan jika transaksi hari ini dicatat di device lain.
+  - **Deteksi Zona Waktu Dinamis**: `NativeNotificationService.initialize()` mendeteksi offset zona waktu perangkat (`Asia/Jakarta`, `Asia/Makassar`, `Asia/Jayapura`, atau offset database TZ) alih-alih mengunci `Asia/Jakarta`.
+  - **Pembersihan Notifikasi Saat Logout/Reset**: `logout()`, `deleteAccount()`, `clearAllData()`, dan `resetToDefaults()` membatalkan seluruh notifikasi harian dan tagihan rutin.
+  - **Filter Transaksi Sistem di `hasTransactionToday`**: `hasTransactionToday` mengabaikan transaksi otomatis `Saldo Awal - ` dan `Penyesuaian Saldo - ` agar setup/edit dompet tidak men-skip pengingat transaksi harian.
+- [x] FAB Tambah Budget di Menu Anggaran (`BudgetScreen`):
+  - Memindahkan tombol tambah budget dari header atas `BudgetScreen` ke `FloatingActionButton` ikon `+` (`Key('fab_add_budget')`, `heroTag: null`) di pojok kanan bawah, seragam dengan `WalletsScreen` dan `SubscriptionsScreen`.
+- [x] Rilis Produksi v2.0.11+19 (Split-per-ABI Compact Release APK):
+  - Kenaikan versi aplikasi ke **`2.0.11+19`** (`pubspec.yaml`, `ChangelogData.currentVersion = '2.0.11'`).
+  - Kompilasi split-per-abi signed release APK sukses:
+    - ARM64 (`yotro-app.apk`): **41.2 MB** (`SHA-256: 10a68feecaf7570a1769682990a6f9b1bc55fd825bc3a6f3a286fb514ed39317`).
+    - ARMv7 (`yotro-app-armv7.apk`): **35.0 MB** (`SHA-256: 03d7cae981e53e25b00c828b3d403ee564410985a29c7acc4f40919cb3ffcb6a`).
+  - `build/web/yotro-app.apk` disinkronkan.
 - [x] File handover AI context di `context.md`.
 - [x] Aturan otomatisasi workspace agent di `AGENTS.md` dan `GEMINI.md` (auto-sync `context.md`).
 
@@ -2094,7 +2140,7 @@ Saat melanjutkan proyek ini:
 8. **In-App OTA Updater & Changelog Invariants:**
    - Model rilis GitHub: `ianfrds/yotroapp`.
    - `package_info_plus: ^10.2.2` & `open_filex: ^4.7.0` mengelola deteksi versi dan instalasi paket.
-   - Versi saat ini di `pubspec.yaml` adalah `2.0.10+18` dengan `ChangelogData.currentVersion = '2.0.10'`.
+   - Versi saat ini di `pubspec.yaml` adalah `2.0.11+19` dengan `ChangelogData.currentVersion = '2.0.11'`.
    - Workflow `.github/workflows/build-apk.yml` hanya membangun branch/PR/manual-dispatch untuk validasi dengan keystore sementara. Workflow tidak merespons tag dan tidak menerbitkan GitHub Release.
    - Jangan distribusikan artifact GitHub Actions atau rilis `v2.0.3`; keduanya memakai keystore CI sementara. Produksi memakai APK lokal yang ditandatangani keystore produksi dan sudah diuji langsung di perangkat.
    - Publikasi produksi dilakukan manual melalui GitHub Release UI: tag harus cocok dengan versi, release non-draft/non-prerelease/latest, dan asset wajib bernama `yotro-app.apk`.
@@ -2135,7 +2181,7 @@ Saat melanjutkan proyek ini:
     - Pembayaran tagihan via `paySubscription()` wajib memotong saldo dompet, membuat mutasi pengeluaran (`TransactionType.expense`), dan menandai tagihan lunas pada bulan berjalan (`isPaidInMonth(now) == true`).
     - Form penambahan tagihan memanfaatkan `showAddOrEditSubscriptionSheet` dengan quick presets layanan populer Indonesia.
 20. **Desain Ikon & Tombol Lembar Tagihan:**
-    - `assets/icon/Tagihan.svg` wajib bertipe *solid filled shape* (`fill="white"`, `fill-rule="evenodd"`) bersiluet kalender tagihan dengan aksen cutout recurring arrows loop, seirama dan se-tema dengan `Dompet.svg`, `Budget.svg`, dan `Analisis.svg`.
+    - `assets/icon/Tagihan.svg` wajib bertipe *solid filled rounded shape* (`fill="white"`, `fill-rule="evenodd"`) bersiluet kalender tagihan dengan cutout horizontal pill bars yang bersih dan proporsional di 24dp, seirama dan se-tema dengan `Dompet.svg`, `Budget.svg`, dan `Analisis.svg`.
     - Tombol aksi utama formulir tagihan (`add_subscription_sheet.dart`) dan modal pembayaran berukuran tinggi standar `height: 52px` (dan `50px` pada modal) dengan `fontSize: 15px` agar proporsional, nyaman disentuh, dan konsisten dengan form input lainnya.
 21. **Preservasi Kategori Kustom & Sinkronisasi Cloud (Anti-Data Loss):**
     - Setiap mutasi kategori kustom (`addCategory`, `updateCategory`, `deleteCategory`, `setSelectedCategories`) WAJIB memicu sinkronisasi real-time ke tabel `categories` Supabase via `SupabaseSyncService.syncCategory(...)` dan `deleteCategoryFromCloud(...)`.

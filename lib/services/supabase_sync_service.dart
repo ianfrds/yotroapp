@@ -66,25 +66,7 @@ class SupabaseSyncService {
 
       // 4. Upsert Transactions (with transparent E2EE encryption)
       if (provider.transactions.isNotEmpty) {
-        const batchSize = 50;
-        for (var i = 0; i < provider.transactions.length; i += batchSize) {
-          final chunk = provider.transactions.skip(i).take(batchSize).map((t) => {
-            'id': t.id,
-            'user_id': user.id,
-            'title': EncryptionService.encryptString(t.title, user.id),
-            'amount': EncryptionService.encryptAmount(t.amount, user.id),
-            'type': t.type.name,
-            'category_id': t.categoryId,
-            'category_name': t.categoryName,
-            'wallet_id': t.walletId,
-            'from_wallet_id': t.fromWalletId,
-            'to_wallet_id': t.toWalletId,
-            'note': t.note.isNotEmpty ? EncryptionService.encryptString(t.note, user.id) : '',
-            'timestamp': t.timestamp.toIso8601String(),
-            'updated_at': now,
-          }).toList();
-          await _client!.from('transactions').upsert(chunk);
-        }
+        await syncTransactions(provider.transactions, throwOnError: true);
       }
 
       // 5. Upsert Budget
@@ -317,6 +299,54 @@ class SupabaseSyncService {
     }
   }
 
+  static Map<String, dynamic> _transactionToRow(
+    TransactionModel tx,
+    String userId,
+    String nowIso,
+  ) {
+    return {
+      'id': tx.id,
+      'user_id': userId,
+      'title': EncryptionService.encryptString(tx.title, userId),
+      'amount': EncryptionService.encryptAmount(tx.amount, userId),
+      'type': tx.type.name,
+      'category_id': tx.categoryId,
+      'category_name': tx.categoryName,
+      'wallet_id': tx.walletId,
+      'from_wallet_id': tx.fromWalletId,
+      'to_wallet_id': tx.toWalletId,
+      'note': tx.note.isNotEmpty ? EncryptionService.encryptString(tx.note, userId) : '',
+      'timestamp': tx.timestamp.toIso8601String(),
+      'updated_at': nowIso,
+    };
+  }
+
+  /// Batch upsert transactions to Supabase (chunked, E2EE encrypted)
+  static Future<void> syncTransactions(
+    List<TransactionModel> transactions, {
+    bool throwOnError = false,
+  }) async {
+    if (!canSync || transactions.isEmpty) return;
+    final user = SupabaseAuthService.currentUser;
+    if (user == null) return;
+
+    try {
+      final now = DateTime.now().toIso8601String();
+      const batchSize = 50;
+      for (var i = 0; i < transactions.length; i += batchSize) {
+        final chunk = transactions
+            .skip(i)
+            .take(batchSize)
+            .map((t) => _transactionToRow(t, user.id, now))
+            .toList();
+        await _client!.from('transactions').upsert(chunk);
+      }
+    } catch (e) {
+      debugPrint('[SupabaseSyncService] Error saat syncTransactions: $e');
+      if (throwOnError) rethrow;
+    }
+  }
+
   /// Sync single transaction mutation to Supabase in background
   static Future<void> syncSingleTransaction(
     TransactionModel tx, {
@@ -334,21 +364,9 @@ class SupabaseSyncService {
             .eq('id', tx.id)
             .eq('user_id', user.id);
       } else {
-        await _client!.from('transactions').upsert({
-          'id': tx.id,
-          'user_id': user.id,
-          'title': EncryptionService.encryptString(tx.title, user.id),
-          'amount': EncryptionService.encryptAmount(tx.amount, user.id),
-          'type': tx.type.name,
-          'category_id': tx.categoryId,
-          'category_name': tx.categoryName,
-          'wallet_id': tx.walletId,
-          'from_wallet_id': tx.fromWalletId,
-          'to_wallet_id': tx.toWalletId,
-          'note': tx.note.isNotEmpty ? EncryptionService.encryptString(tx.note, user.id) : '',
-          'timestamp': tx.timestamp.toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
-        });
+        await _client!
+            .from('transactions')
+            .upsert(_transactionToRow(tx, user.id, DateTime.now().toIso8601String()));
       }
     } catch (e) {
       debugPrint('[SupabaseSyncService] Error saat syncSingleTransaction: $e');

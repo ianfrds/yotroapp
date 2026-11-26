@@ -157,5 +157,32 @@ void main() {
       expect(provider.hasTransactionToday, isFalse);
       expect(provider.shouldShowDailyReminder, isTrue);
     });
+
+    test('hasTransactionToday ignores automatic Saldo Awal and Penyesuaian Saldo transactions', () async {
+      final provider = TransactionProvider();
+      await provider.clearAllTransactions();
+      await provider.requestNotificationPermission();
+      await provider.toggleDailyReminder(true);
+
+      await provider.addWallet(
+        name: 'Dompet Baru',
+        type: 'Cash',
+        initialBalance: 250000,
+        syncToTransaction: true,
+      );
+      expect(provider.hasTransactionToday, isFalse);
+      expect(provider.shouldShowDailyReminder, isTrue);
+
+      final newWallet = provider.wallets.firstWhere((w) => w.name == 'Dompet Baru');
+      await provider.updateWallet(
+        id: newWallet.id,
+        name: 'Dompet Baru',
+        type: 'Cash',
+        balance: 300000,
+        syncToTransaction: true,
+      );
+      expect(provider.hasTransactionToday, isFalse);
+      expect(provider.shouldShowDailyReminder, isTrue);
+    });
   });
 }

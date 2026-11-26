@@ -682,7 +682,7 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                           name: name,
                           type: selectedType,
                           initialBalance: balance,
-                          syncToTransaction: false,
+                          syncToTransaction: provider.syncWalletToTransactions,
                         );
                         if (ctx.mounted) Navigator.pop(ctx);
                         if (context.mounted) {

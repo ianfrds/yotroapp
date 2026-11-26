@@ -205,10 +205,70 @@ void main() {
       expect(provider.totalUnpaidSubscriptionsThisMonth, 0.0);
       expect(provider.unpaidSubscriptionsCount, 0);
 
-      // Unpay subscription
+      // Unpay subscription rolls back transaction & wallet balance
       await provider.unpaySubscription(sub.id);
       expect(provider.subscriptions.first.isPaidInMonth(DateTime.now()), isFalse);
       expect(provider.unpaidSubscriptionsCount, 1);
+      expect(wallet.balance, initialBalance);
+      expect(provider.transactions.any((tx) => tx.title == 'Tagihan Netflix Premium'), isFalse);
+    });
+
+    test('paySubscription prevents duplicate payment in the same period', () async {
+      final provider = TransactionProvider();
+      await provider.clearAllTransactions();
+      final wallet = provider.wallets.first;
+      final initialBalance = wallet.balance;
+
+      await provider.addSubscription(
+        name: 'Spotify',
+        amount: 55000,
+        billingDay: 10,
+        categoryId: 'cat_ent',
+        categoryName: 'Hiburan',
+        walletId: wallet.id,
+      );
+      final sub = provider.subscriptions.first;
+      final now = DateTime.now();
+
+      await provider.paySubscription(sub.id, walletId: wallet.id, date: now);
+      await provider.paySubscription(sub.id, walletId: wallet.id, date: now);
+
+      expect(wallet.balance, initialBalance - 55000);
+      expect(provider.transactions.where((tx) => tx.title == 'Tagihan Spotify').length, 1);
+    });
+
+    test('SubscriptionCycle yearly and weekly evaluate paid status per cycle', () {
+      // Yearly paid in Nov 2026 stays paid in Dec 2026, resets in Jan 2027
+      final yearlySub = SubscriptionModel(
+        id: 'sub_yearly',
+        name: 'Domain .com',
+        amount: 200000,
+        billingDay: 15,
+        cycle: SubscriptionCycle.yearly,
+        categoryId: 'bills',
+        categoryName: 'Tagihan',
+        walletId: 'w1',
+        lastPaidDate: DateTime(2026, 11, 15),
+        createdAt: DateTime(2026, 11, 15),
+      );
+      expect(yearlySub.isPaidInMonth(DateTime(2026, 12, 1)), isTrue);
+      expect(yearlySub.isPaidInMonth(DateTime(2027, 1, 1)), isFalse);
+
+      // Weekly paid on Monday Nov 23 stays paid on Friday Nov 27, resets on Monday Nov 30
+      final weeklySub = SubscriptionModel(
+        id: 'sub_weekly',
+        name: 'Katering Mingguan',
+        amount: 150000,
+        billingDay: 23,
+        cycle: SubscriptionCycle.weekly,
+        categoryId: 'food',
+        categoryName: 'Makanan',
+        walletId: 'w1',
+        lastPaidDate: DateTime(2026, 11, 23),
+        createdAt: DateTime(2026, 11, 23),
+      );
+      expect(weeklySub.isPaidInMonth(DateTime(2026, 11, 27)), isTrue);
+      expect(weeklySub.isPaidInMonth(DateTime(2026, 11, 30)), isFalse);
     });
   });
 

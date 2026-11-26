@@ -17,7 +17,7 @@ class ChangelogItem {
 }
 
 class ChangelogData {
-  static const String currentVersion = '2.0.10';
+  static const String currentVersion = '2.0.11';
 
   static ChangelogItem? getRelease(String tagOrVersion) {
     final clean =
@@ -30,10 +30,26 @@ class ChangelogData {
 
   static const List<ChangelogItem> history = [
     ChangelogItem(
+      version: '2.0.11',
+      date: '26 November 2026',
+      title: 'Halaman Detail Dompet, Konsistensi FAB, & Perbaikan Pengingat Harian/Tagihan',
+      isCurrent: true,
+      features: [
+        'Halaman baru Detail Dompet: ketuk dompet manapun untuk melihat info saldo, total pemasukan & pengeluaran dompet, filter transaksi, dan seluruh riwayat transaksi dompet tersebut.',
+        'Floating Action Button (+) seragam di pojok kanan bawah untuk menu Dompet, Tagihan, dan Budget.',
+        'Penjadwalan alarm OS H-1 & Hari H (09:00 WIB) untuk tagihan rutin serta rollback transaksi otomatis saat status lunas dibatalkan.',
+      ],
+      improvements: [
+        'Auto-rekonsiliasi saldo dompet dari riwayat transaksi + sinkronisasi berurutan ke cloud agar saldo dompet tidak pernah selisih.',
+        'Pembaruan desain ikon Tagihan (filled rounded), card list tagihan, dan bottom sheet aksi tagihan.',
+        'Perbaikan pengingat transaksi harian: bebas notifikasi dobel, deteksi zona waktu lokal dinamis, dan mengabaikan transaksi sistem Saldo Awal/Penyesuaian Saldo.',
+      ],
+    ),
+    ChangelogItem(
       version: '2.0.10',
       date: '24 November 2026',
       title: 'Sinkronisasi Cloud Realtime & Pemulihan Otomatis Kategori Kustom',
-      isCurrent: true,
+      isCurrent: false,
       features: [
         'Sinkronisasi cloud realtime untuk kategori kustom: pembuatan, ubah, dan hapus kategori langsung tersimpan ke akun cloud sehingga tidak hilang di hari berikutnya.',
         'Mekanisme Self-Healing kategori: kategori kustom dari riwayat transaksi lama otomatis dipulihkan jika sempat terhapus saat sinkronisasi.',

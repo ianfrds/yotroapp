@@ -494,45 +494,26 @@ class BudgetScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF1C2229) : const Color(0xFFF4F5F7),
+      floatingActionButton: FloatingActionButton(
+        key: const Key('fab_add_budget'),
+        heroTag: null,
+        onPressed: () => _showAddOrEditCategoryBudgetSheet(context, provider),
+        backgroundColor: _accentOceanic,
+        foregroundColor: Colors.white,
+        elevation: 3,
+        tooltip: 'Tambah Budget',
+        child: const Icon(Icons.add_rounded, size: 26),
+      ),
       body: SafeArea(
         child: ListView(
           controller: scrollController,
-          padding: EdgeInsets.fromLTRB(12, 12, 12, isStandalonePage ? 40 : 124),
+          padding: EdgeInsets.fromLTRB(12, 12, 12, isStandalonePage ? 96 : 124),
           children: [
             // Standard Header with back button
             StandardScreenHeader(
               title: 'Anggaran Bulanan',
               showBackButton: isStandalonePage,
               onBack: () => Navigator.pop(context),
-              actionWidget: InkWell(
-                onTap: () => _showAddOrEditCategoryBudgetSheet(context, provider),
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: isDark ? _accentOceanic.withOpacity(0.25) : const Color(0xFFE0F2FE),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: isDark ? _cyan.withOpacity(0.35) : const Color(0xFF02539A).withOpacity(0.35),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.add_rounded, size: 16, color: isDark ? _cyan : const Color(0xFF02539A)),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Tambah',
-                        style: GoogleFonts.manrope(
-                          color: isDark ? _cyan : const Color(0xFF02539A),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
             ),
             const SizedBox(height: 12),
 

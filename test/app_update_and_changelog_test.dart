@@ -29,11 +29,11 @@ void main() {
 
   group('ChangelogModel & Semantic Versioning Tests', () {
     test('ChangelogData history contains accurate metadata', () {
-      expect(ChangelogData.currentVersion, '2.0.9');
+      expect(ChangelogData.currentVersion, '2.0.11');
       expect(ChangelogData.history, isNotEmpty);
 
       final current = ChangelogData.history.first;
-      expect(current.version, '2.0.9');
+      expect(current.version, '2.0.11');
       expect(current.isCurrent, isTrue);
       expect(current.features, isNotEmpty);
       expect(current.improvements, isNotEmpty);

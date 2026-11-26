@@ -124,6 +124,11 @@ class TransactionProvider with ChangeNotifier {
   List<PendingNotification> _pendingNotifications = [];
   List<ActivityNotification> _activityNotifications = [];
   bool _syncWalletToTransactions = true;
+  Set<String> _manualWalletIds = {};
+  int _idSequence = 0;
+
+  String _nextId(String prefix) =>
+      '${prefix}_${DateTime.now().microsecondsSinceEpoch}_${_idSequence++}';
   bool _isSyncingWithCloud = false;
   DateTime? _lastCloudSyncTime;
   bool _isLoading = true;
@@ -214,6 +219,10 @@ class TransactionProvider with ChangeNotifier {
   bool get hasTransactionToday {
     final now = DateTime.now();
     return _transactions.any((tx) {
+      if (tx.title.startsWith('Saldo Awal - ') ||
+          tx.title.startsWith('Penyesuaian Saldo - ')) {
+        return false;
+      }
       final local = tx.timestamp.toLocal();
       return local.year == now.year &&
           local.month == now.month &&
@@ -647,6 +656,10 @@ class TransactionProvider with ChangeNotifier {
         }
         _syncWalletToTransactions =
             data['syncWalletToTransactions'] as bool? ?? true;
+        _manualWalletIds = (data['manualWalletIds'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toSet() ??
+            {};
         if (data['lastCloudSyncTime'] != null) {
           _lastCloudSyncTime =
               DateTime.tryParse(data['lastCloudSyncTime'] as String);
@@ -728,7 +741,7 @@ class TransactionProvider with ChangeNotifier {
           saveData();
         }
 
-        reconcileWalletBalances();
+        reconcileWalletBalances(force: _syncWalletToTransactions);
         if (data['activityNotifications'] != null) {
           _activityNotifications =
               (data['activityNotifications'] as List<dynamic>)
@@ -761,6 +774,7 @@ class TransactionProvider with ChangeNotifier {
             !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
         if (isTest) {
           _seedDefaults();
+          reconcileWalletBalances(force: _syncWalletToTransactions);
           _isOnboardingCompleted = true;
         } else {
           _seedEmpty();
@@ -836,6 +850,8 @@ class TransactionProvider with ChangeNotifier {
 
   void _startReminderPeriodicTimer() {
     _reminderTimer?.cancel();
+    // Native mobile uses OS zonedSchedule directly to avoid duplicate foreground notifications.
+    if (canUseNativePermission) return;
     _reminderTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (!_isDailyReminderEnabled || hasTransactionToday) return;
 
@@ -848,24 +864,19 @@ class TransactionProvider with ChangeNotifier {
         final reminderKey = '$todayStr-$currentFormatted';
         if (_lastReminderDateStr == reminderKey) return;
         _lastReminderDateStr = reminderKey;
-        NativeNotificationService.instance.showPushNotification(
-          id: 8889,
-          title: 'Pengingat Transaksi Harian',
-          body:
-              'Kamu belum mencatat transaksi hari ini. Yuk catat pengeluaran & pemasukanmu di Yotro!',
-          isReminder: true,
-        );
+        notifyListeners();
       }
     });
   }
 
   Future<void> _rescheduleDailyReminder() async {
-    if (!canUseNativePermission || !_isDailyReminderEnabled) return;
+    if (!canUseNativePermission) return;
     try {
-      for (int i = 0; i < 10; i++) {
-        await NativeNotificationService.instance
-            .cancelDailyReminder(id: 8880 + i);
-      }
+      final clearCount =
+          _dailyReminderTimes.length > 20 ? _dailyReminderTimes.length + 5 : 20;
+      await NativeNotificationService.instance
+          .cancelAllDailyReminders(maxCount: clearCount);
+      if (!_isDailyReminderEnabled) return;
       final skipToday = hasTransactionToday;
       for (int i = 0; i < _dailyReminderTimes.length; i++) {
         final parts = _dailyReminderTimes[i].split(':');
@@ -1215,6 +1226,7 @@ class TransactionProvider with ChangeNotifier {
         'pendingNotifications':
             _pendingNotifications.map((n) => n.toJson()).toList(),
         'syncWalletToTransactions': _syncWalletToTransactions,
+        'manualWalletIds': _manualWalletIds.toList(),
         'lastCloudSyncTime': _lastCloudSyncTime?.toIso8601String(),
         'activityNotifications':
             _activityNotifications.map((a) => a.toJson()).toList(),
@@ -1391,7 +1403,7 @@ class TransactionProvider with ChangeNotifier {
         }
       }
 
-      reconcileWalletBalances();
+      reconcileWalletBalances(force: _syncWalletToTransactions);
       notifyListeners();
       await saveData();
       return true;
@@ -1470,14 +1482,25 @@ class TransactionProvider with ChangeNotifier {
     await saveData();
   }
 
+  Future<void> _cancelAllAccountNotifications() async {
+    await NativeNotificationService.instance.cancelAllDailyReminders(
+      maxCount: _dailyReminderTimes.length > 20 ? _dailyReminderTimes.length + 5 : 20,
+    );
+    for (final s in _subscriptions) {
+      await NativeNotificationService.instance.cancelSubscriptionReminders(s.id);
+    }
+  }
+
   Future<void> logout() async {
     _isOnboardingCompleted = false;
     _isGuestMode = false;
+    unawaited(_cancelAllAccountNotifications());
     notifyListeners();
     await saveData();
   }
 
   Future<void> deleteAccount() async {
+    unawaited(_cancelAllAccountNotifications());
     if (SupabaseAuthService.isAuthenticated) {
       try {
         await SupabaseAuthService.deleteUserAccount();
@@ -1519,11 +1542,13 @@ class TransactionProvider with ChangeNotifier {
     _budget = BudgetModel(overallMonthlyLimit: 0.0, categoryBudgets: {});
     _pendingNotifications.clear();
     _activityNotifications.clear();
+    unawaited(_rescheduleDailyReminder());
     notifyListeners();
     await saveData();
   }
 
   Future<void> resetToDefaults() async {
+    unawaited(_cancelAllAccountNotifications());
     _seedDefaults();
     _currency = 'IDR';
     _userName = 'John Doe';
@@ -1606,6 +1631,9 @@ class TransactionProvider with ChangeNotifier {
     _hasNotificationPermission = false;
     _isDailyReminderEnabled = false;
     _isNotificationReaderEnabled = false;
+    await NativeNotificationService.instance.cancelAllDailyReminders(
+      maxCount: _dailyReminderTimes.length > 20 ? _dailyReminderTimes.length + 5 : 20,
+    );
     notifyListeners();
     await saveData();
   }
@@ -1618,7 +1646,9 @@ class TransactionProvider with ChangeNotifier {
     if (enabled) {
       await _rescheduleDailyReminder();
     } else {
-      await NativeNotificationService.instance.cancelDailyReminder();
+      await NativeNotificationService.instance.cancelAllDailyReminders(
+        maxCount: _dailyReminderTimes.length > 20 ? _dailyReminderTimes.length + 5 : 20,
+      );
     }
     notifyListeners();
     await saveData();
@@ -2233,6 +2263,59 @@ class TransactionProvider with ChangeNotifier {
     }
   }
 
+  /// Returns all transactions affecting [walletId], sorted newest first.
+  List<TransactionModel> getTransactionsForWallet(String walletId) {
+    final list = _transactions.where((tx) {
+      if (tx.type == TransactionType.transfer) {
+        return tx.fromWalletId == walletId || tx.toWalletId == walletId;
+      }
+      return tx.walletId == walletId ||
+          (_wallets.length == 1 && tx.walletId.isEmpty);
+    }).toList();
+    list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    return list;
+  }
+
+  /// Calculates the net balance of a wallet from all recorded transactions.
+  double calculateWalletNetBalance(String walletId) {
+    double net = 0.0;
+    for (final tx in _transactions) {
+      if (tx.type == TransactionType.transfer) {
+        if (tx.toWalletId == walletId) net += tx.amount;
+        if (tx.fromWalletId == walletId) net -= tx.amount;
+      } else {
+        final isMatched = tx.walletId == walletId ||
+            (_wallets.length == 1 && tx.walletId.isEmpty);
+        if (isMatched) {
+          if (tx.type == TransactionType.income) {
+            net += tx.amount;
+          } else if (tx.type == TransactionType.expense) {
+            net -= tx.amount;
+          }
+        }
+      }
+    }
+    return net;
+  }
+
+  bool _walletHasTransactions(String walletId) {
+    return _transactions.any((tx) => tx.type == TransactionType.transfer
+        ? (tx.toWalletId == walletId || tx.fromWalletId == walletId)
+        : (tx.walletId == walletId ||
+            (_wallets.length == 1 && tx.walletId.isEmpty)));
+  }
+
+  /// True when any wallet's stored balance differs from its transaction net sum.
+  bool get hasWalletBalanceDrift {
+    for (final w in _wallets) {
+      if (_walletHasTransactions(w.id) &&
+          (w.balance - calculateWalletNetBalance(w.id)).abs() > 0.001) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /// Reconciles wallet balances with historical transaction records.
   /// If a wallet balance is Rp 0 (or force is true) while its net calculated transactions != 0,
   /// this restores the wallet's true balance and syncs it with Supabase.
@@ -2241,45 +2324,19 @@ class TransactionProvider with ChangeNotifier {
     bool anyRepaired = false;
 
     for (final wallet in _wallets) {
-      double netFromTransactions = 0.0;
-      bool hasTransactions = false;
+      if (!_walletHasTransactions(wallet.id)) continue;
+      final netFromTransactions = calculateWalletNetBalance(wallet.id);
+      final currentBal = wallet.balance;
+      final isManualOverride = _manualWalletIds.contains(wallet.id);
+      final needsRepair = (currentBal == 0.0 && netFromTransactions != 0.0) ||
+          (force && !isManualOverride && (currentBal - netFromTransactions).abs() > 0.001);
 
-      for (final tx in _transactions) {
-        if (tx.type == TransactionType.transfer) {
-          if (tx.toWalletId == wallet.id) {
-            netFromTransactions += tx.amount;
-            hasTransactions = true;
-          }
-          if (tx.fromWalletId == wallet.id) {
-            netFromTransactions -= tx.amount;
-            hasTransactions = true;
-          }
-        } else {
-          final isMatched = tx.walletId == wallet.id ||
-              (_wallets.length == 1 && tx.walletId.isEmpty);
-          if (isMatched) {
-            hasTransactions = true;
-            if (tx.type == TransactionType.income) {
-              netFromTransactions += tx.amount;
-            } else if (tx.type == TransactionType.expense) {
-              netFromTransactions -= tx.amount;
-            }
-          }
-        }
-      }
-
-      if (hasTransactions) {
-        final currentBal = wallet.balance;
-        final needsRepair = (currentBal == 0.0 && netFromTransactions != 0.0) ||
-            (force && (currentBal - netFromTransactions).abs() > 0.001);
-
-        if (needsRepair) {
-          debugPrint('[TransactionProvider] Reconciled wallet "${wallet.name}" balance: '
-              'from $currentBal to $netFromTransactions');
-          wallet.balance = netFromTransactions;
-          anyRepaired = true;
-          unawaited(SupabaseSyncService.syncWallet(wallet));
-        }
+      if (needsRepair) {
+        debugPrint('[TransactionProvider] Reconciled wallet "${wallet.name}" balance: '
+            'from $currentBal to $netFromTransactions');
+        wallet.balance = netFromTransactions;
+        anyRepaired = true;
+        unawaited(SupabaseSyncService.syncWallet(wallet));
       }
     }
 
@@ -2316,8 +2373,18 @@ class TransactionProvider with ChangeNotifier {
           (w) => w?.id == cloudW.id,
           orElse: () => null,
         );
+        final expectedNet = calculateWalletNetBalance(cloudW.id);
+        final localMatchesNet = localW != null &&
+            _walletHasTransactions(cloudW.id) &&
+            (localW.balance - expectedNet).abs() <= 0.001;
+        final cloudDiffersFromNet = (cloudW.balance - expectedNet).abs() > 0.001;
+
         if (cloudW.balance == 0.0 && localW != null && localW.balance != 0.0) {
           cloudW.balance = localW.balance;
+        } else if (localMatchesNet && cloudDiffersFromNet) {
+          // Local balance matches transaction history while cloud wallet is stale
+          cloudW.balance = localW.balance;
+          unawaited(SupabaseSyncService.syncWallet(cloudW));
         }
       }
       _wallets = wallets;
@@ -2401,8 +2468,14 @@ class TransactionProvider with ChangeNotifier {
 
     _lastCloudSyncTime = DateTime.now();
 
-    // Auto-reconcile in case cloud had 0 balance but transactions exist
-    reconcileWalletBalances();
+    // Auto-reconcile wallet balances from transaction history when syncWalletToTransactions is enabled
+    reconcileWalletBalances(force: _syncWalletToTransactions);
+
+    // Sync OS reminder schedules with cloud transactions & subscriptions
+    unawaited(_rescheduleDailyReminder());
+    for (final s in _subscriptions) {
+      unawaited(NativeNotificationService.instance.scheduleSubscriptionReminders(s));
+    }
 
     notifyListeners();
     saveData();
@@ -2449,45 +2522,60 @@ class TransactionProvider with ChangeNotifier {
     String note = '',
     DateTime? date,
   }) async {
+    String effectiveWalletId = walletId;
+    String? effectiveFromId = fromWalletId;
+    String? effectiveToId = toWalletId;
+    WalletModel? resolvedFromWallet;
+    WalletModel? resolvedToWallet;
+    WalletModel? resolvedTargetWallet;
+
+    if (type == TransactionType.transfer &&
+        fromWalletId != null &&
+        toWalletId != null) {
+      resolvedFromWallet = _wallets.cast<WalletModel?>().firstWhere(
+          (w) => w?.id == fromWalletId,
+          orElse: () => _wallets.isNotEmpty ? _wallets.first : null);
+      resolvedToWallet = _wallets.cast<WalletModel?>().firstWhere(
+          (w) => w?.id == toWalletId,
+          orElse: () => _wallets.isNotEmpty ? _wallets.first : null);
+      effectiveFromId = resolvedFromWallet?.id ?? fromWalletId;
+      effectiveToId = resolvedToWallet?.id ?? toWalletId;
+      if (effectiveFromId == effectiveToId) {
+        throw ArgumentError('Dompet asal dan tujuan transfer tidak boleh sama.');
+      }
+      effectiveWalletId = effectiveFromId;
+    } else if (type != TransactionType.transfer) {
+      resolvedTargetWallet = _wallets.cast<WalletModel?>().firstWhere(
+          (w) => w?.id == walletId,
+          orElse: () => _wallets.isNotEmpty ? _wallets.first : null);
+      effectiveWalletId = resolvedTargetWallet?.id ?? walletId;
+    }
+
     final tx = TransactionModel(
-      id: 'tx_${DateTime.now().millisecondsSinceEpoch}',
+      id: _nextId('tx'),
       title: title.trim().isEmpty ? categoryName : title.trim(),
       amount: amount,
       type: type,
       categoryId: categoryId,
       categoryName: categoryName,
-      walletId: walletId,
-      fromWalletId: fromWalletId,
-      toWalletId: toWalletId,
+      walletId: effectiveWalletId,
+      fromWalletId: effectiveFromId,
+      toWalletId: effectiveToId,
       note: note.trim(),
       timestamp: date ?? DateTime.now(),
     );
 
     // Business Rules:
     if (type == TransactionType.transfer &&
-        fromWalletId != null &&
-        toWalletId != null) {
-      if (fromWalletId == toWalletId) {
-        throw ArgumentError('Dompet asal dan tujuan transfer tidak boleh sama.');
-      }
-      final fromW = _wallets.cast<WalletModel?>().firstWhere(
-          (w) => w?.id == fromWalletId,
-          orElse: () => _wallets.isNotEmpty ? _wallets.first : null);
-      final toW = _wallets.cast<WalletModel?>().firstWhere(
-          (w) => w?.id == toWalletId,
-          orElse: () => _wallets.isNotEmpty ? _wallets.first : null);
-      if (fromW != null) fromW.balance -= amount;
-      if (toW != null) toW.balance += amount;
-    } else {
-      final w = _wallets.cast<WalletModel?>().firstWhere(
-          (w) => w?.id == walletId,
-          orElse: () => _wallets.isNotEmpty ? _wallets.first : null);
-      if (w != null) {
-        if (type == TransactionType.income) {
-          w.balance += amount;
-        } else if (type == TransactionType.expense) {
-          w.balance -= amount;
-        }
+        resolvedFromWallet != null &&
+        resolvedToWallet != null) {
+      resolvedFromWallet.balance -= amount;
+      resolvedToWallet.balance += amount;
+    } else if (resolvedTargetWallet != null) {
+      if (type == TransactionType.income) {
+        resolvedTargetWallet.balance += amount;
+      } else if (type == TransactionType.expense) {
+        resolvedTargetWallet.balance -= amount;
       }
     }
 
@@ -2498,10 +2586,7 @@ class TransactionProvider with ChangeNotifier {
         : (type == TransactionType.income
             ? 'Catat Pemasukan Berhasil'
             : 'Catat Transfer Berhasil');
-    final w = _wallets
-        .cast<WalletModel?>()
-        .firstWhere((w) => w?.id == walletId, orElse: () => null);
-    final wName = w?.name ?? 'Dompet';
+    final wName = (resolvedTargetWallet ?? resolvedFromWallet)?.name ?? 'Dompet';
     final desc = type == TransactionType.transfer
         ? 'Transfer ${formatCurrency(amount)} berhasil dicatat.'
         : '${tx.title} sebesar ${formatCurrency(amount)} dicatat ke $wName.';
@@ -2516,27 +2601,28 @@ class TransactionProvider with ChangeNotifier {
     notifyListeners();
     await saveData();
     unawaited(_rescheduleDailyReminder());
-    unawaited(SupabaseSyncService.syncSingleTransaction(tx));
-
-    if (type == TransactionType.transfer &&
-        fromWalletId != null &&
-        toWalletId != null) {
-      final fromW = _wallets.cast<WalletModel?>().firstWhere(
-          (w) => w?.id == fromWalletId,
-          orElse: () => null);
-      final toW = _wallets.cast<WalletModel?>().firstWhere(
-          (w) => w?.id == toWalletId,
-          orElse: () => null);
-      if (fromW != null) unawaited(SupabaseSyncService.syncWallet(fromW));
-      if (toW != null) unawaited(SupabaseSyncService.syncWallet(toW));
-    } else {
-      final w = _wallets.cast<WalletModel?>().firstWhere(
-          (w) => w?.id == walletId,
-          orElse: () => null);
-      if (w != null) {
-        unawaited(SupabaseSyncService.syncWallet(w));
+    unawaited(() async {
+      await SupabaseSyncService.syncSingleTransaction(tx);
+      if (type == TransactionType.transfer &&
+          fromWalletId != null &&
+          toWalletId != null) {
+        final fromW = _wallets.cast<WalletModel?>().firstWhere(
+            (w) => w?.id == fromWalletId,
+            orElse: () => null);
+        final toW = _wallets.cast<WalletModel?>().firstWhere(
+            (w) => w?.id == toWalletId,
+            orElse: () => null);
+        if (fromW != null) await SupabaseSyncService.syncWallet(fromW);
+        if (toW != null) await SupabaseSyncService.syncWallet(toW);
+      } else {
+        final w = _wallets.cast<WalletModel?>().firstWhere(
+            (w) => w?.id == walletId,
+            orElse: () => null);
+        if (w != null) {
+          await SupabaseSyncService.syncWallet(w);
+        }
       }
-    }
+    }());
     return tx;
   }
 
@@ -2584,27 +2670,28 @@ class TransactionProvider with ChangeNotifier {
     notifyListeners();
     await saveData();
     unawaited(_rescheduleDailyReminder());
-    unawaited(SupabaseSyncService.syncSingleTransaction(tx, isDelete: true));
-
-    if (tx.type == TransactionType.transfer &&
-        tx.fromWalletId != null &&
-        tx.toWalletId != null) {
-      final fromW = _wallets.cast<WalletModel?>().firstWhere(
-          (w) => w?.id == tx.fromWalletId,
-          orElse: () => null);
-      final toW = _wallets.cast<WalletModel?>().firstWhere(
-          (w) => w?.id == tx.toWalletId,
-          orElse: () => null);
-      if (fromW != null) unawaited(SupabaseSyncService.syncWallet(fromW));
-      if (toW != null) unawaited(SupabaseSyncService.syncWallet(toW));
-    } else {
-      final w = _wallets.cast<WalletModel?>().firstWhere(
-          (w) => w?.id == tx.walletId,
-          orElse: () => null);
-      if (w != null) {
-        unawaited(SupabaseSyncService.syncWallet(w));
+    unawaited(() async {
+      await SupabaseSyncService.syncSingleTransaction(tx, isDelete: true);
+      if (tx.type == TransactionType.transfer &&
+          tx.fromWalletId != null &&
+          tx.toWalletId != null) {
+        final fromW = _wallets.cast<WalletModel?>().firstWhere(
+            (w) => w?.id == tx.fromWalletId,
+            orElse: () => null);
+        final toW = _wallets.cast<WalletModel?>().firstWhere(
+            (w) => w?.id == tx.toWalletId,
+            orElse: () => null);
+        if (fromW != null) await SupabaseSyncService.syncWallet(fromW);
+        if (toW != null) await SupabaseSyncService.syncWallet(toW);
+      } else {
+        final w = _wallets.cast<WalletModel?>().firstWhere(
+            (w) => w?.id == tx.walletId,
+            orElse: () => null);
+        if (w != null) {
+          await SupabaseSyncService.syncWallet(w);
+        }
       }
-    }
+    }());
   }
 
   Future<void> addWallet({
@@ -2616,12 +2703,15 @@ class TransactionProvider with ChangeNotifier {
     final shouldSync =
         (syncToTransaction ?? _syncWalletToTransactions) && initialBalance > 0;
     final wallet = WalletModel(
-      id: 'w_${DateTime.now().millisecondsSinceEpoch}',
+      id: _nextId('w'),
       name: name.trim(),
       type: type,
       balance: shouldSync ? 0.0 : initialBalance,
     );
     _wallets.add(wallet);
+    if (!shouldSync && initialBalance != 0) {
+      _manualWalletIds.add(wallet.id);
+    }
 
     if (shouldSync) {
       unawaited(SupabaseSyncService.syncWallet(wallet));
@@ -2661,6 +2751,7 @@ class TransactionProvider with ChangeNotifier {
           (syncToTransaction ?? _syncWalletToTransactions) && (diff.abs() > 0.001);
 
       if (shouldSync) {
+        _manualWalletIds.remove(id);
         if (diff > 0) {
           await addTransaction(
             title: 'Penyesuaian Saldo - ${_wallets[idx].name}',
@@ -2687,6 +2778,9 @@ class TransactionProvider with ChangeNotifier {
           );
         }
       } else {
+        if (diff.abs() > 0.001) {
+          _manualWalletIds.add(id);
+        }
         _wallets[idx].balance = balance;
         notifyListeners();
         await saveData();
@@ -2705,34 +2799,43 @@ class TransactionProvider with ChangeNotifier {
       return;
     }
     final fallbackWallet = _wallets.firstWhere((w) => w.id != id);
+    final List<TransactionModel> reassignedTxs = [];
 
     // Reassign transactions of deleted wallet to fallback wallet
     _transactions = _transactions.map((tx) {
-      String? newWalletId = tx.walletId == id ? fallbackWallet.id : tx.walletId;
-      String? newFrom =
-          tx.fromWalletId == id ? fallbackWallet.id : tx.fromWalletId;
-      String? newTo = tx.toWalletId == id ? fallbackWallet.id : tx.toWalletId;
-      return TransactionModel(
+      final changed =
+          tx.walletId == id || tx.fromWalletId == id || tx.toWalletId == id;
+      if (!changed) return tx;
+
+      final updatedTx = TransactionModel(
         id: tx.id,
         title: tx.title,
         amount: tx.amount,
         type: tx.type,
         categoryId: tx.categoryId,
         categoryName: tx.categoryName,
-        walletId: newWalletId,
-        fromWalletId: newFrom,
-        toWalletId: newTo,
+        walletId: tx.walletId == id ? fallbackWallet.id : tx.walletId,
+        fromWalletId: tx.fromWalletId == id ? fallbackWallet.id : tx.fromWalletId,
+        toWalletId: tx.toWalletId == id ? fallbackWallet.id : tx.toWalletId,
         note: tx.note,
         timestamp: tx.timestamp,
       );
+      reassignedTxs.add(updatedTx);
+      return updatedTx;
     }).toList();
 
     _wallets.removeWhere((w) => w.id == id);
+    _manualWalletIds.remove(id);
     reconcileWalletBalances(force: true);
     notifyListeners();
     await saveData();
-    unawaited(SupabaseSyncService.deleteWalletFromCloud(id));
-    unawaited(SupabaseSyncService.syncWallet(fallbackWallet));
+    unawaited(() async {
+      if (reassignedTxs.isNotEmpty) {
+        await SupabaseSyncService.syncTransactions(reassignedTxs);
+      }
+      await SupabaseSyncService.deleteWalletFromCloud(id);
+      await SupabaseSyncService.syncWallet(fallbackWallet);
+    }());
   }
 
   // 4.4 Budgeting Updates
@@ -2800,6 +2903,7 @@ class TransactionProvider with ChangeNotifier {
     notifyListeners();
     await saveData();
     unawaited(SupabaseSyncService.syncSubscription(sub));
+    unawaited(NativeNotificationService.instance.scheduleSubscriptionReminders(sub));
   }
 
   Future<void> updateSubscription(SubscriptionModel sub) async {
@@ -2809,6 +2913,7 @@ class TransactionProvider with ChangeNotifier {
       notifyListeners();
       await saveData();
       unawaited(SupabaseSyncService.syncSubscription(sub));
+      unawaited(NativeNotificationService.instance.scheduleSubscriptionReminders(sub));
     }
   }
 
@@ -2817,6 +2922,7 @@ class TransactionProvider with ChangeNotifier {
     notifyListeners();
     await saveData();
     unawaited(SupabaseSyncService.deleteSubscriptionFromCloud(id));
+    unawaited(NativeNotificationService.instance.cancelSubscriptionReminders(id));
   }
 
   Future<void> paySubscription(
@@ -2828,6 +2934,7 @@ class TransactionProvider with ChangeNotifier {
     if (idx == -1) return;
     final sub = _subscriptions[idx];
     final payDate = date ?? DateTime.now();
+    if (sub.isPaidInMonth(payDate)) return;
 
     await addTransaction(
       title: 'Tagihan ${sub.name}',
@@ -2845,16 +2952,44 @@ class TransactionProvider with ChangeNotifier {
     notifyListeners();
     await saveData();
     unawaited(SupabaseSyncService.syncSubscription(updated));
+    unawaited(NativeNotificationService.instance.scheduleSubscriptionReminders(updated));
   }
 
   Future<void> unpaySubscription(String id) async {
     final idx = _subscriptions.indexWhere((s) => s.id == id);
     if (idx == -1) return;
-    final updated = _subscriptions[idx].copyWith(clearLastPaidDate: true);
+    final sub = _subscriptions[idx];
+
+    // Rollback the recorded expense transaction & wallet deduction if present
+    final expectedTitle = 'Tagihan ${sub.name}';
+    final paidDate = sub.lastPaidDate;
+    final matchingTx = _transactions.cast<TransactionModel?>().firstWhere(
+      (tx) {
+        if (tx == null ||
+            tx.type != TransactionType.expense ||
+            tx.title != expectedTitle ||
+            (tx.amount - sub.amount).abs() > 0.01) {
+          return false;
+        }
+        if (paidDate != null) {
+          final l1 = tx.timestamp.toLocal();
+          final l2 = paidDate.toLocal();
+          return l1.year == l2.year && l1.month == l2.month && l1.day == l2.day;
+        }
+        return true;
+      },
+      orElse: () => null,
+    );
+    if (matchingTx != null) {
+      await deleteTransaction(matchingTx.id);
+    }
+
+    final updated = sub.copyWith(clearLastPaidDate: true);
     _subscriptions[idx] = updated;
     notifyListeners();
     await saveData();
     unawaited(SupabaseSyncService.syncSubscription(updated));
+    unawaited(NativeNotificationService.instance.scheduleSubscriptionReminders(updated));
   }
 
   // Formatting helpers

@@ -10,6 +10,7 @@ import '../widgets/nested_card.dart';
 import '../widgets/modal_card_sheet.dart';
 import '../widgets/standard_screen_header.dart';
 import 'add_transaction_screen.dart';
+import 'wallet_detail_screen.dart';
 
 class WalletsScreen extends StatelessWidget {
   final ScrollController? scrollController;
@@ -31,10 +32,11 @@ class WalletsScreen extends StatelessWidget {
   static const Color _accentOceanic = Color(0xFF02539A);
   static const Color _danger = Color(0xFFF43F5E);
 
-  void _showAddOrEditWalletSheet(
+  static void showAddOrEditWalletSheet(
     BuildContext context,
     TransactionProvider provider, {
     WalletModel? walletToEdit,
+    VoidCallback? onDeleted,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isEditing = walletToEdit != null;
@@ -66,7 +68,8 @@ class WalletsScreen extends StatelessWidget {
         : '0';
     final balanceController = TextEditingController(text: initialFormatted);
     String selectedType = normalizeWalletType(walletToEdit?.type);
-    bool syncToTransactions = provider.syncWalletToTransactions;
+    bool isSaving = false;
+    String? errorMessage;
 
     showModalCardSheet(
       context: context,
@@ -220,73 +223,36 @@ class WalletsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
-              // 4. Toggle Sinkronkan ke Transaksi
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFE2E8F0),
+              if (errorMessage != null) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    errorMessage!,
+                    style: GoogleFonts.manrope(
+                      color: _danger,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.sync_alt_rounded,
-                      size: 18,
-                      color: isDark ? _cyan : const Color(0xFF02539A),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Catat ke Transaksi',
-                            style: GoogleFonts.manrope(
-                              color: isDark ? Colors.white : const Color(0xFF0F172A),
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            isEditing
-                                ? 'Buat transaksi penyesuaian selisih saldo otomatis'
-                                : 'Buat transaksi pemasukan saldo awal otomatis',
-                            style: GoogleFonts.manrope(
-                              color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-                              fontSize: 10.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Switch.adaptive(
-                      value: syncToTransactions,
-                      activeThumbColor: Colors.white,
-                      activeTrackColor: const Color(0xFF02539A),
-                      inactiveThumbColor: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF94A3B8),
-                      inactiveTrackColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-                      onChanged: (val) {
-                        setSheetState(() => syncToTransactions = val);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
+              ],
 
               // 5. Tombol Aksi Simpan & Hapus
               Row(
                 children: [
                   if (isEditing && provider.wallets.length > 1) ...[
                     InkWell(
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        _showConfirmDeleteWalletSheet(context, provider, walletToEdit);
-                      },
+                      onTap: isSaving
+                          ? null
+                          : () {
+                              Navigator.pop(ctx);
+                              _showConfirmDeleteWalletSheet(
+                                context,
+                                provider,
+                                walletToEdit,
+                                onDeleted: onDeleted,
+                              );
+                            },
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
                         height: 48,
@@ -310,30 +276,50 @@ class WalletsScreen extends StatelessWidget {
                     child: SizedBox(
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: () async {
-                          final name = nameController.text.trim();
-                          final cleanBal = balanceController.text.replaceAll('.', '').trim();
-                          final bal = double.tryParse(cleanBal) ?? 0.0;
-                          if (name.isEmpty) return;
+                        onPressed: isSaving
+                            ? null
+                            : () async {
+                                final name = nameController.text.trim();
+                                if (name.isEmpty) {
+                                  setSheetState(() => errorMessage = 'Nama dompet tidak boleh kosong');
+                                  return;
+                                }
+                                final cleanBal = balanceController.text
+                                    .replaceAll('.', '')
+                                    .replaceAll(',', '')
+                                    .trim();
+                                final parsedBal = cleanBal.isEmpty ? 0.0 : double.tryParse(cleanBal);
+                                if (parsedBal == null || parsedBal < 0) {
+                                  setSheetState(() => errorMessage = 'Nominal saldo tidak valid');
+                                  return;
+                                }
 
-                          if (isEditing) {
-                            await provider.updateWallet(
-                              id: walletToEdit.id,
-                              name: name,
-                              type: selectedType,
-                              balance: bal,
-                              syncToTransaction: syncToTransactions,
-                            );
-                          } else {
-                            await provider.addWallet(
-                              name: name,
-                              type: selectedType,
-                              initialBalance: bal,
-                              syncToTransaction: syncToTransactions,
-                            );
-                          }
-                          if (context.mounted) Navigator.pop(ctx);
-                        },
+                                setSheetState(() {
+                                  errorMessage = null;
+                                  isSaving = true;
+                                });
+                                try {
+                                  if (isEditing) {
+                                    await provider.updateWallet(
+                                      id: walletToEdit.id,
+                                      name: name,
+                                      type: selectedType,
+                                      balance: parsedBal,
+                                      syncToTransaction: true,
+                                    );
+                                  } else {
+                                    await provider.addWallet(
+                                      name: name,
+                                      type: selectedType,
+                                      initialBalance: parsedBal,
+                                      syncToTransaction: true,
+                                    );
+                                  }
+                                  if (ctx.mounted) Navigator.pop(ctx);
+                                } finally {
+                                  if (ctx.mounted) setSheetState(() => isSaving = false);
+                                }
+                              },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _accentOceanic,
                           foregroundColor: Colors.white,
@@ -361,11 +347,12 @@ class WalletsScreen extends StatelessWidget {
     );
   }
 
-  void _showConfirmDeleteWalletSheet(
+  static void _showConfirmDeleteWalletSheet(
     BuildContext context,
     TransactionProvider provider,
-    WalletModel wallet,
-  ) {
+    WalletModel wallet, {
+    VoidCallback? onDeleted,
+  }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
     final mutedColor = isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B);
@@ -444,6 +431,7 @@ class WalletsScreen extends StatelessWidget {
                     onPressed: () async {
                       Navigator.pop(context);
                       await provider.deleteWallet(wallet.id);
+                      onDeleted?.call();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _danger,
@@ -475,45 +463,26 @@ class WalletsScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF1C2229) : const Color(0xFFF4F5F7),
+      floatingActionButton: FloatingActionButton(
+        key: const Key('fab_add_wallet'),
+        heroTag: null,
+        onPressed: () => showAddOrEditWalletSheet(context, provider),
+        backgroundColor: _accentOceanic,
+        foregroundColor: Colors.white,
+        elevation: 3,
+        tooltip: 'Tambah Dompet',
+        child: const Icon(Icons.add_rounded, size: 26),
+      ),
       body: SafeArea(
         child: ListView(
           controller: scrollController,
-          padding: EdgeInsets.fromLTRB(12, 12, 12, isStandalonePage ? 40 : 124),
+          padding: EdgeInsets.fromLTRB(12, 12, 12, isStandalonePage ? 96 : 140),
           children: [
             // Standard Header with back button
             StandardScreenHeader(
               title: 'Dompet & Rekening',
               showBackButton: isStandalonePage,
               onBack: () => Navigator.pop(context),
-              actionWidget: InkWell(
-                onTap: () => _showAddOrEditWalletSheet(context, provider),
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: isDark ? _accentOceanic.withOpacity(0.25) : const Color(0xFFE0F2FE),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: isDark ? _cyan.withOpacity(0.35) : const Color(0xFF02539A).withOpacity(0.35),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.add_rounded, size: 16, color: isDark ? _cyan : const Color(0xFF02539A)),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Tambah',
-                        style: GoogleFonts.manrope(
-                          color: isDark ? _cyan : const Color(0xFF02539A),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
             ),
             const SizedBox(height: 12),
 
@@ -536,10 +505,9 @@ class WalletsScreen extends StatelessWidget {
                   itemBuilder: (context, index) {
                     final wallet = provider.wallets[index];
                     return InkWell(
-                      onTap: () => _showAddOrEditWalletSheet(
+                      onTap: () => Navigator.push(
                         context,
-                        provider,
-                        walletToEdit: wallet,
+                        WalletDetailScreen.route(wallet.id),
                       ),
                       borderRadius: BorderRadius.circular(10),
                       child: Padding(
@@ -558,7 +526,7 @@ class WalletsScreen extends StatelessWidget {
                               ),
                               alignment: Alignment.center,
                               child: Icon(
-                                _getWalletIcon(wallet.type),
+                                getWalletIcon(wallet.type),
                                 color: isDark ? _cyan : const Color(0xFF02539A),
                                 size: 20,
                               ),
@@ -597,9 +565,9 @@ class WalletsScreen extends StatelessWidget {
                             ),
                             const SizedBox(width: 6),
                             Icon(
-                              Icons.edit_rounded,
+                              Icons.chevron_right_rounded,
                               color: isDark ? const Color(0xFF6F8197) : const Color(0xFF94A3B8),
-                              size: 14,
+                              size: 18,
                             ),
                           ],
                         ),
@@ -611,69 +579,7 @@ class WalletsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // 2. Otomatisasi Transaksi Toggle Card
-            NestedCard(
-              title: 'Otomatisasi Transaksi',
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF131A26) : const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFCBD5E1),
-                        ),
-                      ),
-                      alignment: Alignment.center,
-                      child: Icon(
-                        Icons.sync_alt_rounded,
-                        color: isDark ? _cyan : const Color(0xFF02539A),
-                        size: 18,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Sinkronkan ke Transaksi',
-                            style: GoogleFonts.manrope(
-                              color: isDark ? Colors.white : const Color(0xFF0F172A),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Catat saldo awal & perubahan saldo sebagai transaksi otomatis',
-                            style: GoogleFonts.manrope(
-                              color: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF64748B),
-                              fontSize: 10.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Switch.adaptive(
-                      value: provider.syncWalletToTransactions,
-                      onChanged: (val) => provider.setSyncWalletToTransactions(val),
-                      activeThumbColor: Colors.white,
-                      activeTrackColor: const Color(0xFF02539A),
-                      inactiveThumbColor: isDark ? const Color(0xFF8EA4BE) : const Color(0xFF94A3B8),
-                      inactiveTrackColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // 3. Transfer Callout Card (NestedCard)
+            // 2. Transfer Callout Card (NestedCard)
             NestedCard(
               title: 'Transfer Antar Dompet',
               child: Padding(
@@ -739,7 +645,7 @@ class WalletsScreen extends StatelessWidget {
     );
   }
 
-  IconData _getWalletIcon(String type) {
+  static IconData getWalletIcon(String type) {
     switch (type.toLowerCase()) {
       case 'bank account':
       case 'bank':
